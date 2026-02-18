@@ -5,11 +5,14 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class FixSuperAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $plainPassword = env('SEED_SUPER_ADMIN_PASSWORD') ?: Str::random(20);
+
         // Find or create the super admin user
         $superAdmin = User::where('email', 'admin@ione.com')->first();
 
@@ -28,11 +31,12 @@ class FixSuperAdminSeeder extends Seeder
                 'phone' => '+1234567890',
                 'department' => 'Administration',
                 'role' => 'super_admin',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($plainPassword),
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]);
             echo "Created new super admin user\n";
+            echo "Temporary password: {$plainPassword}\n";
         }
 
         // Ensure only one super admin exists

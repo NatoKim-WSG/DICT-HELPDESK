@@ -58,9 +58,9 @@
                             <h4 class="text-sm font-medium text-gray-900 mb-3">Attachments</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($ticket->attachments as $attachment)
-                                    <a href="{{ Storage::url($attachment->file_path) }}"
+                                    <a href="{{ $attachment->download_url }}"
                                        class="js-attachment-link flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50"
-                                       data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                       data-file-url="{{ $attachment->preview_url }}"
                                        data-file-name="{{ $attachment->original_filename }}"
                                        data-file-mime="{{ $attachment->mime_type }}">
                                         <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,9 +105,9 @@
                                 <h5 class="text-sm font-medium text-gray-900 mb-2">Attachments</h5>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     @foreach($reply->attachments as $attachment)
-                                        <a href="{{ Storage::url($attachment->file_path) }}"
+                                        <a href="{{ $attachment->download_url }}"
                                            class="js-attachment-link flex items-center p-2 border border-gray-200 rounded hover:bg-gray-50 text-sm"
-                                           data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                           data-file-url="{{ $attachment->preview_url }}"
                                            data-file-name="{{ $attachment->original_filename }}"
                                            data-file-mime="{{ $attachment->mime_type }}">
                                             <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

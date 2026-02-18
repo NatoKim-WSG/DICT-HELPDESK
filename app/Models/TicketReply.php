@@ -14,14 +14,12 @@ class TicketReply extends Model
         'user_id',
         'message',
         'is_internal',
-        'attachments',
     ];
 
     protected function casts(): array
     {
         return [
             'is_internal' => 'boolean',
-            'attachments' => 'json',
         ];
     }
 

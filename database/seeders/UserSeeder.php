@@ -10,8 +10,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create Admin User
-        User::create([
+        User::updateOrCreate(['email' => 'admin@ioneresources.com'], [
             'name' => 'Admin User',
             'email' => 'admin@ioneresources.com',
             'password' => Hash::make('password'),
@@ -21,29 +20,17 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Create Agent Users
-        User::create([
-            'name' => 'John Agent',
-            'email' => 'agent1@ioneresources.com',
+        User::updateOrCreate(['email' => 'support@ioneresources.com'], [
+            'name' => 'Support Admin',
+            'email' => 'support@ioneresources.com',
             'password' => Hash::make('password'),
-            'role' => 'agent',
+            'role' => 'admin',
             'department' => 'IT Support',
             'phone' => '+1234567891',
             'is_active' => true,
         ]);
 
-        User::create([
-            'name' => 'Sarah Support',
-            'email' => 'agent2@ioneresources.com',
-            'password' => Hash::make('password'),
-            'role' => 'agent',
-            'department' => 'IT Support',
-            'phone' => '+1234567892',
-            'is_active' => true,
-        ]);
-
-        // Create Client Users
-        User::create([
+        User::updateOrCreate(['email' => 'client@ioneresources.com'], [
             'name' => 'Test Client',
             'email' => 'client@ioneresources.com',
             'password' => Hash::make('password'),
@@ -53,7 +40,7 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        User::create([
+        User::updateOrCreate(['email' => 'jane@ioneresources.com'], [
             'name' => 'Jane Doe',
             'email' => 'jane@ioneresources.com',
             'password' => Hash::make('password'),
@@ -63,7 +50,7 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        User::create([
+        User::updateOrCreate(['email' => 'bob@ioneresources.com'], [
             'name' => 'Bob Smith',
             'email' => 'bob@ioneresources.com',
             'password' => Hash::make('password'),

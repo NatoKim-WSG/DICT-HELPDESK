@@ -8,6 +8,7 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
@@ -49,7 +50,9 @@ class TicketController extends Controller
         $tickets = $query->latest()->paginate(15);
 
         $categories = Category::active()->get();
-        $agents = User::where('role', 'agent')->orWhere('role', 'admin')->get();
+        $agents = User::whereIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true)
+            ->get();
 
         return view('admin.tickets.index', compact('tickets', 'categories', 'agents'));
     }
@@ -57,7 +60,9 @@ class TicketController extends Controller
     public function show(Ticket $ticket)
     {
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'attachments']);
-        $agents = User::where('role', 'agent')->orWhere('role', 'admin')->get();
+        $agents = User::whereIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true)
+            ->get();
 
         return view('admin.tickets.show', compact('ticket', 'agents'));
     }
@@ -65,12 +70,20 @@ class TicketController extends Controller
     public function assign(Request $request, Ticket $ticket)
     {
         $request->validate([
-            'assigned_to' => 'required|exists:users,id',
+            'assigned_to' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(function ($query) {
+                    $query->whereIn('role', ['admin', 'super_admin'])
+                        ->where('is_active', true);
+                }),
+            ],
         ]);
 
-        $ticket->update(['assigned_to' => $request->assigned_to]);
+        $ticket->update([
+            'assigned_to' => $request->filled('assigned_to') ? $request->assigned_to : null,
+        ]);
 
-        return redirect()->back()->with('success', 'Ticket assigned successfully!');
+        return redirect()->back()->with('success', 'Ticket assignment updated successfully!');
     }
 
     public function updateStatus(Request $request, Ticket $ticket)
@@ -122,11 +135,10 @@ class TicketController extends Controller
 
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $filename = time() . '_' . $file->getClientOriginalName();
-                $path = $file->storeAs('attachments', $filename, 'public');
+                $path = $file->store('attachments', 'public');
 
                 $reply->attachments()->create([
-                    'filename' => $filename,
+                    'filename' => basename($path),
                     'original_filename' => $file->getClientOriginalName(),
                     'file_path' => $path,
                     'mime_type' => $file->getMimeType(),

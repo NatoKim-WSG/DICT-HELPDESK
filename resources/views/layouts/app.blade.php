@@ -8,36 +8,42 @@
     <title>@yield('title', 'DICT | iOne Resources Ticketing System')</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="font-sans antialiased bg-gray-50">
+<body class="font-sans antialiased text-slate-900">
+    <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute -left-28 top-16 h-80 w-80 rounded-full bg-ione-blue-300/20 blur-3xl"></div>
+        <div class="absolute -right-24 top-0 h-96 w-96 rounded-full bg-sky-300/20 blur-3xl"></div>
+        <div class="absolute bottom-0 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-cyan-200/20 blur-3xl"></div>
+    </div>
+
     <div class="min-h-screen">
         @include('layouts.navigation')
 
         <!-- Page Heading -->
         @if (isset($header))
-            <header class="bg-white shadow">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <header class="app-shell mx-auto py-6">
+                <div class="panel hero-glow px-6 py-6 sm:px-8">
                     {{ $header }}
                 </div>
             </header>
         @endif
 
         <!-- Page Content -->
-        <main class="py-6">
+        <main class="pb-10 pt-6">
             @if (session('success'))
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                <div class="app-shell mx-auto mb-6">
+                    <div class="panel border-emerald-200/80 bg-emerald-50/95 px-4 py-3 text-emerald-800" role="alert">
                         <span class="block sm:inline">{{ session('success') }}</span>
                     </div>
                 </div>
             @endif
 
             @if (session('error'))
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <div class="app-shell mx-auto mb-6">
+                    <div class="panel border-red-200/80 bg-red-50/95 px-4 py-3 text-red-800" role="alert">
                         <span class="block sm:inline">{{ session('error') }}</span>
                     </div>
                 </div>

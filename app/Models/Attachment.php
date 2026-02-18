@@ -42,10 +42,18 @@ class Attachment extends Model
         return route('attachments.download', $this->id);
     }
 
+    public function getPreviewUrlAttribute()
+    {
+        return route('attachments.download', [
+            'attachment' => $this->id,
+            'preview' => 1,
+        ]);
+    }
+
     public function delete()
     {
-        if (Storage::exists($this->file_path)) {
-            Storage::delete($this->file_path);
+        if (Storage::disk('public')->exists($this->file_path)) {
+            Storage::disk('public')->delete($this->file_path);
         }
 
         return parent::delete();

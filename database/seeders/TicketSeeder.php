@@ -13,8 +13,15 @@ class TicketSeeder extends Seeder
     public function run(): void
     {
         $clients = User::where('role', 'client')->get();
-        $agents = User::whereIn('role', ['admin', 'agent'])->get();
+        $agents = User::whereIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true)
+            ->get();
         $categories = Category::all();
+
+        if ($clients->isEmpty() || $agents->isEmpty()) {
+            $this->command?->warn('Skipping TicketSeeder: missing client or admin users.');
+            return;
+        }
 
         $sampleTickets = [
             [
@@ -22,7 +29,7 @@ class TicketSeeder extends Seeder
                 'description' => 'My desktop computer is not turning on at all. I tried different power outlets but nothing happens when I press the power button.',
                 'priority' => 'high',
                 'status' => 'open',
-                'category' => 'Hardware Issues',
+                'category' => 'Hardware',
             ],
             [
                 'subject' => 'Email not receiving messages',
@@ -50,7 +57,7 @@ class TicketSeeder extends Seeder
                 'description' => 'I need help installing the new CRM software on my computer. I downloaded it but I\'m not sure about the setup process.',
                 'priority' => 'low',
                 'status' => 'open',
-                'category' => 'Software Issues',
+                'category' => 'Software',
             ],
             [
                 'subject' => 'Printer not working after update',
@@ -77,6 +84,18 @@ class TicketSeeder extends Seeder
 
         foreach ($sampleTickets as $ticketData) {
             $category = $categories->where('name', $ticketData['category'])->first();
+            if (!$category) {
+                $category = Category::firstOrCreate(
+                    ['name' => $ticketData['category']],
+                    [
+                        'description' => 'General support category',
+                        'color' => '#6B7280',
+                        'is_active' => true,
+                    ]
+                );
+                $categories->push($category);
+            }
+
             $client = $clients->random();
             $agent = $agents->random();
 

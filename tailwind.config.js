@@ -12,7 +12,8 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['"Plus Jakarta Sans"', ...defaultTheme.fontFamily.sans],
+                display: ['"Space Grotesk"', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 'ione-blue': {
@@ -27,6 +28,26 @@ export default {
                     800: '#1e40af',
                     900: '#1e3a8a',
                 },
+                ink: '#0f172a',
+                mist: '#f8fafc',
+                spark: '#06b6d4',
+            },
+            boxShadow: {
+                glow: '0 20px 45px -28px rgba(14, 116, 144, 0.45)',
+            },
+            keyframes: {
+                'fade-in-up': {
+                    '0%': { opacity: '0', transform: 'translateY(10px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                float: {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-6px)' },
+                },
+            },
+            animation: {
+                'fade-in-up': 'fade-in-up 0.5s ease-out both',
+                float: 'float 5s ease-in-out infinite',
             },
         },
     },

@@ -12,9 +12,9 @@ A comprehensive help desk ticketing system built with Laravel and Tailwind CSS, 
 - 🔍 Search and filter tickets
 - 📎 File attachments support
 
-### Admin/Agent Features
+### Admin Features
 - 📊 Comprehensive admin dashboard with analytics
-- 👥 User management (clients, agents, admins)
+- 👥 User management (clients and admins)
 - 🎯 Ticket assignment and status management
 - 📈 Priority management and due date tracking
 - 💼 Internal notes and replies
@@ -145,14 +145,10 @@ After seeding, you can log in with these default accounts:
 - **Password**: password
 - **Role**: Admin (full access)
 
-### Agent Accounts
-- **Email**: agent1@ioneresources.com
+### Additional Admin Account
+- **Email**: support@ioneresources.com
 - **Password**: password
-- **Role**: Agent
-
-- **Email**: agent2@ioneresources.com
-- **Password**: password
-- **Role**: Agent
+- **Role**: Admin
 
 ### Client Accounts
 - **Email**: client@ioneresources.com
@@ -284,10 +280,10 @@ Configure your Nginx virtual host to point to the `public` directory.
 6. Rate resolved tickets
 
 ### For Admins/Agents
-1. Log in with admin or agent credentials
+1. Log in with admin credentials
 2. View the admin dashboard for system overview
 3. Manage tickets from the "All Tickets" page
-4. Assign tickets to agents
+4. Assign tickets to available admins
 5. Update ticket status and priority
 6. Reply to tickets (internal or public)
 7. Set due dates and track performance

@@ -7,8 +7,6 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 
 class TicketController extends Controller
 {
@@ -39,24 +37,6 @@ class TicketController extends Controller
 
     public function create()
     {
-        Category::firstOrCreate(
-            ['name' => 'Hardware'],
-            [
-                'description' => 'Problems with computer hardware, peripherals, and equipment',
-                'color' => '#EF4444',
-                'is_active' => true,
-            ]
-        );
-
-        Category::firstOrCreate(
-            ['name' => 'Software'],
-            [
-                'description' => 'Software installation, updates, and application problems',
-                'color' => '#3B82F6',
-                'is_active' => true,
-            ]
-        );
-
         $categories = Category::active()->get();
         return view('client.tickets.create', compact('categories'));
     }
@@ -74,6 +54,8 @@ class TicketController extends Controller
         ]);
 
         $ticketData = [
+            'name' => $request->name,
+            'contact_number' => $request->contact_number,
             'subject' => $request->subject,
             'description' => $request->description,
             'category_id' => $request->category_id,
@@ -81,20 +63,14 @@ class TicketController extends Controller
             'user_id' => auth()->id(),
         ];
 
-        if (Schema::hasColumns('tickets', ['name', 'contact_number'])) {
-            $ticketData['name'] = $request->name;
-            $ticketData['contact_number'] = $request->contact_number;
-        }
-
         $ticket = Ticket::create($ticketData);
 
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $filename = time() . '_' . $file->getClientOriginalName();
-                $path = $file->storeAs('attachments', $filename, 'public');
+                $path = $file->store('attachments', 'public');
 
                 $ticket->attachments()->create([
-                    'filename' => $filename,
+                    'filename' => basename($path),
                     'original_filename' => $file->getClientOriginalName(),
                     'file_path' => $path,
                     'mime_type' => $file->getMimeType(),
@@ -138,11 +114,10 @@ class TicketController extends Controller
 
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $filename = time() . '_' . $file->getClientOriginalName();
-                $path = $file->storeAs('attachments', $filename, 'public');
+                $path = $file->store('attachments', 'public');
 
                 $reply->attachments()->create([
-                    'filename' => $filename,
+                    'filename' => basename($path),
                     'original_filename' => $file->getClientOriginalName(),
                     'file_path' => $path,
                     'mime_type' => $file->getMimeType(),

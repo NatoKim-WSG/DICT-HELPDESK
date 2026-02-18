@@ -8,6 +8,7 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboardController
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -15,7 +16,7 @@ Route::get('/', function () {
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -101,13 +102,7 @@ Route::middleware(['auth', 'role:admin,super_admin'])->prefix('admin')->name('ad
 });
 
 // Download attachments
-Route::get('/attachments/{attachment}/download', function ($attachmentId) {
-    $attachment = \App\Models\Attachment::findOrFail($attachmentId);
-
-    if (!auth()->check()) {
-        abort(403);
-    }
-
+Route::get('/attachments/{attachment}/download', function (Request $request, \App\Models\Attachment $attachment) {
     $user = auth()->user();
     $attachable = $attachment->attachable;
 
@@ -120,7 +115,23 @@ Route::get('/attachments/{attachment}/download', function ($attachmentId) {
         if ($user->role === 'client' && $ticket->user_id !== $user->id) {
             abort(403);
         }
+    } else {
+        abort(403);
     }
 
-    return response()->download(storage_path('app/public/' . $attachment->file_path), $attachment->original_filename);
-})->name('attachments.download');
+    if (!Storage::disk('public')->exists($attachment->file_path)) {
+        abort(404);
+    }
+
+    if ($request->boolean('preview')) {
+        return response()->file(
+            storage_path('app/public/' . $attachment->file_path),
+            [
+                'Content-Disposition' => 'inline; filename="' . $attachment->original_filename . '"',
+                'Content-Type' => $attachment->mime_type,
+            ]
+        );
+    }
+
+    return Storage::disk('public')->download($attachment->file_path, $attachment->original_filename);
+})->middleware('auth')->name('attachments.download');

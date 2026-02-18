@@ -22,7 +22,10 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials, $request->filled('remember'))) {
+        if (Auth::attempt(
+            array_merge($credentials, ['is_active' => true]),
+            $request->filled('remember')
+        )) {
             $request->session()->regenerate();
 
             $user = Auth::user();
@@ -32,6 +35,16 @@ class AuthController extends Controller
             } else {
                 return redirect()->intended('/client/dashboard');
             }
+        }
+
+        $inactiveAccount = User::where('email', $request->email)
+            ->where('is_active', false)
+            ->exists();
+
+        if ($inactiveAccount) {
+            return back()->withErrors([
+                'email' => 'Your account is inactive. Please contact an administrator.',
+            ])->onlyInput('email');
         }
 
         return back()->withErrors([
