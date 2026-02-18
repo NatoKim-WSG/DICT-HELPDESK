@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan make:migration:*)",
+      "Bash(php artisan make:middleware:*)",
+      "Bash(php artisan make:controller:*)",
+      "Bash(php artisan make:seeder:*)",
+      "Bash(php artisan:*)",
+      "Bash(php:*)",
+      "Bash(del debug_users.php)",
+      "Bash(copy:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
