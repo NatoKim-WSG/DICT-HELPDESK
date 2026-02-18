@@ -13,7 +13,7 @@
             <div style="text-align: center; margin-bottom: 1.5rem;">
                 <img src="{{ asset('images/dar-logo.png') }}" alt="DAR Logo" style="max-width: 200px; height: auto;">
             </div>
-            <h1 class="login-title">DAR | iOne Resources</h1>
+            <h1 class="login-title">DICT | iOne Resources</h1>
             <p class="login-subtitle">Ticketing System</p>
             <h2 class="login-form-title">Sign in to your account</h2>
         </div>
