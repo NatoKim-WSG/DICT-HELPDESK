@@ -58,8 +58,11 @@
                             <h4 class="text-sm font-medium text-gray-900 mb-3">Attachments</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($ticket->attachments as $attachment)
-                                    <a href="{{ Storage::url($attachment->file_path) }}" target="_blank"
-                                       class="flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                                    <a href="{{ Storage::url($attachment->file_path) }}"
+                                       class="js-attachment-link flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                                       data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                       data-file-name="{{ $attachment->original_filename }}"
+                                       data-file-mime="{{ $attachment->mime_type }}">
                                         <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                         </svg>
@@ -102,8 +105,11 @@
                                 <h5 class="text-sm font-medium text-gray-900 mb-2">Attachments</h5>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     @foreach($reply->attachments as $attachment)
-                                        <a href="{{ Storage::url($attachment->file_path) }}" target="_blank"
-                                           class="flex items-center p-2 border border-gray-200 rounded hover:bg-gray-50 text-sm">
+                                        <a href="{{ Storage::url($attachment->file_path) }}"
+                                           class="js-attachment-link flex items-center p-2 border border-gray-200 rounded hover:bg-gray-50 text-sm"
+                                           data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                           data-file-name="{{ $attachment->original_filename }}"
+                                           data-file-mime="{{ $attachment->mime_type }}">
                                             <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                             </svg>
@@ -167,6 +173,14 @@
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                     <dl class="space-y-4">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Name</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->name ?? $ticket->user->name }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->contact_number ?? ($ticket->user->phone ?? 'Not provided') }}</dd>
+                        </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Category</dt>
                             <dd class="text-sm text-gray-900">{{ $ticket->category->name }}</dd>
@@ -272,4 +286,79 @@
         </div>
     </div>
 </div>
+
+<div id="attachment-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl bg-white rounded-lg shadow-xl">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <h3 id="attachment-modal-title" class="text-sm font-medium text-gray-900">Attachment Preview</h3>
+                <button type="button" id="attachment-modal-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 bg-gray-50">
+                <img id="attachment-modal-image" class="hidden w-auto max-w-full h-auto max-h-[75vh] mx-auto" alt="Attachment preview">
+                <iframe id="attachment-modal-frame" class="hidden w-full h-[75vh] border-0 bg-white"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('attachment-modal');
+    if (!modal) return;
+
+    const modalTitle = document.getElementById('attachment-modal-title');
+    const modalImage = document.getElementById('attachment-modal-image');
+    const modalFrame = document.getElementById('attachment-modal-frame');
+    const closeButton = document.getElementById('attachment-modal-close');
+
+    const closeModal = function () {
+        modal.classList.add('hidden');
+        modalImage.classList.add('hidden');
+        modalFrame.classList.add('hidden');
+        modalImage.removeAttribute('src');
+        modalFrame.removeAttribute('src');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    const openModal = function (url, fileName, mimeType) {
+        modalTitle.textContent = fileName || 'Attachment Preview';
+        if (mimeType && mimeType.startsWith('image/')) {
+            modalImage.src = url;
+            modalImage.classList.remove('hidden');
+            modalFrame.classList.add('hidden');
+        } else {
+            modalFrame.src = url;
+            modalFrame.classList.remove('hidden');
+            modalImage.classList.add('hidden');
+        }
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    document.querySelectorAll('.js-attachment-link').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            openModal(
+                link.dataset.fileUrl,
+                link.dataset.fileName,
+                link.dataset.fileMime
+            );
+        });
+    });
+
+    closeButton.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (event) {
+        if (event.target.dataset.modalClose === 'true') {
+            closeModal();
+        }
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+});
+</script>
 @endsection

@@ -45,7 +45,29 @@
 
                 <div class="grid grid-cols-1 gap-6">
                     <div>
-                        <label for="subject" class="form-label">Subject *</label>
+                        <label for="name" class="form-label">Name <span class="text-red-600">*</span></label>
+                        <input type="text" name="name" id="name" required
+                               class="form-input @error('name') border-red-500 @enderror"
+                               value="{{ old('name', auth()->user()->name) }}"
+                               placeholder="Your full name">
+                        @error('name')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="contact_number" class="form-label">Contact Number <span class="text-red-600">*</span></label>
+                        <input type="text" name="contact_number" id="contact_number" required
+                               class="form-input @error('contact_number') border-red-500 @enderror"
+                               value="{{ old('contact_number', auth()->user()->phone) }}"
+                               placeholder="e.g. 09123456789">
+                        @error('contact_number')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="subject" class="form-label">Subject <span class="text-red-600">*</span></label>
                         <input type="text" name="subject" id="subject" required
                                class="form-input @error('subject') border-red-500 @enderror"
                                value="{{ old('subject') }}"
@@ -57,7 +79,7 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="category_id" class="form-label">Category *</label>
+                            <label for="category_id" class="form-label">Category <span class="text-red-600">*</span></label>
                             <select name="category_id" id="category_id" required
                                     class="form-input @error('category_id') border-red-500 @enderror">
                                 <option value="">Select a category</option>
@@ -74,7 +96,7 @@
                         </div>
 
                         <div>
-                            <label for="priority" class="form-label">Priority *</label>
+                            <label for="priority" class="form-label">Priority <span class="text-red-600">*</span></label>
                             <select name="priority" id="priority" required
                                     class="form-input @error('priority') border-red-500 @enderror">
                                 <option value="low" {{ old('priority') == 'low' ? 'selected' : '' }}>Low</option>
@@ -89,7 +111,7 @@
                     </div>
 
                     <div>
-                        <label for="description" class="form-label">Description *</label>
+                        <label for="description" class="form-label">Description <span class="text-red-600">*</span></label>
                         <textarea name="description" id="description" rows="6" required
                                   class="form-input @error('description') border-red-500 @enderror"
                                   placeholder="Please provide detailed information about your issue, including steps to reproduce if applicable">{{ old('description') }}</textarea>

@@ -54,7 +54,36 @@
                         @php
                             $newTickets = \App\Models\Ticket::where('status', 'open')->where('created_at', '>=', now()->subHours(24))->with('user')->get();
                             $recentlyResolved = \App\Models\Ticket::where('status', 'resolved')->where('resolved_at', '>=', now()->subHours(24))->with('user')->get();
-                            $totalNotifications = $newTickets->count() + $recentlyResolved->count();
+                            $dismissedNotifications = collect(session('dismissed_notifications', []));
+                            $allNotifications = collect();
+
+                            foreach($newTickets as $ticket) {
+                                $allNotifications->push([
+                                    'key' => 'new:' . $ticket->id . ':' . $ticket->created_at->timestamp,
+                                    'type' => 'new',
+                                    'ticket' => $ticket,
+                                    'timestamp' => $ticket->created_at
+                                ]);
+                            }
+
+                            foreach($recentlyResolved as $ticket) {
+                                $resolvedTimestamp = optional($ticket->resolved_at)->timestamp ?? $ticket->updated_at->timestamp;
+                                $allNotifications->push([
+                                    'key' => 'resolved:' . $ticket->id . ':' . $resolvedTimestamp,
+                                    'type' => 'resolved',
+                                    'ticket' => $ticket,
+                                    'timestamp' => $ticket->resolved_at
+                                ]);
+                            }
+
+                            $allNotifications = $allNotifications
+                                ->reject(fn($notification) => $dismissedNotifications->contains($notification['key']))
+                                ->sortByDesc('timestamp')
+                                ->values();
+
+                            $totalNotifications = $allNotifications->count();
+                            $displayNotifications = $allNotifications->take(4);
+                            $hasMore = $totalNotifications > 4;
                         @endphp
                         @if($totalNotifications > 0)
                             <span class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] text-xs font-bold leading-none text-white bg-red-500 rounded-full border-2 border-white shadow-md">
@@ -80,55 +109,33 @@
                             <!-- Notification List -->
                             <div>
                                 @if($totalNotifications > 0)
-                                    @php
-                                        $allNotifications = collect();
-
-                                        // Add new tickets with timestamp
-                                        foreach($newTickets as $ticket) {
-                                            $allNotifications->push([
-                                                'type' => 'new',
-                                                'ticket' => $ticket,
-                                                'timestamp' => $ticket->created_at
-                                            ]);
-                                        }
-
-                                        // Add resolved tickets with timestamp
-                                        foreach($recentlyResolved as $ticket) {
-                                            $allNotifications->push([
-                                                'type' => 'resolved',
-                                                'ticket' => $ticket,
-                                                'timestamp' => $ticket->resolved_at
-                                            ]);
-                                        }
-
-                                        // Sort by timestamp (newest first) and take only first 4
-                                        $displayNotifications = $allNotifications->sortByDesc('timestamp')->take(4);
-                                        $hasMore = $allNotifications->count() > 4;
-                                    @endphp
-
                                     @foreach($displayNotifications as $notification)
                                         <div class="px-4 py-3 border-b border-gray-100 hover:bg-gray-50">
                                             <div class="flex items-start">
                                                 @if($notification['type'] === 'new')
                                                     <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                                                    <div class="flex-1 min-w-0">
+                                                    <a href="{{ route('admin.notifications.open', ['ticket' => $notification['ticket']->id, 'notification_key' => $notification['key']]) }}" class="flex-1 min-w-0 block">
                                                         <p class="text-sm font-medium text-gray-900">New ticket has been added</p>
                                                         <p class="text-sm text-gray-500 truncate">{{ $notification['ticket']->subject }} - by {{ $notification['ticket']->user->name }}</p>
                                                         <p class="text-xs text-gray-400">{{ $notification['ticket']->created_at->diffForHumans() }}</p>
-                                                    </div>
+                                                    </a>
                                                 @else
                                                     <div class="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                                                    <div class="flex-1 min-w-0">
+                                                    <a href="{{ route('admin.notifications.open', ['ticket' => $notification['ticket']->id, 'notification_key' => $notification['key']]) }}" class="flex-1 min-w-0 block">
                                                         <p class="text-sm font-medium text-gray-900">Ticket resolved</p>
                                                         <p class="text-sm text-gray-500 truncate">{{ $notification['ticket']->subject }} - by {{ $notification['ticket']->user->name }}</p>
                                                         <p class="text-xs text-gray-400">{{ $notification['ticket']->resolved_at->diffForHumans() }}</p>
-                                                    </div>
+                                                    </a>
                                                 @endif
-                                                <button class="text-gray-400 hover:text-gray-600 ml-2">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                    </svg>
-                                                </button>
+                                                <form action="{{ route('admin.notifications.dismiss') }}" method="POST" class="ml-2">
+                                                    @csrf
+                                                    <input type="hidden" name="notification_key" value="{{ $notification['key'] }}">
+                                                    <button type="submit" class="text-gray-400 hover:text-gray-600" aria-label="Dismiss notification">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                        </svg>
+                                                    </button>
+                                                </form>
                                             </div>
                                         </div>
                                     @endforeach

@@ -11,13 +11,13 @@ class CategorySeeder extends Seeder
     {
         $categories = [
             [
-                'name' => 'Hardware Issues',
+                'name' => 'Hardware',
                 'description' => 'Problems with computer hardware, peripherals, and equipment',
                 'color' => '#EF4444',
                 'is_active' => true,
             ],
             [
-                'name' => 'Software Issues',
+                'name' => 'Software',
                 'description' => 'Software installation, updates, and application problems',
                 'color' => '#3B82F6',
                 'is_active' => true,

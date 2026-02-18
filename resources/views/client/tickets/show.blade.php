@@ -60,8 +60,12 @@
                             <h4 class="text-sm font-medium text-gray-900 mb-3">Attachments</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($ticket->attachments as $attachment)
-                                    <a href="{{ Storage::url($attachment->file_path) }}" target="_blank"
-                                       class="flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                                    <a href="{{ Storage::url($attachment->file_path) }}"
+                                       class="js-attachment-link flex items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                                       data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                       data-file-name="{{ $attachment->original_filename }}"
+                                       data-file-mime="{{ $attachment->mime_type }}"
+                                       >
                                         <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                         </svg>
@@ -105,8 +109,11 @@
                                     <h5 class="text-sm font-medium text-gray-900 mb-2">Attachments</h5>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         @foreach($reply->attachments as $attachment)
-                                            <a href="{{ Storage::url($attachment->file_path) }}" target="_blank"
-                                               class="flex items-center p-2 border border-gray-200 rounded hover:bg-gray-50 text-sm">
+                                            <a href="{{ Storage::url($attachment->file_path) }}"
+                                               class="js-attachment-link flex items-center p-2 border border-gray-200 rounded hover:bg-gray-50 text-sm"
+                                               data-file-url="{{ Storage::url($attachment->file_path) }}"
+                                               data-file-name="{{ $attachment->original_filename }}"
+                                               data-file-mime="{{ $attachment->mime_type }}">
                                                 <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                 </svg>
@@ -165,6 +172,10 @@
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                     <dl class="space-y-4">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Name</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->name ?? auth()->user()->name }}</dd>
+                        </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Category</dt>
                             <dd class="text-sm text-gray-900">{{ $ticket->category->name }}</dd>
@@ -266,17 +277,162 @@
 
                     @if(!in_array($ticket->status, ['closed']))
                         <!-- Close Ticket -->
-                        <form action="{{ route('client.tickets.close', $ticket) }}" method="POST" onsubmit="return confirm('Are you sure you want to close this ticket?')">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="btn-secondary w-full">
-                                Close Ticket
-                            </button>
-                        </form>
+                        <button type="button" id="open-close-ticket-modal" class="btn-secondary w-full">
+                            Close Ticket
+                        </button>
                     @endif
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@if(!in_array($ticket->status, ['closed']))
+<div id="close-ticket-modal" class="fixed inset-0 z-50 {{ $errors->has('close_reason') ? '' : 'hidden' }}">
+    <div class="absolute inset-0 bg-black bg-opacity-60" data-close-ticket-overlay="true"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-lg bg-white rounded-lg shadow-xl">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900">Close Ticket as Unresolved</h3>
+                <p class="mt-1 text-sm text-gray-600">Please provide a reason before closing this ticket.</p>
+            </div>
+            <form action="{{ route('client.tickets.close', $ticket) }}" method="POST" class="p-4 space-y-4">
+                @csrf
+                <div>
+                    <label for="close_reason" class="form-label">Reason <span class="text-red-600">*</span></label>
+                    <textarea name="close_reason" id="close_reason" rows="4" required
+                              class="form-input @error('close_reason') border-red-500 @enderror"
+                              placeholder="Why are you closing this ticket unresolved?">{{ old('close_reason') }}</textarea>
+                    @error('close_reason')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="close-ticket-cancel" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-danger">Close Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
+<div id="attachment-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-5xl bg-white rounded-lg shadow-xl">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <h3 id="attachment-modal-title" class="text-sm font-medium text-gray-900">Attachment Preview</h3>
+                <button type="button" id="attachment-modal-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 bg-gray-50">
+                <img id="attachment-modal-image" class="hidden w-auto max-w-full h-auto max-h-[75vh] mx-auto" alt="Attachment preview">
+                <iframe id="attachment-modal-frame" class="hidden w-full h-[75vh] border-0 bg-white"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('attachment-modal');
+    if (!modal) return;
+
+    const modalTitle = document.getElementById('attachment-modal-title');
+    const modalImage = document.getElementById('attachment-modal-image');
+    const modalFrame = document.getElementById('attachment-modal-frame');
+    const closeButton = document.getElementById('attachment-modal-close');
+
+    const closeModal = function () {
+        modal.classList.add('hidden');
+        modalImage.classList.add('hidden');
+        modalFrame.classList.add('hidden');
+        modalImage.removeAttribute('src');
+        modalFrame.removeAttribute('src');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    const openModal = function (url, fileName, mimeType) {
+        modalTitle.textContent = fileName || 'Attachment Preview';
+        if (mimeType && mimeType.startsWith('image/')) {
+            modalImage.src = url;
+            modalImage.classList.remove('hidden');
+            modalFrame.classList.add('hidden');
+        } else {
+            modalFrame.src = url;
+            modalFrame.classList.remove('hidden');
+            modalImage.classList.add('hidden');
+        }
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    document.querySelectorAll('.js-attachment-link').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            openModal(
+                link.dataset.fileUrl,
+                link.dataset.fileName,
+                link.dataset.fileMime
+            );
+        });
+    });
+
+    closeButton.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (event) {
+        if (event.target.dataset.modalClose === 'true') {
+            closeModal();
+        }
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('close-ticket-modal');
+    if (!modal) return;
+
+    const openButton = document.getElementById('open-close-ticket-modal');
+    const cancelButton = document.getElementById('close-ticket-cancel');
+
+    const openModal = function () {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    const closeModal = function () {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    if (!modal.classList.contains('hidden')) {
+        document.body.classList.add('overflow-hidden');
+    }
+
+    if (openButton) {
+        openButton.addEventListener('click', openModal);
+    }
+
+    if (cancelButton) {
+        cancelButton.addEventListener('click', closeModal);
+    }
+
+    modal.addEventListener('click', function (event) {
+        if (event.target.dataset.closeTicketOverlay === 'true') {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+});
+</script>
 @endsection

@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class TicketController extends Controller
@@ -38,6 +39,24 @@ class TicketController extends Controller
 
     public function create()
     {
+        Category::firstOrCreate(
+            ['name' => 'Hardware'],
+            [
+                'description' => 'Problems with computer hardware, peripherals, and equipment',
+                'color' => '#EF4444',
+                'is_active' => true,
+            ]
+        );
+
+        Category::firstOrCreate(
+            ['name' => 'Software'],
+            [
+                'description' => 'Software installation, updates, and application problems',
+                'color' => '#3B82F6',
+                'is_active' => true,
+            ]
+        );
+
         $categories = Category::active()->get();
         return view('client.tickets.create', compact('categories'));
     }
@@ -45,6 +64,8 @@ class TicketController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'name' => 'required|string|max:255',
+            'contact_number' => 'required|string|max:30',
             'subject' => 'required|string|max:255',
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
@@ -52,13 +73,20 @@ class TicketController extends Controller
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
 
-        $ticket = Ticket::create([
+        $ticketData = [
             'subject' => $request->subject,
             'description' => $request->description,
             'category_id' => $request->category_id,
             'priority' => $request->priority,
             'user_id' => auth()->id(),
-        ]);
+        ];
+
+        if (Schema::hasColumns('tickets', ['name', 'contact_number'])) {
+            $ticketData['name'] = $request->name;
+            $ticketData['contact_number'] = $request->contact_number;
+        }
+
+        $ticket = Ticket::create($ticketData);
 
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -130,18 +158,29 @@ class TicketController extends Controller
         return redirect()->back()->with('success', 'Reply added successfully!');
     }
 
-    public function close(Ticket $ticket)
+    public function close(Request $request, Ticket $ticket)
     {
         if ($ticket->user_id !== auth()->id()) {
             abort(403);
         }
+
+        $request->validate([
+            'close_reason' => 'required|string|max:1000',
+        ]);
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => auth()->id(),
+            'message' => "Client closed the ticket as unresolved.\nReason: " . $request->close_reason,
+            'is_internal' => false,
+        ]);
 
         $ticket->update([
             'status' => 'closed',
             'closed_at' => now(),
         ]);
 
-        return redirect()->back()->with('success', 'Ticket closed successfully!');
+        return redirect()->back()->with('success', 'Ticket closed successfully with your reason.');
     }
 
     public function rate(Request $request, Ticket $ticket)

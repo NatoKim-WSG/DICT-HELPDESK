@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -49,6 +50,44 @@ Route::middleware(['auth', 'role:admin,super_admin'])->prefix('admin')->name('ad
     Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])->name('tickets.priority');
     Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('tickets.reply');
     Route::post('/tickets/{ticket}/due-date', [AdminTicketController::class, 'setDueDate'])->name('tickets.due-date');
+
+    Route::post('/notifications/dismiss', function (Request $request) {
+        $request->validate([
+            'notification_key' => 'required|string|max:255',
+        ]);
+
+        $dismissedNotifications = session('dismissed_notifications', []);
+        if (!in_array($request->notification_key, $dismissedNotifications, true)) {
+            $dismissedNotifications[] = $request->notification_key;
+        }
+
+        if (count($dismissedNotifications) > 500) {
+            $dismissedNotifications = array_slice($dismissedNotifications, -500);
+        }
+
+        session(['dismissed_notifications' => $dismissedNotifications]);
+
+        return back();
+    })->name('notifications.dismiss');
+
+    Route::get('/notifications/open/{ticket}', function (Request $request, \App\Models\Ticket $ticket) {
+        $notificationKey = $request->query('notification_key');
+
+        if (is_string($notificationKey) && $notificationKey !== '') {
+            $dismissedNotifications = session('dismissed_notifications', []);
+            if (!in_array($notificationKey, $dismissedNotifications, true)) {
+                $dismissedNotifications[] = $notificationKey;
+            }
+
+            if (count($dismissedNotifications) > 500) {
+                $dismissedNotifications = array_slice($dismissedNotifications, -500);
+            }
+
+            session(['dismissed_notifications' => $dismissedNotifications]);
+        }
+
+        return redirect()->route('admin.tickets.show', $ticket);
+    })->name('notifications.open');
 
     // User Management Routes
     Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
