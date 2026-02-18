@@ -5,8 +5,8 @@
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ auth()->user()->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="flex items-center">
-                        <img src="{{ asset('images/dar-logo.png') }}" alt="DAR Logo" class="h-8 w-auto mr-2">
-                        <span class="text-xl font-bold text-ione-blue-600">DAR | iOne Resources</span>
+                        <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-8 w-auto mr-2">
+                        <span class="text-xl font-bold text-ione-blue-600">DICT | iOne Resources</span>
                     </a>
                 </div>
 

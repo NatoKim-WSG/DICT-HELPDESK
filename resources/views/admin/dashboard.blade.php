@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Admin Dashboard - DAR | iOne Resources Ticketing')
+@section('title', 'Admin Dashboard - DICT | iOne Resources Ticketing')
 
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

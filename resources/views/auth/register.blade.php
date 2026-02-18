@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - DAR | iOne Resources Ticketing</title>
+    <title>Register - DICT | iOne Resources Ticketing</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -11,8 +11,8 @@
     <div class="bg-white shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex items-center">
-                <img src="{{ asset('images/dar-logo.png') }}" alt="DAR Logo" class="h-10 w-auto mr-3">
-                <span class="text-xl font-bold text-ione-blue-600">DAR | iOne Resources</span>
+                <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-10 w-auto mr-3">
+                <span class="text-xl font-bold text-ione-blue-600">DICT | iOne Resources</span>
             </div>
         </div>
     </div>

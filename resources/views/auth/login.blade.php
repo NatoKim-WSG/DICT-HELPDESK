@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - DAR | iOne Resources Ticketing</title>
+    <title>Login - DICT | iOne Resources Ticketing</title>
     <link rel="stylesheet" href="{{ asset('css/simple-styles.css') }}">
     @vite(['resources/js/app.js'])
 </head>
@@ -11,7 +11,7 @@
     <div class="login-card">
         <div class="login-header">
             <div style="text-align: center; margin-bottom: 1.5rem;">
-                <img src="{{ asset('images/dar-logo.png') }}" alt="DAR Logo" style="max-width: 200px; height: auto;">
+                <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" style="max-width: 200px; height: auto;">
             </div>
             <h1 class="login-title">DICT | iOne Resources</h1>
             <p class="login-subtitle">Ticketing System</p>
