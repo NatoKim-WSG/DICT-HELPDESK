@@ -10,29 +10,60 @@ use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Super admins can see all users including themselves
-        // Regular admins see all users except themselves
-        if (auth()->user()->isSuperAdmin()) {
-            $users = User::orderBy('created_at', 'desc')->paginate(15);
-        } else {
-            $users = User::whereNot('id', auth()->id())
-                ->orderBy('created_at', 'desc')
-                ->paginate(15);
+        $query = User::query();
+
+        if (!auth()->user()->isSuperAdmin()) {
+            $query->whereNot('id', auth()->id());
         }
 
-        return view('admin.users.index', compact('users'));
+        if ($request->filled('role') && $request->role !== 'all') {
+            $query->where('role', $request->role);
+        }
+
+        if ($request->filled('department') && $request->department !== 'all') {
+            $query->where('department', $request->department);
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_active', $request->status === 'active');
+        }
+
+        $users = $query
+            ->orderByRaw("
+                CASE role
+                    WHEN 'super_admin' THEN 1
+                    WHEN 'admin' THEN 2
+                    WHEN 'technician' THEN 3
+                    WHEN 'client' THEN 4
+                    ELSE 5
+                END
+            ")
+            ->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+
+        $departments = User::query()
+            ->whereNotNull('department')
+            ->where('department', '!=', '')
+            ->distinct()
+            ->orderBy('department')
+            ->pluck('department');
+
+        $availableRolesFilter = [
+            User::ROLE_SUPER_ADMIN,
+            User::ROLE_ADMIN,
+            User::ROLE_TECHNICIAN,
+            User::ROLE_CLIENT,
+        ];
+
+        return view('admin.users.index', compact('users', 'departments', 'availableRolesFilter'));
     }
 
     public function create()
     {
-        $user = auth()->user();
-        $availableRoles = [];
-
-        if ($user->isSuperAdmin()) {
-            $availableRoles = ['admin'];
-        }
+        $availableRoles = $this->availableRolesFor(auth()->user());
 
         return view('admin.users.create', compact('availableRoles'));
     }
@@ -41,10 +72,7 @@ class UserManagementController extends Controller
     {
         $user = auth()->user();
 
-        $availableRoles = [];
-        if ($user->isSuperAdmin()) {
-            $availableRoles = ['admin'];
-        }
+        $availableRoles = $this->availableRolesFor($user);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -71,41 +99,50 @@ class UserManagementController extends Controller
 
     public function show(User $user)
     {
+        $currentUser = auth()->user();
+
+        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'You do not have permission to view this user.');
+        }
+
         return view('admin.users.show', compact('user'));
     }
 
     public function edit(User $user)
     {
-        // Only prevent regular admins from editing themselves, allow super admins
-        if ($user->id === auth()->id() && !auth()->user()->isSuperAdmin()) {
+        $currentUser = auth()->user();
+
+        if ($user->id === $currentUser->id && !$currentUser->isSuperAdmin()) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You cannot edit your own account.');
         }
 
-        $currentUser = auth()->user();
-        $availableRoles = ['client'];
-
-        if ($currentUser->isSuperAdmin()) {
-            $availableRoles[] = 'admin';
+        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'You do not have permission to edit this user.');
         }
+
+        $availableRoles = $this->availableRolesFor($currentUser);
 
         return view('admin.users.edit', compact('user', 'availableRoles'));
     }
 
     public function update(Request $request, User $user)
     {
-        // Only prevent regular admins from editing themselves, allow super admins
-        if ($user->id === auth()->id() && !auth()->user()->isSuperAdmin()) {
+        $currentUser = auth()->user();
+
+        if ($user->id === $currentUser->id && !$currentUser->isSuperAdmin()) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You cannot edit your own account.');
         }
 
-        $currentUser = auth()->user();
-        $availableRoles = ['client'];
-
-        if ($currentUser->isSuperAdmin()) {
-            $availableRoles[] = 'admin';
+        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'You do not have permission to edit this user.');
         }
+
+        $availableRoles = $this->availableRolesFor($currentUser);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -153,7 +190,7 @@ class UserManagementController extends Controller
         }
 
         // Regular admins can only delete clients
-        if (!$currentUser->isSuperAdmin() && $user->role !== 'client') {
+        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
         }
@@ -166,12 +203,18 @@ class UserManagementController extends Controller
 
     public function toggleStatus(User $user)
     {
-        if ($user->id === auth()->id()) {
+        $currentUser = auth()->user();
+
+        if ($user->id === $currentUser->id) {
             return response()->json(['error' => 'You cannot deactivate your own account.'], 403);
         }
 
         if ($user->isSuperAdmin()) {
             return response()->json(['error' => 'Super admin users cannot be deactivated.'], 403);
+        }
+
+        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+            return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
         }
 
         $user->update(['is_active' => !$user->is_active]);
@@ -181,5 +224,21 @@ class UserManagementController extends Controller
             'is_active' => $user->is_active,
             'message' => 'User status updated successfully.'
         ]);
+    }
+
+    private function availableRolesFor(User $currentUser): array
+    {
+        $roles = [User::ROLE_CLIENT, User::ROLE_TECHNICIAN];
+
+        if ($currentUser->isSuperAdmin()) {
+            $roles[] = User::ROLE_ADMIN;
+        }
+
+        return $roles;
+    }
+
+    private function manageableRolesForAdmin(): array
+    {
+        return [User::ROLE_CLIENT, User::ROLE_TECHNICIAN];
     }
 }

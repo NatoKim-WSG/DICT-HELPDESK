@@ -1,15 +1,19 @@
 @php
     $user = auth()->user();
+    $isTicketConsole = $user->canAccessAdminTickets();
     $isAdmin = $user->canManageTickets();
-    $isClient = !$isAdmin;
+    $isClient = !$isTicketConsole;
 
-    if ($isAdmin) {
+    if ($isTicketConsole) {
         $menuItems = [
-            ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false],
             ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
-            ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false],
             ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
         ];
+
+        if ($isAdmin) {
+            array_unshift($menuItems, ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false]);
+            $menuItems[] = ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false];
+        }
     } else {
         $menuItems = [
             ['label' => 'New Ticket', 'icon' => 'plus', 'href' => route('client.tickets.create'), 'active' => request()->routeIs('client.tickets.create'), 'disabled' => false],
@@ -53,12 +57,12 @@
             'justify-center' => $isAdmin,
             'justify-center' => $isClient,
         ])>
-            <a href="{{ $isAdmin ? route('admin.dashboard') : route('client.dashboard') }}" @class([
+            <a href="{{ $isTicketConsole ? ($isAdmin ? route('admin.dashboard') : route('admin.tickets.index')) : route('client.dashboard') }}" @class([
                 'mx-auto',
-                'flex w-full justify-center' => $isAdmin,
+                'flex w-full justify-center' => $isTicketConsole,
                 'flex w-full justify-center' => $isClient,
             ])>
-                @if($isAdmin)
+                @if($isTicketConsole)
                     <span class="flex flex-col items-center text-center">
                         <span class="inline-flex items-center justify-center px-1 py-1">
                             <img
@@ -67,7 +71,7 @@
                                 class="h-14 w-auto"
                             >
                         </span>
-                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">Admin Console</span>
+                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $isAdmin ? 'Admin Console' : 'Technician Console' }}</span>
                     </span>
                 @else
                     <span class="flex flex-col items-center text-center">

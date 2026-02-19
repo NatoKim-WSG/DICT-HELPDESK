@@ -100,11 +100,11 @@
                         @enderror
                         @if(auth()->user()->isSuperAdmin())
                             <p class="mt-2 text-sm text-gray-500">
-                                As a super admin, you can create admin users.
+                                As a super admin, you can create admin and technician users.
                             </p>
                         @else
                             <p class="mt-2 text-sm text-gray-500">
-                                You can only create client users.
+                                You can create client and technician users.
                             </p>
                         @endif
                     </div>

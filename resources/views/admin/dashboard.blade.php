@@ -74,7 +74,7 @@
                     <h3 class="font-display text-xl font-semibold text-slate-900">Recent Tickets</h3>
                     <p class="mt-1 text-sm text-slate-500">Latest support requests from users.</p>
                 </div>
-                <div>
+                <div class="max-h-[445px] overflow-y-auto">
                     <ul class="divide-y divide-slate-100">
                         @forelse($recentTickets as $ticket)
                             <li>
@@ -86,6 +86,9 @@
                                                     {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                                                 </span>
                                                 <span class="text-xs text-slate-500">{{ $ticket->ticket_number }}</span>
+                                                @if($ticket->created_at->greaterThanOrEqualTo(now()->subDay()) && !in_array($ticket->id, session('admin_viewed_ticket_ids', []), true))
+                                                    <span class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
+                                                @endif
                                             </div>
                                             <p class="mt-2 truncate text-sm font-semibold text-slate-900">{{ $ticket->subject }}</p>
                                             <p class="mt-1 truncate text-sm text-slate-500">{{ $ticket->user->name }} - {{ $ticket->category->name }}</p>

@@ -19,13 +19,13 @@ class DashboardController extends Controller
             'closed_tickets' => Ticket::closed()->count(),
             'overdue_tickets' => Ticket::where('due_date', '<', now())->open()->count(),
             'urgent_tickets' => Ticket::byPriority('urgent')->open()->count(),
-            'total_users' => User::where('role', 'client')->count(),
-            'total_admins' => User::whereIn('role', ['admin', 'super_admin'])->count(),
+            'total_users' => User::where('role', User::ROLE_CLIENT)->count(),
+            'total_admins' => User::whereIn('role', User::ADMIN_LEVEL_ROLES)->count(),
         ];
 
         $recentTickets = Ticket::with(['user', 'category', 'assignedUser'])
             ->latest()
-            ->take(10)
+            ->take(20)
             ->get();
 
         $ticketsByStatus = Ticket::selectRaw('status, COUNT(*) as count')

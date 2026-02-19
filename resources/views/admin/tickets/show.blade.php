@@ -97,7 +97,7 @@
 
                 <div id="admin-conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
-                        {{ $ticket->created_at->format('g:i A') }}
+                        {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
                     <div class="js-chat-row flex justify-start" data-created-at="{{ $ticket->created_at->toIso8601String() }}">
                         <div class="flex w-full max-w-3xl items-start gap-2">
@@ -133,14 +133,14 @@
                     @foreach($ticket->replies->sortBy('created_at') as $reply)
                         @php
                             $isInternal = (bool) $reply->is_internal;
-                            $fromSupport = in_array($reply->user->role, ['admin', 'super_admin']);
+                            $fromSupport = $reply->user->canAccessAdminTickets();
                             $showTimestamp = $reply->created_at->diffInMinutes($lastTimestamp) >= 15;
                             $canManageReply = (int) ($reply->user_id === auth()->id());
                             $lastTimestamp = $reply->created_at;
                         @endphp
                         @if($showTimestamp)
                             <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $reply->created_at->toIso8601String() }}">
-                                {{ $reply->created_at->format('g:i A') }}
+                                {{ $reply->created_at->greaterThan(now()->subDay()) ? $reply->created_at->format('g:i A') : $reply->created_at->format('M j, Y') }}
                             </div>
                         @endif
                         <div class="js-chat-row flex {{ $fromSupport ? 'justify-end' : 'justify-start' }}" data-created-at="{{ $reply->created_at->toIso8601String() }}" data-reply-id="{{ $reply->id }}" data-can-manage="{{ $canManageReply }}">
@@ -501,7 +501,22 @@ document.addEventListener('DOMContentLoaded', function () {
         return Number.isNaN(date.getTime()) ? null : date;
     };
 
-    const maybeAppendSeparator = function (isoDate, label) {
+    const formatTimestampLabel = function (date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        const diffMs = Date.now() - date.getTime();
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        if (diffMs > dayMs) {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const maybeAppendSeparator = function (isoDate) {
         if (!thread || !isoDate) return;
         const rows = Array.from(thread.querySelectorAll('.js-chat-row'));
         const lastRow = rows.length ? rows[rows.length - 1] : null;
@@ -518,14 +533,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const separator = document.createElement('div');
         separator.className = 'js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400';
         separator.dataset.time = isoDate;
-        separator.textContent = label;
+        separator.textContent = formatTimestampLabel(nextDate);
         thread.appendChild(separator);
     };
 
     const appendReply = function (payload) {
         if (!thread || !payload) return;
 
-        maybeAppendSeparator(payload.created_at_iso, payload.created_at_label);
+        maybeAppendSeparator(payload.created_at_iso);
 
         const fromSupport = Boolean(payload.from_support);
         const canManage = Boolean(payload.can_manage);
@@ -799,37 +814,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const modal = document.getElementById('attachment-modal');
-    if (!modal) return;
-
-    const modalTitle = document.getElementById('attachment-modal-title');
-    const modalImage = document.getElementById('attachment-modal-image');
-    const modalFrame = document.getElementById('attachment-modal-frame');
-    const closeButton = document.getElementById('attachment-modal-close');
-
-    const closeModal = function () {
-        modal.classList.add('hidden');
-        modalImage.classList.add('hidden');
-        modalFrame.classList.add('hidden');
-        modalImage.removeAttribute('src');
-        modalFrame.removeAttribute('src');
-        document.body.classList.remove('overflow-hidden');
-    };
-
-    const openModal = function (url, fileName, mimeType) {
-        modalTitle.textContent = fileName || 'Attachment Preview';
-        if (mimeType && mimeType.startsWith('image/')) {
-            modalImage.src = url;
-            modalImage.classList.remove('hidden');
-            modalFrame.classList.add('hidden');
-        } else {
-            modalFrame.src = url;
-            modalFrame.classList.remove('hidden');
-            modalImage.classList.add('hidden');
-        }
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-    };
+    const attachmentPreview = window.ModalKit
+        ? window.ModalKit.bindAttachmentPreview({
+            modal: '#attachment-modal',
+            title: '#attachment-modal-title',
+            image: '#attachment-modal-image',
+            frame: '#attachment-modal-frame',
+            closeButton: '#attachment-modal-close',
+            triggerSelector: null,
+        })
+        : null;
 
     document.addEventListener('click', function (event) {
         if (!event.target.closest('.js-more-btn') && !event.target.closest('.js-more-menu')) {
@@ -840,22 +834,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!link) return;
 
         event.preventDefault();
-        openModal(
-            link.dataset.fileUrl,
-            link.dataset.fileName,
-            link.dataset.fileMime
-        );
-    });
-
-    closeButton.addEventListener('click', closeModal);
-    modal.addEventListener('click', function (event) {
-        if (event.target.dataset.modalClose === 'true') {
-            closeModal();
-        }
-    });
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
+        if (attachmentPreview) {
+            attachmentPreview.openFromLink(link);
         }
     });
 });

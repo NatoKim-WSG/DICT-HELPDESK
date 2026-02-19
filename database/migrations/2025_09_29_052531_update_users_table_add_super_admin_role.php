@@ -1,8 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,13 +10,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
-        });
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['client', 'admin', 'agent', 'super_admin'])->default('client');
-        });
+        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'admin', 'agent', 'super_admin') NOT NULL DEFAULT 'client'");
     }
 
     /**
@@ -25,12 +18,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
-        });
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['client', 'admin', 'agent'])->default('client');
-        });
+        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'admin', 'agent') NOT NULL DEFAULT 'client'");
     }
 };

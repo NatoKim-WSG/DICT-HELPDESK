@@ -33,9 +33,49 @@
         </div>
     @endif
 
+    <form method="GET" class="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-4">
+        <div>
+            <label for="role" class="block text-xs font-medium uppercase tracking-wide text-gray-500">Role</label>
+            <select id="role" name="role" class="mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="all">All roles</option>
+                @foreach($availableRolesFilter as $role)
+                    <option value="{{ $role }}" {{ request('role', 'all') === $role ? 'selected' : '' }}>
+                        {{ ucfirst(str_replace('_', ' ', $role)) }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label for="department" class="block text-xs font-medium uppercase tracking-wide text-gray-500">Department</label>
+            <select id="department" name="department" class="mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="all">All departments</option>
+                @foreach($departments as $department)
+                    <option value="{{ $department }}" {{ request('department', 'all') === $department ? 'selected' : '' }}>
+                        {{ $department }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label for="status" class="block text-xs font-medium uppercase tracking-wide text-gray-500">Status</label>
+            <select id="status" name="status" class="mt-1 block w-full rounded-md border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="all" {{ request('status', 'all') === 'all' ? 'selected' : '' }}>All statuses</option>
+                <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
+                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+            </select>
+        </div>
+
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn-primary">Filter</button>
+            <a href="{{ route('admin.users.index') }}" class="btn-secondary">Clear</a>
+        </div>
+    </form>
+
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+        <div class="overflow-x-hidden">
+            <table class="w-full table-fixed divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -61,7 +101,7 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($users as $user)
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 align-top">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10">
                                         <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
@@ -72,81 +112,82 @@
                                     </div>
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
-                                        <div class="text-sm text-gray-500">{{ $user->email }}</div>
+                                        <div class="text-sm text-gray-500 break-all">{{ $user->email }}</div>
                                         @if($user->phone)
                                             <div class="text-sm text-gray-500">{{ $user->phone }}</div>
                                         @endif
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 align-top">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                     @if($user->role === 'super_admin') bg-purple-100 text-purple-800
                                     @elseif($user->role === 'admin') bg-blue-100 text-blue-800
+                                    @elseif($user->role === 'technician') bg-amber-100 text-amber-800
                                     @else bg-gray-100 text-gray-800
                                     @endif">
                                     {{ ucfirst(str_replace('_', ' ', $user->role)) }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td class="px-6 py-4 align-top text-sm text-gray-900 break-words">
                                 {{ $user->department ?? '-' }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 align-top">
                                 <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }})"
                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer
                                         {{ $user->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
                                     {{ $user->is_active ? 'Active' : 'Inactive' }}
                                 </button>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td class="px-6 py-4 align-top text-sm text-gray-500">
                                 {{ $user->created_at->format('M d, Y') }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex items-center justify-end space-x-4">
+                            <td class="px-6 py-4 align-top text-sm font-medium">
+                                <div class="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
                                     <a href="{{ route('admin.users.show', $user) }}"
-                                       class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 transition-colors duration-150">
+                                       class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-900">
                                         View
                                     </a>
-                                    @if(auth()->user()->isSuperAdmin() || ($user->role === 'client'))
+                                    @if(auth()->user()->isSuperAdmin() || $user->isClient())
                                         <a href="{{ route('admin.users.edit', $user) }}"
-                                           class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-colors duration-150">
+                                           class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-600 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-900">
                                             Edit
                                         </a>
                                     @else
-                                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-gray-400">
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Restricted
                                         </span>
                                     @endif
-                                    @if($user->role === 'client' && (auth()->user()->isSuperAdmin() || auth()->user()->isAdmin()))
+                                    @if(($user->isClient() || $user->isTechnician()) && (auth()->user()->isSuperAdmin() || auth()->user()->isAdmin()))
                                         <button type="button"
-                                                class="delete-user-btn inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 hover:text-red-900 hover:bg-red-50 transition-colors duration-150 cursor-pointer"
+                                                class="delete-user-btn inline-flex cursor-pointer items-center rounded-md px-2.5 py-1 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900"
                                                 data-user-id="{{ $user->id }}"
                                                 data-user-name="{{ $user->name }}"
                                                 title="Delete {{ $user->name }}">
                                             Delete
                                         </button>
-                                    @elseif($user->role === 'admin' && auth()->user()->isSuperAdmin() && $user->id !== auth()->id())
+                                    @elseif($user->isAdmin() && auth()->user()->isSuperAdmin() && $user->id !== auth()->id())
                                         <button type="button"
-                                                class="delete-user-btn inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-600 hover:text-red-900 hover:bg-red-50 transition-colors duration-150 cursor-pointer"
+                                                class="delete-user-btn inline-flex cursor-pointer items-center rounded-md px-2.5 py-1 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900"
                                                 data-user-id="{{ $user->id }}"
                                                 data-user-name="{{ $user->name }}"
                                                 title="Delete {{ $user->name }}">
                                             Delete
                                         </button>
                                     @elseif($user->isSuperAdmin() && $user->id !== auth()->id())
-                                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-gray-400">
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
                                     @elseif($user->id === auth()->id() && !$user->isSuperAdmin())
-                                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-gray-400">
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             You
                                         </span>
                                     @elseif($user->id === auth()->id() && $user->isSuperAdmin())
-                                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-400">
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-400">
                                             Super Admin
                                         </span>
-                                    @elseif(($user->role === 'admin' || $user->isSuperAdmin()) && !auth()->user()->isSuperAdmin())
-                                        <span class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-gray-400">
+                                    @elseif(($user->isAdmin() || $user->isSuperAdmin()) && !auth()->user()->isSuperAdmin())
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
                                     @endif
@@ -221,54 +262,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelButton = document.getElementById('cancelDelete');
     const userNameSpan = document.getElementById('deleteUserName');
 
-    // Debug: Check if all elements exist
-    console.log('Modal found:', !!modal);
-    console.log('Confirm button found:', !!confirmButton);
-    console.log('Cancel button found:', !!cancelButton);
-    console.log('User name span found:', !!userNameSpan);
-
-    if (modal) {
-        console.log('Initial modal classes:', modal.className);
-        console.log('Initial modal display:', window.getComputedStyle(modal).display);
-    }
-
     // Function to show modal
     function showDeleteModal(userId, userName) {
         if (deleteInProgress) {
-            console.log('Delete already in progress, ignoring request');
             return;
         }
 
-        console.log('Showing delete modal for user:', userId);
-        console.log('Modal element exists:', !!modal);
-        console.log('Modal classes before:', modal ? modal.className : 'NO MODAL');
-
-        deleteUserId = parseInt(userId);
+        deleteUserId = Number.parseInt(userId, 10);
 
         if (userNameSpan) {
             userNameSpan.textContent = userName;
-            console.log('Set user name to:', userName);
-        } else {
-            console.log('userNameSpan not found');
         }
 
         if (modal) {
             modal.classList.remove('hidden');
-            // Force modal to show with inline styles
-            modal.style.display = 'flex';
-            modal.style.zIndex = '9999';
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(75, 85, 99, 0.5)';
-
-            console.log('Modal classes after removing hidden:', modal.className);
-            console.log('Modal style display:', window.getComputedStyle(modal).display);
-            console.log('Modal forced to show with inline styles');
-        } else {
-            console.log('Modal element not found!');
+            document.body.classList.add('overflow-hidden');
         }
     }
 
@@ -276,15 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideDeleteModal() {
         if (modal) {
             modal.classList.add('hidden');
-            // Clear inline styles
-            modal.style.display = '';
-            modal.style.zIndex = '';
-            modal.style.position = '';
-            modal.style.top = '';
-            modal.style.left = '';
-            modal.style.width = '';
-            modal.style.height = '';
-            modal.style.backgroundColor = '';
+            document.body.classList.remove('overflow-hidden');
         }
         deleteUserId = null;
         deleteInProgress = false;
@@ -309,7 +309,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const now = Date.now();
             if (now - lastClickTime < CLICK_DELAY) {
-                console.log('Click ignored - too rapid');
                 return;
             }
             lastClickTime = now;
@@ -317,7 +316,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const userId = deleteBtn.getAttribute('data-user-id');
             const userName = deleteBtn.getAttribute('data-user-name');
 
-            console.log('Delete button clicked for user:', userId);
             showDeleteModal(userId, userName);
         }
     });
@@ -329,12 +327,10 @@ document.addEventListener('DOMContentLoaded', function() {
             e.stopPropagation();
 
             if (deleteInProgress || !deleteUserId) {
-                console.log('Delete already in progress or no user ID:', {deleteInProgress, deleteUserId});
                 return;
             }
 
             deleteInProgress = true;
-            console.log('Confirming delete for user:', deleteUserId);
 
             // Disable the button to prevent double clicks
             confirmButton.disabled = true;
@@ -359,9 +355,6 @@ document.addEventListener('DOMContentLoaded', function() {
             form.appendChild(methodField);
             form.appendChild(tokenField);
             document.body.appendChild(form);
-
-            console.log('Submitting delete form to:', form.action);
-            console.log('CSRF Token:', tokenField.value);
 
             hideDeleteModal();
 
@@ -408,7 +401,6 @@ function toggleUserStatus(userId, newStatus) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         alert('An error occurred');
     });
 }

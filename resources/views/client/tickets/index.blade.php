@@ -43,15 +43,15 @@
                     <label for="priority" class="sr-only">Priority</label>
                     <select id="priority" name="priority" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                         <option value="">All priorities</option>
-                        <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
-                        <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
-                        <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
                         <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
+                        <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
+                        <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
+                        <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
                     </select>
                 </div>
 
                 <div class="flex items-center gap-2 md:col-span-4">
-                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95">Filter</button>
+                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-3 text-sm font-semibold text-white transition hover:brightness-95">Filter</button>
                     <a href="{{ route('client.tickets.index') }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
@@ -62,7 +62,6 @@
                 <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
                         <th class="px-6 py-4">Details</th>
-                        <th class="px-6 py-4">SLA</th>
                         <th class="px-6 py-4">Assigned Technician</th>
                         <th class="px-6 py-4">Priority</th>
                         <th class="px-6 py-4">Activity Status</th>
@@ -73,44 +72,9 @@
                 <tbody class="divide-y divide-slate-200 bg-white">
                     @forelse($tickets as $ticket)
                         @php
-                            $hoursToDue = $ticket->due_date ? now()->diffInHours($ticket->due_date, false) : null;
-                            if (is_null($hoursToDue)) {
-                                $slaLabel = 'N/A';
-                                $slaClass = 'bg-slate-100 text-slate-500';
-                            } elseif ($hoursToDue < 0) {
-                                $slaLabel = '-' . abs($hoursToDue) . 'H';
-                                $slaClass = 'bg-red-500 text-white';
-                            } elseif ($hoursToDue <= 2) {
-                                $slaLabel = $hoursToDue . 'H';
-                                $slaClass = 'bg-amber-400 text-white';
-                            } else {
-                                $slaLabel = $hoursToDue . 'H';
-                                $slaClass = 'bg-emerald-500 text-white';
-                            }
-
-                            $priorityLabel = in_array($ticket->priority, ['urgent', 'high']) ? 'Critical' : ucfirst($ticket->priority);
-                            $activityDot = match($ticket->status) {
-                                'pending' => 'bg-emerald-500',
-                                'in_progress' => 'bg-sky-500',
-                                'resolved', 'closed' => 'bg-slate-400',
-                                default => 'bg-amber-400',
-                            };
-
-                            $activityText = match($ticket->status) {
-                                'pending' => 'Awaiting customer response',
-                                'in_progress' => 'In progress',
-                                'resolved', 'closed' => 'Read',
-                                default => 'Unread',
-                            };
-
-                            $statusClass = match($ticket->status) {
-                                'open' => 'bg-[#00494b] text-white',
-                                'pending' => 'bg-amber-400 text-white',
-                                'in_progress' => 'bg-sky-500 text-white',
-                                'resolved' => 'bg-emerald-500 text-white',
-                                'closed' => 'bg-slate-500 text-white',
-                                default => 'bg-slate-400 text-white',
-                            };
+                            $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
+                                ? $ticket->created_at->diffForHumans()
+                                : $ticket->created_at->format('M j, Y');
                         @endphp
 
                         <tr class="transition hover:bg-slate-50/90">
@@ -119,42 +83,37 @@
                                     <p class="truncate text-base font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
                                     <p class="mt-0.5 text-sm text-[#af9257]">{{ $ticket->category->name }}</p>
                                     <p class="mt-1 text-sm text-slate-500">
-                                        Created {{ $ticket->created_at->diffForHumans() }}
-                                        @if($ticket->updated_at->ne($ticket->created_at))
-                                            - Modified {{ $ticket->updated_at->diffForHumans() }}
-                                        @endif
+                                        Created {{ $createdLabel }}
                                     </p>
                                 </a>
-                            </td>
-
-                            <td class="px-6 py-5 align-top">
-                                <span class="inline-flex min-w-12 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold {{ $slaClass }}">
-                                    {{ $slaLabel }}
-                                </span>
                             </td>
 
                             <td class="px-6 py-5 align-top text-sm text-slate-700">
                                 {{ $ticket->assignedUser?->name ?? 'Unassigned' }}
                             </td>
 
-                            <td class="px-6 py-5 align-top text-sm text-slate-700">{{ $priorityLabel }}</td>
+                            <td class="px-6 py-5 align-top">
+                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
+                                    {{ $ticket->priority_label }}
+                                </span>
+                            </td>
 
                             <td class="px-6 py-5 align-top">
                                 <span class="inline-flex items-center gap-2 text-sm text-slate-600">
-                                    <span class="h-2.5 w-2.5 rounded-full {{ $activityDot }}"></span>
-                                    {{ $activityText }}
+                                    <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
+                                    {{ $ticket->activity_label }}
                                 </span>
                             </td>
 
                             <td class="px-6 py-5 text-right align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $statusClass }}">
-                                    {{ str_replace('_', ' ', $ticket->status) }}
+                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
+                                    {{ $ticket->status_label }}
                                 </span>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-14 text-center">
+                            <td colspan="5" class="px-6 py-14 text-center">
                                 <p class="text-base font-semibold text-slate-700">No tickets found</p>
                                 <p class="mt-1 text-sm text-slate-500">Try adjusting your filters.</p>
                             </td>

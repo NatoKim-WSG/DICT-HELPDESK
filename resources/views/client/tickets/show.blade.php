@@ -98,7 +98,7 @@
 
                 <div id="conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
-                        {{ $ticket->created_at->format('g:i A') }}
+                        {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
 
                     <div class="js-chat-row flex justify-end" data-created-at="{{ $ticket->created_at->toIso8601String() }}">
@@ -134,7 +134,7 @@
                     @endphp
                     @foreach($ticket->replies->where('is_internal', false)->sortBy('created_at') as $reply)
                         @php
-                            $fromSupport = in_array($reply->user->role, ['admin', 'super_admin']);
+                            $fromSupport = $reply->user->canAccessAdminTickets();
                             $avatarLogo = $fromSupport ? $supportCompanyLogo : $clientCompanyLogo;
                             $showTimestamp = $reply->created_at->diffInMinutes($lastTimestamp) >= 15;
                             $canManageReply = (int) ($reply->user_id === auth()->id());
@@ -142,7 +142,7 @@
                         @endphp
                         @if($showTimestamp)
                             <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $reply->created_at->toIso8601String() }}">
-                                {{ $reply->created_at->format('g:i A') }}
+                                {{ $reply->created_at->greaterThan(now()->subDay()) ? $reply->created_at->format('g:i A') : $reply->created_at->format('M j, Y') }}
                             </div>
                         @endif
 
@@ -168,7 +168,7 @@
                                         <span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 {{ $reply->deleted_at ? '' : 'hidden' }}">Deleted</span>
                                     </div>
                                     <div class="js-message-actions absolute {{ $fromSupport ? '-right-10' : '-left-[4.75rem]' }} top-1.5 flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1 shadow-sm opacity-0 transition group-hover:opacity-100">
-                                        @if($canManageReply)
+                                        @if($canManageReply && $reply->created_at->greaterThanOrEqualTo(now()->subHours(3)))
                                             <div class="relative">
                                                 <button type="button" class="js-more-btn inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]" aria-label="More actions">
                                                     <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -399,6 +399,12 @@
                         </div>
                     @endif
 
+                    @if(!in_array($ticket->status, ['resolved', 'closed']))
+                        <button type="button" id="open-resolve-ticket-modal" class="btn-success w-full">
+                            Mark as Resolved
+                        </button>
+                    @endif
+
                     @if(!in_array($ticket->status, ['closed']))
                         <!-- Close Ticket -->
                         <button type="button" id="open-close-ticket-modal" class="btn-secondary w-full">
@@ -410,6 +416,27 @@
         </div>
     </div>
 </div>
+
+@if(!in_array($ticket->status, ['resolved', 'closed']))
+<div id="resolve-ticket-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-60" data-resolve-ticket-overlay="true"></div>
+    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900">Mark Ticket as Resolved</h3>
+                <p class="mt-1 text-sm text-gray-600">Are you sure you want to mark this ticket as resolved?</p>
+            </div>
+            <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="p-4">
+                @csrf
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="resolve-ticket-cancel" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-success">Confirm Resolve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
 
 @if(!in_array($ticket->status, ['closed']))
 <div id="close-ticket-modal" class="fixed inset-0 z-50 {{ $errors->has('close_reason') ? '' : 'hidden' }}">
@@ -459,104 +486,27 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const modal = document.getElementById('attachment-modal');
-    if (!modal) return;
+    if (!window.ModalKit) return;
 
-    const modalTitle = document.getElementById('attachment-modal-title');
-    const modalImage = document.getElementById('attachment-modal-image');
-    const modalFrame = document.getElementById('attachment-modal-frame');
-    const closeButton = document.getElementById('attachment-modal-close');
-
-    const closeModal = function () {
-        modal.classList.add('hidden');
-        modalImage.classList.add('hidden');
-        modalFrame.classList.add('hidden');
-        modalImage.removeAttribute('src');
-        modalFrame.removeAttribute('src');
-        document.body.classList.remove('overflow-hidden');
-    };
-
-    const openModal = function (url, fileName, mimeType) {
-        modalTitle.textContent = fileName || 'Attachment Preview';
-        if (mimeType && mimeType.startsWith('image/')) {
-            modalImage.src = url;
-            modalImage.classList.remove('hidden');
-            modalFrame.classList.add('hidden');
-        } else {
-            modalFrame.src = url;
-            modalFrame.classList.remove('hidden');
-            modalImage.classList.add('hidden');
-        }
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-    };
-
-    document.addEventListener('click', function (event) {
-        const link = event.target.closest('.js-attachment-link');
-        if (!link) return;
-
-        event.preventDefault();
-        openModal(
-            link.dataset.fileUrl,
-            link.dataset.fileName,
-            link.dataset.fileMime
-        );
+    window.ModalKit.bindAttachmentPreview({
+        modal: '#attachment-modal',
+        title: '#attachment-modal-title',
+        image: '#attachment-modal-image',
+        frame: '#attachment-modal-frame',
+        closeButton: '#attachment-modal-close',
+        triggerSelector: '.js-attachment-link',
     });
 
-    closeButton.addEventListener('click', closeModal);
-    modal.addEventListener('click', function (event) {
-        if (event.target.dataset.modalClose === 'true') {
-            closeModal();
-        }
-    });
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
-        }
-    });
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const modal = document.getElementById('close-ticket-modal');
-    if (!modal) return;
-
-    const openButton = document.getElementById('open-close-ticket-modal');
-    const cancelButton = document.getElementById('close-ticket-cancel');
-
-    const openModal = function () {
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-    };
-
-    const closeModal = function () {
-        modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
-    };
-
-    if (!modal.classList.contains('hidden')) {
-        document.body.classList.add('overflow-hidden');
-    }
-
-    if (openButton) {
-        openButton.addEventListener('click', openModal);
-    }
-
-    if (cancelButton) {
-        cancelButton.addEventListener('click', closeModal);
-    }
-
-    modal.addEventListener('click', function (event) {
-        if (event.target.dataset.closeTicketOverlay === 'true') {
-            closeModal();
-        }
+    window.ModalKit.bindById('resolve-ticket-modal', {
+        openButtons: ['#open-resolve-ticket-modal'],
+        closeButtons: ['#resolve-ticket-cancel'],
     });
 
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
-        }
+    const closeModal = document.getElementById('close-ticket-modal');
+    window.ModalKit.bindById('close-ticket-modal', {
+        openButtons: ['#open-close-ticket-modal'],
+        closeButtons: ['#close-ticket-cancel'],
+        initialOpen: closeModal ? !closeModal.classList.contains('hidden') : false,
     });
 });
 </script>
@@ -580,6 +530,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const TIMESTAMP_BREAK_MINUTES = 15;
+    const EDIT_DELETE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
     const autoResize = function () {
         if (!messageInput) return;
@@ -655,8 +606,32 @@ document.addEventListener('DOMContentLoaded', function () {
         const separator = document.createElement('div');
         separator.className = 'js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400';
         separator.dataset.time = date.toISOString();
-        separator.textContent = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        separator.textContent = formatTimestampLabel(date);
         return separator;
+    };
+
+    const isWithinEditDeleteWindow = function (isoDate) {
+        const createdAt = new Date(isoDate);
+        if (Number.isNaN(createdAt.getTime())) {
+            return false;
+        }
+
+        return (Date.now() - createdAt.getTime()) <= EDIT_DELETE_WINDOW_MS;
+    };
+
+    const formatTimestampLabel = function (date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        const diffMs = Date.now() - date.getTime();
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        if (diffMs > dayMs) {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     };
 
     const renderTimeSeparators = function () {
@@ -681,39 +656,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    const buildOwnMessageControls = function (isDeleted) {
+    const buildOwnMessageControls = function (isDeleted, createdAtIso) {
         const controls = document.createElement('div');
         controls.className = 'js-message-actions absolute -left-[4.75rem] top-1.5 flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1 shadow-sm opacity-0 transition group-hover:opacity-100';
-
-        const menuWrap = document.createElement('div');
-        menuWrap.className = 'relative';
-
-        const moreButton = document.createElement('button');
-        moreButton.type = 'button';
-        moreButton.className = 'js-more-btn inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]';
-        moreButton.setAttribute('aria-label', 'More actions');
-        moreButton.innerHTML = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>';
-
-        const menu = document.createElement('div');
-        menu.className = 'js-more-menu absolute left-0 z-20 mt-1 hidden min-w-[110px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg';
-
-        const editButton = document.createElement('button');
-        editButton.type = 'button';
-        editButton.className = 'js-edit-msg block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50';
-        editButton.textContent = 'Edit';
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'js-delete-msg block w-full px-3 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50';
-        deleteButton.textContent = 'Delete';
-
-        if (!isDeleted) {
-            menu.appendChild(editButton);
-            menu.appendChild(deleteButton);
-        }
-
-        menuWrap.appendChild(moreButton);
-        menuWrap.appendChild(menu);
 
         const replyButton = document.createElement('button');
         replyButton.type = 'button';
@@ -721,7 +666,37 @@ document.addEventListener('DOMContentLoaded', function () {
         replyButton.setAttribute('aria-label', 'Reply to this message');
         replyButton.innerHTML = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/></svg>';
 
-        controls.appendChild(menuWrap);
+        if (!isDeleted && isWithinEditDeleteWindow(createdAtIso)) {
+            const menuWrap = document.createElement('div');
+            menuWrap.className = 'relative';
+
+            const moreButton = document.createElement('button');
+            moreButton.type = 'button';
+            moreButton.className = 'js-more-btn inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]';
+            moreButton.setAttribute('aria-label', 'More actions');
+            moreButton.innerHTML = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>';
+
+            const menu = document.createElement('div');
+            menu.className = 'js-more-menu absolute left-0 z-20 mt-1 hidden min-w-[110px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg';
+
+            const editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'js-edit-msg block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50';
+            editButton.textContent = 'Edit';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'js-delete-msg block w-full px-3 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50';
+            deleteButton.textContent = 'Delete';
+
+            menu.appendChild(editButton);
+            menu.appendChild(deleteButton);
+
+            menuWrap.appendChild(moreButton);
+            menuWrap.appendChild(menu);
+            controls.appendChild(menuWrap);
+        }
+
         controls.appendChild(replyButton);
         return controls;
     };
@@ -773,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const meta = document.createElement('div');
         meta.className = 'js-state-row mb-1 flex items-center gap-2 ' + ((reply.edited || reply.deleted) ? '' : 'hidden');
         meta.innerHTML = '<span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.edited ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.deleted ? '' : 'hidden') + '">Deleted</span>';
-        meta.appendChild(buildOwnMessageControls(!!reply.deleted));
+        meta.appendChild(buildOwnMessageControls(!!reply.deleted, wrap.dataset.createdAt));
 
         const reference = createReferenceBlock(reply.reply_to_message, 'You replied');
 
@@ -952,6 +927,14 @@ document.addEventListener('DOMContentLoaded', function () {
     thread.addEventListener('click', async function (event) {
         const moreButton = event.target.closest('.js-more-btn');
         if (moreButton) {
+            const row = moreButton.closest('.js-chat-row');
+            if (row && !isWithinEditDeleteWindow(row.dataset.createdAt)) {
+                if (replyError) {
+                    replyError.textContent = 'You can only edit or delete messages within 3 hours.';
+                    replyError.classList.remove('hidden');
+                }
+                return;
+            }
             const menu = moreButton.parentElement.querySelector('.js-more-menu');
             closeMenus();
             if (menu) menu.classList.toggle('hidden');
@@ -985,6 +968,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 return;
             }
+            if (!isWithinEditDeleteWindow(row.dataset.createdAt)) {
+                closeMenus();
+                if (replyError) {
+                    replyError.textContent = 'You can only edit or delete messages within 3 hours.';
+                    replyError.classList.remove('hidden');
+                }
+                return;
+            }
             const bubble = row.querySelector('.js-chat-bubble');
             const currentMessage = bubble ? (bubble.dataset.message || '') : '';
             const editedMessage = window.prompt('Edit message', currentMessage);
@@ -1006,14 +997,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: JSON.stringify({ message: editedMessage }),
                 });
 
-                if (!response.ok) throw new Error('Edit failed');
+                if (!response.ok) {
+                    let errorMessage = 'Unable to edit message right now.';
+                    try {
+                        const errorPayload = await response.json();
+                        if (errorPayload && errorPayload.message) {
+                            errorMessage = errorPayload.message;
+                        }
+                    } catch (parseError) {
+                    }
+                    throw new Error(errorMessage);
+                }
                 const data = await response.json();
                 if (data.reply) {
                     applyReplyState(row, data.reply);
                 }
             } catch (error) {
                 if (replyError) {
-                    replyError.textContent = 'Unable to edit message right now.';
+                    replyError.textContent = error && error.message ? error.message : 'Unable to edit message right now.';
                     replyError.classList.remove('hidden');
                 }
             }
@@ -1028,6 +1029,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 closeMenus();
                 if (replyError) {
                     replyError.textContent = 'You can only delete your own messages.';
+                    replyError.classList.remove('hidden');
+                }
+                return;
+            }
+            if (!isWithinEditDeleteWindow(row.dataset.createdAt)) {
+                closeMenus();
+                if (replyError) {
+                    replyError.textContent = 'You can only edit or delete messages within 3 hours.';
                     replyError.classList.remove('hidden');
                 }
                 return;
@@ -1048,14 +1057,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     },
                 });
 
-                if (!response.ok) throw new Error('Delete failed');
+                if (!response.ok) {
+                    let errorMessage = 'Unable to delete message right now.';
+                    try {
+                        const errorPayload = await response.json();
+                        if (errorPayload && errorPayload.message) {
+                            errorMessage = errorPayload.message;
+                        }
+                    } catch (parseError) {
+                    }
+                    throw new Error(errorMessage);
+                }
                 const data = await response.json();
                 if (data.reply) {
                     applyReplyState(row, data.reply);
                 }
             } catch (error) {
                 if (replyError) {
-                    replyError.textContent = 'Unable to delete message right now.';
+                    replyError.textContent = error && error.message ? error.message : 'Unable to delete message right now.';
                     replyError.classList.remove('hidden');
                 }
             }

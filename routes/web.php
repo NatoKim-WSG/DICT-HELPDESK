@@ -38,19 +38,25 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
     Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])->name('tickets.reply');
     Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])->name('tickets.replies.update');
     Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
+    Route::post('/tickets/{ticket}/resolve', [ClientTicketController::class, 'resolve'])->name('tickets.resolve');
     Route::post('/tickets/{ticket}/close', [ClientTicketController::class, 'close'])->name('tickets.close');
     Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])->name('tickets.rate');
 });
 
 // Admin Routes
-Route::middleware(['auth', 'role:admin,super_admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+Route::middleware(['auth', 'role:admin,super_admin,technician'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+        ->middleware('role:admin,super_admin')
+        ->name('dashboard');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
+    Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])->name('tickets.bulk-action');
+    Route::post('/tickets/{ticket}/quick-update', [AdminTicketController::class, 'quickUpdate'])->name('tickets.quick-update');
     Route::post('/tickets/{ticket}/assign', [AdminTicketController::class, 'assign'])->name('tickets.assign');
     Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])->name('tickets.status');
     Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])->name('tickets.priority');
+    Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])->name('tickets.destroy');
     Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('tickets.reply');
     Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'updateReply'])->name('tickets.replies.update');
     Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
@@ -95,14 +101,16 @@ Route::middleware(['auth', 'role:admin,super_admin'])->prefix('admin')->name('ad
     })->name('notifications.open');
 
     // User Management Routes
-    Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
-    Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
-    Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
-    Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
-    Route::get('/users/{user}/edit', [UserManagementController::class, 'edit'])->name('users.edit');
-    Route::put('/users/{user}', [UserManagementController::class, 'update'])->name('users.update');
-    Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
-    Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::middleware('role:admin,super_admin')->group(function () {
+        Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+        Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
+        Route::get('/users/{user}/edit', [UserManagementController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{user}', [UserManagementController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
+    });
 });
 
 // Download attachments
@@ -111,12 +119,12 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
     $attachable = $attachment->attachable;
 
     if ($attachable instanceof \App\Models\Ticket) {
-        if ($user->role === 'client' && $attachable->user_id !== $user->id) {
+        if ($user->isClient() && $attachable->user_id !== $user->id) {
             abort(403);
         }
     } elseif ($attachable instanceof \App\Models\TicketReply) {
         $ticket = $attachable->ticket;
-        if ($user->role === 'client' && $ticket->user_id !== $user->id) {
+        if ($user->isClient() && $ticket->user_id !== $user->id) {
             abort(403);
         }
     } else {

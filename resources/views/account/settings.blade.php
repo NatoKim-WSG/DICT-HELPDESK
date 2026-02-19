@@ -4,7 +4,10 @@
 
 @section('content')
 @php
-    $isClient = !$user->canManageTickets();
+    $isClient = !$user->canAccessAdminTickets();
+    $backRoute = $user->canManageTickets()
+        ? route('admin.dashboard')
+        : ($user->canAccessAdminTickets() ? route('admin.tickets.index') : route('client.dashboard'));
 @endphp
 
 <div class="mx-auto max-w-5xl">
@@ -13,7 +16,7 @@
             <h1 class="font-display text-3xl font-semibold text-slate-900">Account Settings</h1>
             <p class="mt-1 text-sm text-slate-500">Update your account profile and security preferences.</p>
         </div>
-        <a href="{{ $user->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <a href="{{ $backRoute }}" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Back to Dashboard
         </a>
     </div>
@@ -135,12 +138,25 @@
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
             <div>
                 <label for="password" class="form-label">New Password</label>
-                <input
-                    type="password"
-                    name="password"
-                    id="password"
-                    class="form-input @error('password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
-                >
+                <div class="relative">
+                    <input
+                        type="password"
+                        name="password"
+                        id="password"
+                        class="form-input pr-11 @error('password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    >
+                    <button
+                        type="button"
+                        class="absolute inset-y-0 right-0 inline-flex items-center justify-center px-3 text-slate-500 transition hover:text-slate-700"
+                        data-password-peek="#password"
+                        aria-label="Show password briefly"
+                    >
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7Z"/>
+                            <circle cx="12" cy="12" r="3.25" stroke-width="1.8"></circle>
+                        </svg>
+                    </button>
+                </div>
                 <p class="mt-1 text-xs text-slate-500">Leave blank to keep your current password.</p>
                 @error('password')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
@@ -149,19 +165,53 @@
 
             <div>
                 <label for="password_confirmation" class="form-label">Confirm New Password</label>
-                <input
-                    type="password"
-                    name="password_confirmation"
-                    id="password_confirmation"
-                    class="form-input"
-                >
+                <div class="relative">
+                    <input
+                        type="password"
+                        name="password_confirmation"
+                        id="password_confirmation"
+                        class="form-input pr-11"
+                    >
+                    <button
+                        type="button"
+                        class="absolute inset-y-0 right-0 inline-flex items-center justify-center px-3 text-slate-500 transition hover:text-slate-700"
+                        data-password-peek="#password_confirmation"
+                        aria-label="Show password briefly"
+                    >
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7Z"/>
+                            <circle cx="12" cy="12" r="3.25" stroke-width="1.8"></circle>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
-            <a href="{{ $user->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="btn-secondary">Cancel</a>
+            <a href="{{ $backRoute }}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">Save Changes</button>
         </div>
     </form>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const peekButtons = document.querySelectorAll('[data-password-peek]');
+
+        peekButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                const selector = button.getAttribute('data-password-peek');
+                if (!selector) return;
+
+                const input = document.querySelector(selector);
+                if (!input || input.type !== 'password') return;
+
+                input.type = 'text';
+
+                window.setTimeout(function () {
+                    input.type = 'password';
+                }, 1000);
+            });
+        });
+    });
+    </script>
 </div>
 @endsection

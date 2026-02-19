@@ -32,6 +32,8 @@ class AuthController extends Controller
 
             if ($user->canManageTickets()) {
                 return redirect()->intended('/admin/dashboard');
+            } elseif ($user->canAccessAdminTickets()) {
+                return redirect()->intended('/admin/tickets');
             } else {
                 return redirect()->intended('/client/dashboard');
             }

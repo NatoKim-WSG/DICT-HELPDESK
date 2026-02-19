@@ -25,10 +25,8 @@ class RoleMiddleware
             return $next($request);
         }
 
-        foreach ($roles as $role) {
-            if ($user->role === $role) {
-                return $next($request);
-            }
+        if (in_array($user->role, $roles, true)) {
+            return $next($request);
         }
 
         abort(403, 'Access denied. Insufficient permissions.');

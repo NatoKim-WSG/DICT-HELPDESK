@@ -13,13 +13,13 @@ class TicketSeeder extends Seeder
     public function run(): void
     {
         $clients = User::where('role', 'client')->get();
-        $agents = User::whereIn('role', ['admin', 'super_admin'])
+        $agents = User::whereIn('role', ['admin', 'super_admin', 'technician'])
             ->where('is_active', true)
             ->get();
         $categories = Category::all();
 
         if ($clients->isEmpty() || $agents->isEmpty()) {
-            $this->command?->warn('Skipping TicketSeeder: missing client or admin users.');
+            $this->command?->warn('Skipping TicketSeeder: missing client or support users.');
             return;
         }
 

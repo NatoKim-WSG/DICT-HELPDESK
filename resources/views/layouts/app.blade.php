@@ -18,7 +18,8 @@
             <header class="sticky top-0 z-30 border-b border-slate-200 bg-[#f3f5f7]/95 backdrop-blur">
                 @php
                     $user = auth()->user();
-                    $isClient = !$user->canManageTickets();
+                    $isClient = !$user->canAccessAdminTickets();
+                    $isAdmin = $user->canManageTickets();
                     $department = strtolower((string) $user->department);
                     $isIoneClient = $isClient && str_contains($department, 'ione');
                     $clientCompanyName = $isIoneClient ? 'iOne Resources' : 'DICT';
@@ -66,9 +67,9 @@
                             </a>
                         @endif
 
-                        @if($user->canManageTickets())
+                        @if($user->canAccessAdminTickets())
                             <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 md:inline-flex">
-                                Admin Console
+                                {{ $isAdmin ? 'Admin Console' : 'Technician Console' }}
                             </span>
                         @endif
 
@@ -130,7 +131,7 @@
                                 @endif
                                 <span class="hidden text-left sm:block">
                                     <span class="block max-w-[13rem] truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
-                                    <span class="block text-sm text-slate-500">{{ $isClient ? $clientCompanyName : str_replace('_', ' ', $user->role) }}</span>
+                                    <span class="block text-sm text-slate-500">{{ $isClient ? $clientCompanyName : ucfirst(str_replace('_', ' ', $user->role)) }}</span>
                                 </span>
                             </button>
 

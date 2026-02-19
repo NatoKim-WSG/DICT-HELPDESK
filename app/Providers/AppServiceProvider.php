@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            if (!$user->canManageTickets()) {
+            if (!$user->canAccessAdminTickets()) {
                 $notifications = Ticket::where('user_id', $user->id)
                     ->latest('updated_at')
                     ->take(5)
@@ -45,7 +45,7 @@ class AppServiceProvider extends ServiceProvider
                     });
             } else {
                 $notifications = Ticket::with('user')
-                    ->where('status', 'open')
+                    ->open()
                     ->latest('created_at')
                     ->take(5)
                     ->get()
