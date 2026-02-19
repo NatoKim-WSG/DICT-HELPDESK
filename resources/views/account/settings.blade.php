@@ -1,164 +1,167 @@
 @extends('layouts.app')
 
-@section('title', 'Account Settings - iOne Resources Ticketing')
+@section('title', 'Account Settings - DICT Helpdesk')
 
 @section('content')
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
-        <div class="flex items-center">
-            <a href="{{ auth()->user()->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="text-gray-500 hover:text-gray-700 mr-4">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-            </a>
-            <div>
-                <h1 class="text-2xl font-semibold text-gray-900">Account Settings</h1>
-                <p class="mt-1 text-sm text-gray-600">Manage your personal information and preferences</p>
-            </div>
+@php
+    $isClient = !$user->canManageTickets();
+@endphp
+
+<div class="mx-auto max-w-5xl">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="font-display text-3xl font-semibold text-slate-900">Account Settings</h1>
+            <p class="mt-1 text-sm text-slate-500">Update your account profile and security preferences.</p>
+        </div>
+        <a href="{{ $user->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Back to Dashboard
+        </a>
+    </div>
+
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">{{ ucfirst(str_replace('_', ' ', $user->role)) }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Status</p>
+            <p class="mt-2 text-sm font-semibold {{ $user->is_active ? 'text-emerald-700' : 'text-rose-700' }}">
+                {{ $user->is_active ? 'Active' : 'Inactive' }}
+            </p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Member Since</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">{{ $user->created_at->format('M d, Y') }}</p>
         </div>
     </div>
 
     @if(session('success'))
-        <div class="mb-6 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+        <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+        <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             {{ session('error') }}
         </div>
     @endif
 
-    <div class="bg-white shadow sm:rounded-lg">
-        <form action="{{ route('account.settings.update') }}" method="POST" class="space-y-6">
-            @csrf
-            @method('PUT')
+    <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        @csrf
+        @method('PUT')
 
-            <div class="px-4 py-5 sm:p-6">
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                    <!-- Name -->
-                    <div class="sm:col-span-1">
-                        <label for="name" class="block text-sm font-medium text-gray-700">
-                            Full Name <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input type="text" name="name" id="name" value="{{ old('name', $user->name) }}" required
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('name') border-red-300 @enderror">
-                        </div>
-                        @error('name')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+        <div class="border-b border-slate-200 px-5 py-4">
+            <h2 class="font-display text-lg font-semibold text-slate-900">Profile Information</h2>
+            <p class="mt-1 text-sm text-slate-500">Keep your account details up to date.</p>
+        </div>
 
-                    <!-- Email -->
-                    <div class="sm:col-span-1">
-                        <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email Address <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input type="email" name="email" id="email" value="{{ old('email', $user->email) }}" required
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('email') border-red-300 @enderror">
-                        </div>
-                        @error('email')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+        <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
+            <div class="sm:col-span-1">
+                <label for="name" class="form-label">
+                    {{ $isClient ? 'Company Name' : 'Full Name' }} <span class="text-rose-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    value="{{ old('name', $user->name) }}"
+                    required
+                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    placeholder="{{ $isClient ? 'Enter company name' : 'Enter full name' }}"
+                >
+                @if($isClient)
+                    <p class="mt-1 text-xs text-slate-500">Use your organization or company name.</p>
+                @endif
+                @error('name')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
 
-                    <!-- Phone -->
-                    <div class="sm:col-span-1">
-                        <label for="phone" class="block text-sm font-medium text-gray-700">
-                            Phone Number
-                        </label>
-                        <div class="mt-1">
-                            <input type="text" name="phone" id="phone" value="{{ old('phone', $user->phone) }}"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('phone') border-red-300 @enderror">
-                        </div>
-                        @error('phone')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+            <div class="sm:col-span-1">
+                <label for="email" class="form-label">Email Address <span class="text-rose-500">*</span></label>
+                <input
+                    type="email"
+                    name="email"
+                    id="email"
+                    value="{{ old('email', $user->email) }}"
+                    required
+                    class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    placeholder="you@example.com"
+                >
+                @error('email')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
 
-                    <!-- Department -->
-                    <div class="sm:col-span-1">
-                        <label for="department" class="block text-sm font-medium text-gray-700">
-                            Department
-                        </label>
-                        <div class="mt-1">
-                            <input type="text" name="department" id="department" value="{{ old('department', $user->department) }}"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('department') border-red-300 @enderror">
-                        </div>
-                        @error('department')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+            <div class="sm:col-span-1">
+                <label for="department" class="form-label">{{ $isClient ? 'Department / Unit' : 'Department' }}</label>
+                <input
+                    type="text"
+                    name="department"
+                    id="department"
+                    value="{{ old('department', $user->department) }}"
+                    class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    placeholder="Optional"
+                >
+                @error('department')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
 
-                    <!-- Role (Read-only) -->
-                    <div class="sm:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700">
-                            Role
-                        </label>
-                        <div class="mt-1">
-                            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                @if($user->role === 'super_admin') bg-purple-100 text-purple-800
-                                @elseif($user->role === 'admin') bg-blue-100 text-blue-800
-                                @else bg-gray-100 text-gray-800
-                                @endif">
-                                {{ ucfirst(str_replace('_', ' ', $user->role)) }}
-                            </div>
-                        </div>
-                        <p class="mt-2 text-sm text-gray-500">
-                            Your role cannot be changed from this page.
-                        </p>
-                    </div>
-
-                    <!-- Account Status (Read-only) -->
-                    <div class="sm:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700">
-                            Account Status
-                        </label>
-                        <div class="mt-1">
-                            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $user->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                {{ $user->is_active ? 'Active' : 'Inactive' }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="sm:col-span-1">
-                        <label for="password" class="block text-sm font-medium text-gray-700">
-                            New Password
-                        </label>
-                        <div class="mt-1">
-                            <input type="password" name="password" id="password"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('password') border-red-300 @enderror">
-                        </div>
-                        <p class="mt-2 text-sm text-gray-500">
-                            Leave blank to keep current password
-                        </p>
-                        @error('password')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Password Confirmation -->
-                    <div class="sm:col-span-1">
-                        <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                            Confirm New Password
-                        </label>
-                        <div class="mt-1">
-                            <input type="password" name="password_confirmation" id="password_confirmation"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-                        </div>
-                    </div>
+            @if(!$isClient)
+                <div class="sm:col-span-1">
+                    <label for="phone" class="form-label">Phone Number</label>
+                    <input
+                        type="text"
+                        name="phone"
+                        id="phone"
+                        value="{{ old('phone', $user->phone) }}"
+                        class="form-input @error('phone') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                        placeholder="Optional"
+                    >
+                    @error('phone')
+                        <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
+            @endif
+        </div>
+
+        <div class="border-y border-slate-200 px-5 py-4">
+            <h2 class="font-display text-lg font-semibold text-slate-900">Security</h2>
+            <p class="mt-1 text-sm text-slate-500">Update your password if needed.</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
+            <div>
+                <label for="password" class="form-label">New Password</label>
+                <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    class="form-input @error('password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                >
+                <p class="mt-1 text-xs text-slate-500">Leave blank to keep your current password.</p>
+                @error('password')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
             </div>
 
-            <div class="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
-                <a href="{{ auth()->user()->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="btn-secondary">Cancel</a>
-                <button type="submit" class="btn-primary">Update Account</button>
+            <div>
+                <label for="password_confirmation" class="form-label">Confirm New Password</label>
+                <input
+                    type="password"
+                    name="password_confirmation"
+                    id="password_confirmation"
+                    class="form-input"
+                >
             </div>
-        </form>
-    </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <a href="{{ $user->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+    </form>
 </div>
 @endsection

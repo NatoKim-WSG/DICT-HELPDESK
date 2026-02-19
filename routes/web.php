@@ -28,7 +28,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Client Routes
-Route::middleware(['auth'])->prefix('client')->name('client.')->group(function () {
+Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/tickets', [ClientTicketController::class, 'index'])->name('tickets.index');
@@ -36,6 +36,8 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::post('/tickets', [ClientTicketController::class, 'store'])->name('tickets.store');
     Route::get('/tickets/{ticket}', [ClientTicketController::class, 'show'])->name('tickets.show');
     Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])->name('tickets.reply');
+    Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])->name('tickets.replies.update');
+    Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
     Route::post('/tickets/{ticket}/close', [ClientTicketController::class, 'close'])->name('tickets.close');
     Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])->name('tickets.rate');
 });
@@ -50,6 +52,8 @@ Route::middleware(['auth', 'role:admin,super_admin'])->prefix('admin')->name('ad
     Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])->name('tickets.status');
     Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])->name('tickets.priority');
     Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('tickets.reply');
+    Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'updateReply'])->name('tickets.replies.update');
+    Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
     Route::post('/tickets/{ticket}/due-date', [AdminTicketController::class, 'setDueDate'])->name('tickets.due-date');
 
     Route::post('/notifications/dismiss', function (Request $request) {

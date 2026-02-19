@@ -12,14 +12,19 @@ class TicketReply extends Model
     protected $fillable = [
         'ticket_id',
         'user_id',
+        'reply_to_id',
         'message',
         'is_internal',
+        'edited_at',
+        'deleted_at',
     ];
 
     protected function casts(): array
     {
         return [
             'is_internal' => 'boolean',
+            'edited_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 
@@ -36,6 +41,11 @@ class TicketReply extends Model
     public function attachments()
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function replyTo()
+    {
+        return $this->belongsTo(TicketReply::class, 'reply_to_id');
     }
 
     public function scopePublic($query)

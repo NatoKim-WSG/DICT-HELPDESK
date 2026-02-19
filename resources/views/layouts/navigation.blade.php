@@ -1,246 +1,126 @@
-<nav class="sticky top-0 z-40 border-b border-white/70 bg-white/75 shadow-sm backdrop-blur-xl" x-data="{ mobileOpen: false }">
-    <div class="app-shell mx-auto">
-        <div class="flex h-20 items-center justify-between gap-4">
-            <div class="flex min-w-0 items-center gap-5">
-                <a href="{{ auth()->user()->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="group flex min-w-0 items-center gap-3">
-                    @if(auth()->user()->canManageTickets())
-                        <img src="{{ Vite::asset('resources/Pictures/ionelogo.png') }}" alt="iOne Resources Inc. Logo" class="h-9 w-auto transition duration-300 group-hover:scale-105">
-                        <span class="hidden truncate font-display text-xl font-semibold text-ione-blue-700 sm:block">
-                            iOne Resources Inc.
+@php
+    $user = auth()->user();
+    $isAdmin = $user->canManageTickets();
+    $isClient = !$isAdmin;
+
+    if ($isAdmin) {
+        $menuItems = [
+            ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false],
+            ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
+            ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false],
+            ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
+        ];
+    } else {
+        $menuItems = [
+            ['label' => 'New Ticket', 'icon' => 'plus', 'href' => route('client.tickets.create'), 'active' => request()->routeIs('client.tickets.create'), 'disabled' => false],
+            ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('client.dashboard'), 'active' => request()->routeIs('client.dashboard'), 'disabled' => false],
+            ['label' => 'My Tickets', 'icon' => 'ticket', 'href' => route('client.tickets.index'), 'active' => request()->routeIs('client.tickets.index') || request()->routeIs('client.tickets.show'), 'disabled' => false],
+            ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
+        ];
+    }
+
+    $iconMap = [
+        'home' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12l9-8 9 8M5 10v10h14V10"/>',
+        'ticket' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 6h8m-8 4h8m-8 4h5M5 3h14a2 2 0 012 2v4a2 2 0 000 4v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 000-4V5a2 2 0 012-2z"/>',
+        'users' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M16 3.13a4 4 0 010 7.75M23 21v-2a4 4 0 00-3-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>',
+        'monitor' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 5h16v10H4zM8 21h8M12 15v6"/>',
+        'alert' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18A2 2 0 003.53 21h16.94a2 2 0 001.71-3l-8.47-14.14a2 2 0 00-3.42 0z"/>',
+        'book' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 17A2.5 2.5 0 004 19.5V5a2 2 0 012-2h14v14M6.5 17H20"/>',
+        'chart' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 20V10m6 10V4m6 16v-7m6 7V7"/>',
+        'wallet' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18v10H3zM15 12h4M3 9h18"/>',
+        'plus' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/>',
+        'user' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 21a8 8 0 10-16 0M12 11a4 4 0 100-8 4 4 0 000 8z"/>',
+    ];
+@endphp
+
+<div
+    x-show="sidebarOpen"
+    x-transition.opacity
+    @click="sidebarOpen = false"
+    class="fixed inset-0 z-40 bg-slate-900/45 lg:hidden"
+    style="display: none;"
+></div>
+
+<aside
+    class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r border-[#0b5658] bg-[#033b3d] text-slate-100 transition-transform duration-200 lg:translate-x-0"
+    :class="{ 'translate-x-0': sidebarOpen }"
+>
+    <div class="flex h-full flex-col">
+        <div @class([
+            'relative flex items-center border-b border-[#0d5053] px-5',
+            'h-24' => $isAdmin,
+            'h-28' => $isClient,
+            'justify-center' => $isAdmin,
+            'justify-center' => $isClient,
+        ])>
+            <a href="{{ $isAdmin ? route('admin.dashboard') : route('client.dashboard') }}" @class([
+                'mx-auto',
+                'flex w-full justify-center' => $isAdmin,
+                'flex w-full justify-center' => $isClient,
+            ])>
+                @if($isAdmin)
+                    <span class="flex flex-col items-center text-center">
+                        <span class="inline-flex items-center justify-center px-1 py-1">
+                            <img
+                                src="{{ Vite::asset('resources/Pictures/ionelogo.png') }}"
+                                alt="iOne Logo"
+                                class="h-14 w-auto"
+                            >
                         </span>
-                    @else
-                        <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-9 w-auto transition duration-300 group-hover:scale-105">
-                        <span class="hidden truncate font-display text-xl font-semibold text-ione-blue-700 sm:block">
-                            DICT | iOne Resources
+                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">Admin Console</span>
+                    </span>
+                @else
+                    <span class="flex flex-col items-center text-center">
+                        <span class="inline-flex items-center justify-center gap-3 px-1 py-1">
+                            <img
+                                src="{{ Vite::asset('resources/Pictures/DICTLogo.png') }}"
+                                alt="DICT Logo"
+                                class="h-12 w-auto"
+                            >
+                            <span class="font-display text-[2rem] font-semibold leading-none tracking-wide text-white">DICT</span>
                         </span>
-                    @endif
-                </a>
-
-                <div class="hidden items-center gap-1 md:flex">
-                    @if(auth()->user()->canManageTickets())
-                        <a href="{{ route('admin.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.dashboard') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Dashboard
-                        </a>
-                        <a href="{{ route('admin.tickets.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.tickets.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            All Tickets
-                        </a>
-                        @if(auth()->user()->canManageUsers())
-                            <a href="{{ route('admin.users.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.users.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                Users
-                            </a>
-                        @endif
-                    @else
-                        <a href="{{ route('client.dashboard') }}" class="rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('client.dashboard') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Dashboard
-                        </a>
-                        <a href="{{ route('client.tickets.index') }}" class="rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('client.tickets.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            My Tickets
-                        </a>
-                    @endif
-                </div>
-            </div>
-
-            <div class="hidden items-center gap-3 md:flex">
-                @if(!auth()->user()->canManageTickets())
-                    <a href="{{ route('client.tickets.create') }}" class="btn-primary">
-                        New Ticket
-                    </a>
+                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">iOne Resources Inc.</span>
+                    </span>
                 @endif
+            </a>
 
-                @if(auth()->user()->canManageTickets())
-                    <div class="relative" x-data="{ notificationOpen: false }">
-                        <button @click="notificationOpen = !notificationOpen" class="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-ione-blue-300">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-3.5-3.5A6.965 6.965 0 0012 5a6.965 6.965 0 00-7.5 8.5L1 17h5m9 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                            </svg>
-                        </button>
-                        @php
-                            $newTickets = \App\Models\Ticket::where('status', 'open')->where('created_at', '>=', now()->subHours(24))->with('user')->get();
-                            $recentlyResolved = \App\Models\Ticket::where('status', 'resolved')->where('resolved_at', '>=', now()->subHours(24))->with('user')->get();
-                            $dismissedNotifications = collect(session('dismissed_notifications', []));
-                            $allNotifications = collect();
-
-                            foreach($newTickets as $ticket) {
-                                $allNotifications->push([
-                                    'key' => 'new:' . $ticket->id . ':' . $ticket->created_at->timestamp,
-                                    'type' => 'new',
-                                    'ticket' => $ticket,
-                                    'timestamp' => $ticket->created_at
-                                ]);
-                            }
-
-                            foreach($recentlyResolved as $ticket) {
-                                $resolvedTimestamp = optional($ticket->resolved_at)->timestamp ?? $ticket->updated_at->timestamp;
-                                $allNotifications->push([
-                                    'key' => 'resolved:' . $ticket->id . ':' . $resolvedTimestamp,
-                                    'type' => 'resolved',
-                                    'ticket' => $ticket,
-                                    'timestamp' => $ticket->resolved_at
-                                ]);
-                            }
-
-                            $allNotifications = $allNotifications
-                                ->reject(fn($notification) => $dismissedNotifications->contains($notification['key']))
-                                ->sortByDesc('timestamp')
-                                ->values();
-
-                            $totalNotifications = $allNotifications->count();
-                            $displayNotifications = $allNotifications->take(4);
-                            $hasMore = $totalNotifications > 4;
-                        @endphp
-                        @if($totalNotifications > 0)
-                            <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-xs font-bold text-white">
-                                {{ $totalNotifications > 99 ? '99+' : $totalNotifications }}
-                            </span>
-                        @endif
-
-                        <div x-show="notificationOpen" @click.away="notificationOpen = false"
-                             class="absolute right-0 z-50 mt-3 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
-                             x-transition:enter="transition ease-out duration-150"
-                             x-transition:enter-start="opacity-0 translate-y-1"
-                             x-transition:enter-end="opacity-100 translate-y-0"
-                             x-transition:leave="transition ease-in duration-100"
-                             x-transition:leave-start="opacity-100 translate-y-0"
-                             x-transition:leave-end="opacity-0 translate-y-1">
-                            <div class="hero-glow border-b border-slate-100 px-4 py-3">
-                                <h3 class="font-display text-base font-semibold text-slate-900">Notifications</h3>
-                            </div>
-
-                            <div>
-                                @if($totalNotifications > 0)
-                                    @foreach($displayNotifications as $notification)
-                                        <div class="border-b border-slate-100 px-4 py-3 hover:bg-slate-50">
-                                            <div class="flex items-start">
-                                                @if($notification['type'] === 'new')
-                                                    <div class="mr-3 mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-ione-blue-500"></div>
-                                                    <a href="{{ route('admin.notifications.open', ['ticket' => $notification['ticket']->id, 'notification_key' => $notification['key']]) }}" class="min-w-0 flex-1">
-                                                        <p class="text-sm font-semibold text-slate-900">New ticket added</p>
-                                                        <p class="truncate text-sm text-slate-500">{{ $notification['ticket']->subject }} - by {{ $notification['ticket']->user->name }}</p>
-                                                        <p class="text-xs text-slate-400">{{ $notification['ticket']->created_at->diffForHumans() }}</p>
-                                                    </a>
-                                                @else
-                                                    <div class="mr-3 mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500"></div>
-                                                    <a href="{{ route('admin.notifications.open', ['ticket' => $notification['ticket']->id, 'notification_key' => $notification['key']]) }}" class="min-w-0 flex-1">
-                                                        <p class="text-sm font-semibold text-slate-900">Ticket resolved</p>
-                                                        <p class="truncate text-sm text-slate-500">{{ $notification['ticket']->subject }} - by {{ $notification['ticket']->user->name }}</p>
-                                                        <p class="text-xs text-slate-400">{{ $notification['ticket']->resolved_at->diffForHumans() }}</p>
-                                                    </a>
-                                                @endif
-
-                                                <form action="{{ route('admin.notifications.dismiss') }}" method="POST" class="ml-2">
-                                                    @csrf
-                                                    <input type="hidden" name="notification_key" value="{{ $notification['key'] }}">
-                                                    <button type="submit" class="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Dismiss notification">
-                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                        </svg>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    @endforeach
-
-                                    <div class="border-t border-slate-100 bg-slate-50 px-4 py-3 text-center">
-                                        <a href="{{ route('admin.tickets.index') }}" class="text-sm font-semibold text-ione-blue-600 hover:text-ione-blue-700">
-                                            @if($hasMore)
-                                                View all notifications ({{ $totalNotifications }})
-                                            @else
-                                                View all tickets
-                                            @endif
-                                        </a>
-                                    </div>
-                                @else
-                                    <div class="px-4 py-7 text-center">
-                                        <h3 class="text-sm font-semibold text-slate-900">No notifications</h3>
-                                        <p class="mt-1 text-sm text-slate-500">You're all caught up.</p>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
-                <div class="relative" x-data="{ open: false }">
-                    <button @click="open = ! open" class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-ione-blue-300">
-                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-ione-blue-600 text-sm font-semibold text-white">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
-                        <div class="min-w-0">
-                            <div class="truncate text-sm font-semibold text-slate-800">{{ auth()->user()->name }}</div>
-                            <div class="truncate text-xs text-slate-500">{{ auth()->user()->role }}</div>
-                        </div>
-                        <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-
-                    <div x-show="open" @click.away="open = false" class="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl" x-transition>
-                        <div class="px-4 pb-2 text-xs text-slate-500">{{ auth()->user()->email }}</div>
-                        <a href="{{ route('account.settings') }}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                            Account Settings
-                        </a>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
-                                Sign out
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <button @click="mobileOpen = !mobileOpen" class="md:hidden rounded-lg border border-slate-200 bg-white p-2 text-slate-600 focus:outline-none focus:ring-2 focus:ring-ione-blue-300" aria-label="Toggle menu">
-                <svg x-show="!mobileOpen" class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                </svg>
-                <svg x-show="mobileOpen" class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button @click="sidebarOpen = false" @class([
+                'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
+                'absolute right-5 top-1/2 -translate-y-1/2' => $isAdmin,
+                'absolute right-5 top-1/2 -translate-y-1/2' => $isClient,
+            ]) aria-label="Close sidebar">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
-    </div>
 
-    <div class="border-t border-slate-200 bg-white/95 md:hidden" x-show="mobileOpen" x-transition>
-        <div class="space-y-1 px-4 py-3">
-            @if(auth()->user()->canManageTickets())
-                <a href="{{ route('admin.dashboard') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.dashboard') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                    Dashboard
+        <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            @foreach($menuItems as $item)
+                <a
+                    href="{{ $item['href'] }}"
+                    @class([
+                        'group flex items-center gap-3 rounded-xl px-3 py-3 transition',
+                        'text-base font-semibold',
+                        'bg-white/10 text-white' => $item['active'],
+                        'text-slate-200 hover:bg-white/5 hover:text-white' => !$item['active'] && !$item['disabled'],
+                        'cursor-not-allowed text-slate-400/80' => $item['disabled'],
+                    ])
+                    @if($item['disabled']) aria-disabled="true" @endif
+                >
+                    <svg @class([
+                        'shrink-0',
+                        'h-5 w-5',
+                    ]) fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {!! $iconMap[$item['icon']] !!}
+                    </svg>
+                    <span>{{ $item['label'] }}</span>
+                    @if($item['disabled'])
+                        <span class="ml-auto rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">Soon</span>
+                    @endif
                 </a>
-                <a href="{{ route('admin.tickets.index') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.tickets.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                    All Tickets
-                </a>
-                @if(auth()->user()->canManageUsers())
-                    <a href="{{ route('admin.users.index') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('admin.users.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                        Users
-                    </a>
-                @endif
-            @else
-                <a href="{{ route('client.dashboard') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('client.dashboard') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                    Dashboard
-                </a>
-                <a href="{{ route('client.tickets.index') }}" class="block rounded-lg px-3 py-2 text-sm font-semibold {{ request()->routeIs('client.tickets.*') ? 'bg-ione-blue-50 text-ione-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                    My Tickets
-                </a>
-                <a href="{{ route('client.tickets.create') }}" class="mt-2 block rounded-lg bg-ione-blue-600 px-3 py-2 text-center text-sm font-semibold text-white">
-                    New Ticket
-                </a>
-            @endif
-        </div>
+            @endforeach
+        </nav>
 
-        <div class="border-t border-slate-200 px-4 py-3">
-            <p class="text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</p>
-            <p class="text-xs text-slate-500">{{ auth()->user()->email }}</p>
-            <div class="mt-3 space-y-1">
-                <a href="{{ route('account.settings') }}" class="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                    Account Settings
-                </a>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100">
-                        Sign out
-                    </button>
-                </form>
-            </div>
-        </div>
     </div>
-</nav>
+</aside>

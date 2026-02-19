@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TicketController extends Controller
@@ -89,7 +90,7 @@ class TicketController extends Controller
             abort(403);
         }
 
-        $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'attachments']);
+        $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
 
         return view('client.tickets.show', compact('ticket'));
     }
@@ -102,12 +103,23 @@ class TicketController extends Controller
 
         $request->validate([
             'message' => 'required|string',
+            'reply_to_id' => 'nullable|integer|exists:ticket_replies,id',
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
+
+        if ($request->filled('reply_to_id')) {
+            $replyTo = TicketReply::where('ticket_id', $ticket->id)->find($request->integer('reply_to_id'));
+            if (!$replyTo) {
+                return response()->json([
+                    'message' => 'Invalid reply target.',
+                ], 422);
+            }
+        }
 
         $reply = TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
+            'reply_to_id' => $request->integer('reply_to_id') ?: null,
             'message' => $request->message,
             'is_internal' => false,
         ]);
@@ -130,7 +142,71 @@ class TicketController extends Controller
             $ticket->update(['status' => 'open']);
         }
 
-        return redirect()->back()->with('success', 'Reply added successfully!');
+        if ($request->expectsJson()) {
+            $reply->load(['attachments', 'replyTo']);
+
+            return response()->json([
+                'message' => 'Reply sent',
+                'reply' => $this->formatReplyForChat($reply),
+            ]);
+        }
+
+        return redirect()->back()->with([
+            'chat_success' => 'Reply sent',
+            'suppress_success_banner' => true,
+        ]);
+    }
+
+    public function updateReply(Request $request, Ticket $ticket, TicketReply $reply): JsonResponse
+    {
+        if ($ticket->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($reply->deleted_at) {
+            return response()->json(['message' => 'Deleted messages cannot be edited.'], 422);
+        }
+
+        $request->validate([
+            'message' => 'required|string',
+        ]);
+
+        $reply->update([
+            'message' => $request->string('message')->toString(),
+            'edited_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Message edited',
+            'reply' => $this->formatReplyForChat($reply->fresh(['attachments', 'replyTo'])),
+        ]);
+    }
+
+    public function deleteReply(Ticket $ticket, TicketReply $reply): JsonResponse
+    {
+        if ($ticket->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        if (!$reply->deleted_at) {
+            $reply->update([
+                'message' => 'This message was deleted.',
+                'deleted_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Message deleted',
+            'reply' => $this->formatReplyForChat($reply->fresh(['attachments', 'replyTo'])),
+        ]);
     }
 
     public function close(Request $request, Ticket $ticket)
@@ -175,5 +251,31 @@ class TicketController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Rating submitted successfully!');
+    }
+
+    private function formatReplyForChat(TicketReply $reply): array
+    {
+        return [
+            'id' => $reply->id,
+            'message' => $reply->message,
+            'created_at_iso' => optional($reply->created_at)->toIso8601String(),
+            'created_at_human' => optional($reply->created_at)->diffForHumans(),
+            'created_at_label' => optional($reply->created_at)?->format('g:i A'),
+            'from_support' => false,
+            'can_manage' => (bool) ($reply->user_id === auth()->id()),
+            'edited' => (bool) $reply->edited_at,
+            'deleted' => (bool) $reply->deleted_at,
+            'reply_to_id' => $reply->reply_to_id,
+            'reply_to_message' => $reply->replyTo?->message,
+            'reply_to_excerpt' => $reply->replyTo?->message,
+            'attachments' => $reply->attachments->map(function ($attachment) {
+                return [
+                    'download_url' => $attachment->download_url,
+                    'preview_url' => $attachment->preview_url,
+                    'original_filename' => $attachment->original_filename,
+                    'mime_type' => $attachment->mime_type,
+                ];
+            })->values(),
+        ];
     }
 }

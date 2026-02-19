@@ -118,9 +118,12 @@ class AuthController extends Controller
         $updateData = [
             'name' => $request->name,
             'email' => $request->email,
-            'phone' => $request->phone,
             'department' => $request->department,
         ];
+
+        if ($request->has('phone')) {
+            $updateData['phone'] = $request->phone;
+        }
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);

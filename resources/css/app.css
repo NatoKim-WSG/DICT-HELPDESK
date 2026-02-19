@@ -4,18 +4,15 @@
 
 @layer base {
     :root {
-        --app-bg: #eef4ff;
+        --app-bg: #f3f5f7;
         --app-ink: #0f172a;
-        --app-muted: #475569;
-        --app-panel: rgba(255, 255, 255, 0.85);
+        --app-muted: #64748b;
+        --app-panel: #ffffff;
     }
 
     body {
+        @apply bg-[#f3f5f7] text-slate-900;
         color: var(--app-ink);
-        background:
-            radial-gradient(circle at 12% 10%, rgba(37, 99, 235, 0.18), transparent 28%),
-            radial-gradient(circle at 82% 0%, rgba(6, 182, 212, 0.16), transparent 32%),
-            linear-gradient(180deg, #f7fbff 0%, var(--app-bg) 56%, #f6f8fc 100%);
     }
 
     h1,
@@ -36,27 +33,27 @@
 
 @layer components {
     .btn {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-ione-blue-400 focus:ring-offset-2 focus:ring-offset-transparent;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent;
     }
 
     .btn-primary {
-        @apply btn border-ione-blue-700/30 bg-gradient-to-r from-ione-blue-700 to-sky-500 text-white shadow-glow hover:brightness-105;
+        @apply btn bg-[#033b3d] text-white hover:brightness-95;
     }
 
     .btn-secondary {
-        @apply btn border-slate-200 bg-white/95 text-slate-700 hover:bg-slate-50;
+        @apply btn border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
     }
 
     .btn-danger {
-        @apply btn border-red-700/20 bg-gradient-to-r from-red-600 to-rose-500 text-white hover:brightness-105;
+        @apply btn bg-rose-500 text-white hover:brightness-95;
     }
 
     .btn-success {
-        @apply btn border-emerald-700/20 bg-gradient-to-r from-emerald-600 to-teal-500 text-white hover:brightness-105;
+        @apply btn bg-emerald-600 text-white hover:brightness-95;
     }
 
     .panel {
-        @apply rounded-2xl border border-white/70 bg-white/90 shadow-lg shadow-slate-200/60 backdrop-blur;
+        @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
     }
 
     .card {
@@ -72,7 +69,7 @@
     }
 
     .form-input {
-        @apply mt-1 block w-full rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-ione-blue-400 focus:ring-2 focus:ring-ione-blue-200;
+        @apply mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:ring-2 focus:ring-[#0f8d88]/20;
     }
 
     .form-label {
@@ -84,7 +81,7 @@
     }
 
     .stat-card {
-        @apply panel p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-slate-300/40;
+        @apply panel p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md;
     }
 
     .app-shell {
@@ -98,8 +95,6 @@
     }
 
     .hero-glow {
-        background:
-            radial-gradient(circle at right top, rgba(56, 189, 248, 0.2), transparent 45%),
-            linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(15, 118, 110, 0.06));
+        background: linear-gradient(120deg, rgba(15, 141, 136, 0.08), rgba(255, 47, 136, 0.06));
     }
 }
