@@ -3,10 +3,17 @@
         <div class="flex h-20 items-center justify-between gap-4">
             <div class="flex min-w-0 items-center gap-5">
                 <a href="{{ auth()->user()->canManageTickets() ? route('admin.dashboard') : route('client.dashboard') }}" class="group flex min-w-0 items-center gap-3">
-                    <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-9 w-auto transition duration-300 group-hover:scale-105">
-                    <span class="hidden truncate font-display text-xl font-semibold text-ione-blue-700 sm:block">
-                        DICT | iOne Resources
-                    </span>
+                    @if(auth()->user()->canManageTickets())
+                        <img src="{{ Vite::asset('resources/Pictures/ionelogo.png') }}" alt="iOne Resources Inc. Logo" class="h-9 w-auto transition duration-300 group-hover:scale-105">
+                        <span class="hidden truncate font-display text-xl font-semibold text-ione-blue-700 sm:block">
+                            iOne Resources Inc.
+                        </span>
+                    @else
+                        <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-9 w-auto transition duration-300 group-hover:scale-105">
+                        <span class="hidden truncate font-display text-xl font-semibold text-ione-blue-700 sm:block">
+                            DICT | iOne Resources
+                        </span>
+                    @endif
                 </a>
 
                 <div class="hidden items-center gap-1 md:flex">

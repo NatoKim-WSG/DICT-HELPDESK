@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit User - iOne Resources Ticketing')
+@section('title', 'Edit User - iOne Resources Inc.')
 
 @section('content')
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">

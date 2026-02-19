@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Admin Dashboard - DICT | iOne Resources Ticketing')
+@section('title', 'Admin Dashboard - iOne Resources Inc.')
 
 @section('content')
 <div class="app-shell mx-auto">
