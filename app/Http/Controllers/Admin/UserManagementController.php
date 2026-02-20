@@ -12,10 +12,12 @@ class UserManagementController extends Controller
 {
     public function index(Request $request)
     {
+        $currentUser = auth()->user();
         $query = User::query();
 
-        if (!auth()->user()->isSuperAdmin()) {
-            $query->whereNot('id', auth()->id());
+        if (!$currentUser->isSuperAdmin()) {
+            $query->where('id', '!=', $currentUser->id)
+                ->whereIn('role', $this->manageableRolesForAdmin());
         }
 
         if ($request->filled('role') && $request->role !== 'all') {
@@ -51,12 +53,9 @@ class UserManagementController extends Controller
             ->orderBy('department')
             ->pluck('department');
 
-        $availableRolesFilter = [
-            User::ROLE_SUPER_ADMIN,
-            User::ROLE_ADMIN,
-            User::ROLE_TECHNICIAN,
-            User::ROLE_CLIENT,
-        ];
+        $availableRolesFilter = $currentUser->isSuperAdmin()
+            ? [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN, User::ROLE_CLIENT]
+            : [User::ROLE_TECHNICIAN, User::ROLE_CLIENT];
 
         return view('admin.users.index', compact('users', 'departments', 'availableRolesFilter'));
     }

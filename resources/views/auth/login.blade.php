@@ -67,10 +67,7 @@
                 </form>
 
                 <p class="mt-6 text-center text-sm text-slate-600">
-                    Don't have an account?
-                    <a href="{{ route('register') }}" class="font-semibold text-ione-blue-600 hover:text-ione-blue-700">
-                        Register here
-                    </a>
+                    Account access is managed by your system administrator.
                 </p>
             </div>
         </div>

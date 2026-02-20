@@ -74,8 +74,8 @@
     </form>
 
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-        <div class="overflow-x-hidden">
-            <table class="w-full table-fixed divide-y divide-gray-200">
+        <div class="overflow-x-auto">
+            <table class="min-w-[980px] w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -100,6 +100,20 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($users as $user)
+                        @php
+                            $currentUser = auth()->user();
+                            $canEdit = $currentUser->isSuperAdmin()
+                                || (($user->isClient() || $user->isTechnician()) && $user->id !== $currentUser->id);
+                            $canDelete = false;
+
+                            if ($user->id !== $currentUser->id && !$user->isSuperAdmin()) {
+                                if ($currentUser->isSuperAdmin()) {
+                                    $canDelete = true;
+                                } elseif ($currentUser->isAdmin() && ($user->isClient() || $user->isTechnician())) {
+                                    $canDelete = true;
+                                }
+                            }
+                        @endphp
                         <tr>
                             <td class="px-6 py-4 align-top">
                                 <div class="flex items-center">
@@ -133,11 +147,17 @@
                                 {{ $user->department ?? '-' }}
                             </td>
                             <td class="px-6 py-4 align-top">
-                                <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }})"
-                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer
-                                        {{ $user->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ $user->is_active ? 'Active' : 'Inactive' }}
-                                </button>
+                                @if($canDelete)
+                                    <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }})"
+                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer
+                                            {{ $user->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                        {{ $user->is_active ? 'Active' : 'Inactive' }}
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $user->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                        {{ $user->is_active ? 'Active' : 'Inactive' }}
+                                    </span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 align-top text-sm text-gray-500">
                                 {{ $user->created_at->format('M d, Y') }}
@@ -148,7 +168,7 @@
                                        class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-900">
                                         View
                                     </a>
-                                    @if(auth()->user()->isSuperAdmin() || $user->isClient())
+                                    @if($canEdit)
                                         <a href="{{ route('admin.users.edit', $user) }}"
                                            class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-600 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-900">
                                             Edit
@@ -158,7 +178,7 @@
                                             Restricted
                                         </span>
                                     @endif
-                                    @if(($user->isClient() || $user->isTechnician()) && (auth()->user()->isSuperAdmin() || auth()->user()->isAdmin()))
+                                    @if($canDelete)
                                         <button type="button"
                                                 class="delete-user-btn inline-flex cursor-pointer items-center rounded-md px-2.5 py-1 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900"
                                                 data-user-id="{{ $user->id }}"
@@ -166,27 +186,19 @@
                                                 title="Delete {{ $user->name }}">
                                             Delete
                                         </button>
-                                    @elseif($user->isAdmin() && auth()->user()->isSuperAdmin() && $user->id !== auth()->id())
-                                        <button type="button"
-                                                class="delete-user-btn inline-flex cursor-pointer items-center rounded-md px-2.5 py-1 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900"
-                                                data-user-id="{{ $user->id }}"
-                                                data-user-name="{{ $user->name }}"
-                                                title="Delete {{ $user->name }}">
-                                            Delete
-                                        </button>
-                                    @elseif($user->isSuperAdmin() && $user->id !== auth()->id())
+                                    @elseif($user->isSuperAdmin() && $user->id !== $currentUser->id)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
-                                    @elseif($user->id === auth()->id() && !$user->isSuperAdmin())
+                                    @elseif($user->id === $currentUser->id && !$user->isSuperAdmin())
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             You
                                         </span>
-                                    @elseif($user->id === auth()->id() && $user->isSuperAdmin())
+                                    @elseif($user->id === $currentUser->id && $user->isSuperAdmin())
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-400">
                                             Super Admin
                                         </span>
-                                    @elseif(($user->isAdmin() || $user->isSuperAdmin()) && !auth()->user()->isSuperAdmin())
+                                    @elseif(($user->isAdmin() || $user->isSuperAdmin()) && !$currentUser->isSuperAdmin())
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>

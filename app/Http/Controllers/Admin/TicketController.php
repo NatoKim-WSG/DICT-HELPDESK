@@ -38,6 +38,20 @@ class TicketController extends Controller
             'BARMM',
         ];
 
+        $accountOptions = Ticket::query()
+            ->join('users', 'tickets.user_id', '=', 'users.id')
+            ->whereNotNull('users.department')
+            ->where('users.department', '!=', '')
+            ->distinct()
+            ->orderBy('users.department')
+            ->pluck('users.department')
+            ->values();
+
+        if (!$accountOptions->contains('DICT-R6')) {
+            $accountOptions->push('DICT-R6');
+            $accountOptions = $accountOptions->sort()->values();
+        }
+
         $activeTab = $request->string('tab')->toString();
         if (!in_array($activeTab, ['tickets', 'scheduled', 'history'], true)) {
             $activeTab = 'tickets';
@@ -80,6 +94,13 @@ class TicketController extends Controller
             });
         }
 
+        if ($request->filled('account') && $request->account !== 'all') {
+            $selectedAccount = strtolower(trim((string) $request->account));
+            $query->whereHas('user', function ($userQuery) use ($selectedAccount) {
+                $userQuery->whereRaw('LOWER(COALESCE(department, "")) LIKE ?', ['%' . $selectedAccount . '%']);
+            });
+        }
+
         $query->when($request->filled('search'), function ($builder) use ($request) {
             $search = $request->string('search')->toString();
             $builder->where(function ($q) use ($search) {
@@ -99,7 +120,7 @@ class TicketController extends Controller
             ->where('is_active', true)
             ->get();
 
-        return view('admin.tickets.index', compact('tickets', 'categories', 'agents', 'regions', 'activeTab'));
+        return view('admin.tickets.index', compact('tickets', 'categories', 'agents', 'regions', 'accountOptions', 'activeTab'));
     }
 
     public function show(Ticket $ticket)

@@ -24,8 +24,8 @@
                     $isIoneClient = $isClient && str_contains($department, 'ione');
                     $clientCompanyName = $isIoneClient ? 'iOne Resources' : 'DICT';
                     $clientCompanyLogo = $isIoneClient
-                        ? Vite::asset('resources/Pictures/ionelogo.png')
-                        : Vite::asset('resources/Pictures/DICTLogo.png');
+                        ? asset('images/ione-logo.png')
+                        : asset('images/DICT-logo.png');
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
                 @endphp
@@ -94,7 +94,7 @@
                                 x-show="notificationOpen"
                                 @click.away="notificationOpen = false"
                                 x-transition
-                                class="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                                class="absolute right-0 z-40 mt-2 w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
                             >
                                 <div class="border-b border-slate-200 px-4 py-3">
                                     <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
@@ -102,11 +102,24 @@
                                 @if($notificationCount > 0)
                                     <div class="max-h-72 overflow-y-auto">
                                         @foreach($notifications as $notification)
-                                            <a href="{{ $notification['url'] }}" class="block border-b border-slate-100 px-4 py-3 hover:bg-slate-50">
-                                                <p class="text-sm font-semibold text-slate-900">{{ $notification['title'] }}</p>
-                                                <p class="mt-0.5 truncate text-sm text-slate-600">{{ $notification['meta'] }}</p>
-                                                <p class="mt-1 text-xs text-slate-400">{{ $notification['time'] }}</p>
-                                            </a>
+                                            <div class="flex items-start gap-2 border-b border-slate-100 px-2 py-1 hover:bg-slate-50">
+                                                <a href="{{ $notification['url'] }}" class="block min-w-0 flex-1 px-2 py-2">
+                                                    <p class="text-sm font-semibold text-slate-900">{{ $notification['title'] }}</p>
+                                                    <p class="mt-0.5 truncate text-sm text-slate-600">{{ $notification['meta'] }}</p>
+                                                    <p class="mt-1 text-xs text-slate-400">{{ $notification['time'] }}</p>
+                                                </a>
+                                                @if(!empty($notification['can_dismiss']) && !empty($notification['dismiss_url']) && !empty($notification['key']))
+                                                    <form method="POST" action="{{ $notification['dismiss_url'] }}" class="pt-2">
+                                                        @csrf
+                                                        <input type="hidden" name="notification_key" value="{{ $notification['key'] }}">
+                                                        <button type="submit" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Dismiss notification">
+                                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            </div>
                                         @endforeach
                                     </div>
                                 @else

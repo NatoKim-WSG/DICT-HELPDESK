@@ -55,15 +55,52 @@
                         @enderror
                     </div>
 
-                    <div>
-                        <label for="contact_number" class="form-label">Contact Number <span class="text-red-600">*</span></label>
-                        <input type="text" name="contact_number" id="contact_number" required
-                               class="form-input @error('contact_number') border-red-500 @enderror"
-                               value="{{ old('contact_number', auth()->user()->phone) }}"
-                               placeholder="e.g. 09123456789">
-                        @error('contact_number')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <label for="contact_number" class="form-label">Contact Number <span class="text-red-600">*</span></label>
+                            <input type="text" name="contact_number" id="contact_number" required
+                                   class="form-input @error('contact_number') border-red-500 @enderror"
+                                   value="{{ old('contact_number', auth()->user()->phone) }}"
+                                   placeholder="e.g. 09123456789">
+                            @error('contact_number')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="email" class="form-label">Email <span class="text-red-600">*</span></label>
+                            <input type="email" name="email" id="email" required
+                                   class="form-input @error('email') border-red-500 @enderror"
+                                   value="{{ old('email', auth()->user()->email) }}"
+                                   placeholder="you@example.com">
+                            @error('email')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <label for="province" class="form-label">Province <span class="text-red-600">*</span></label>
+                            <input type="text" name="province" id="province" required
+                                   class="form-input @error('province') border-red-500 @enderror"
+                                   value="{{ old('province') }}"
+                                   placeholder="e.g. Iloilo">
+                            @error('province')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="municipality" class="form-label">Municipality / City <span class="text-red-600">*</span></label>
+                            <input type="text" name="municipality" id="municipality" required
+                                   class="form-input @error('municipality') border-red-500 @enderror"
+                                   value="{{ old('municipality') }}"
+                                   placeholder="e.g. Iloilo City">
+                            @error('municipality')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
                     <div>

@@ -30,33 +30,51 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
+            $dismissedNotifications = collect(session('dismissed_notifications', []));
+
             if (!$user->canAccessAdminTickets()) {
                 $notifications = Ticket::where('user_id', $user->id)
                     ->latest('updated_at')
-                    ->take(5)
+                    ->take(12)
                     ->get()
                     ->map(function ($ticket) {
+                        $key = 'client-ticket-' . $ticket->id . '-' . optional($ticket->updated_at)->timestamp;
+
                         return [
                             'title' => 'Ticket update',
                             'meta' => $ticket->subject,
                             'time' => $ticket->updated_at->diffForHumans(),
-                            'url' => route('client.tickets.show', $ticket),
+                            'url' => route('client.tickets.show', $ticket) . '?notification_key=' . $key,
+                            'key' => $key,
+                            'can_dismiss' => false,
+                            'dismiss_url' => null,
                         ];
-                    });
+                    })
+                    ->reject(fn ($notification) => $dismissedNotifications->contains($notification['key']))
+                    ->take(5)
+                    ->values();
             } else {
                 $notifications = Ticket::with('user')
                     ->open()
-                    ->latest('created_at')
-                    ->take(5)
+                    ->latest('updated_at')
+                    ->take(20)
                     ->get()
                     ->map(function ($ticket) {
+                        $key = 'admin-ticket-' . $ticket->id . '-' . optional($ticket->updated_at)->timestamp;
+
                         return [
-                            'title' => 'New open ticket',
+                            'title' => 'Open ticket update',
                             'meta' => $ticket->subject . ' - ' . optional($ticket->user)->name,
-                            'time' => $ticket->created_at->diffForHumans(),
-                            'url' => route('admin.tickets.show', $ticket),
+                            'time' => $ticket->updated_at->diffForHumans(),
+                            'url' => route('admin.notifications.open', ['ticket' => $ticket, 'notification_key' => $key]),
+                            'key' => $key,
+                            'can_dismiss' => true,
+                            'dismiss_url' => route('admin.notifications.dismiss'),
                         ];
-                    });
+                    })
+                    ->reject(fn ($notification) => $dismissedNotifications->contains($notification['key']))
+                    ->take(5)
+                    ->values();
             }
 
             $view->with('headerNotifications', $notifications);

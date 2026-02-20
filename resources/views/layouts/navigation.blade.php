@@ -66,7 +66,7 @@
                     <span class="flex flex-col items-center text-center">
                         <span class="inline-flex items-center justify-center px-1 py-1">
                             <img
-                                src="{{ Vite::asset('resources/Pictures/ionelogo.png') }}"
+                                src="{{ asset('images/ione-logo.png') }}"
                                 alt="iOne Logo"
                                 class="h-14 w-auto"
                             >
@@ -77,7 +77,7 @@
                     <span class="flex flex-col items-center text-center">
                         <span class="inline-flex items-center justify-center gap-3 px-1 py-1">
                             <img
-                                src="{{ Vite::asset('resources/Pictures/DICTLogo.png') }}"
+                                src="{{ asset('images/DICT-logo.png') }}"
                                 alt="DICT Logo"
                                 class="h-12 w-auto"
                             >

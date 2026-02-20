@@ -50,7 +50,7 @@
                 </div>
             </div>
 
-            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-7">
+            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-8">
                 <input type="hidden" name="tab" value="{{ $tab }}">
                 <div class="xl:col-span-2">
                     <label for="search" class="sr-only">Search</label>
@@ -107,6 +107,18 @@
                         @foreach($regions as $region)
                             <option value="{{ $region }}" {{ request('region') === $region ? 'selected' : '' }}>
                                 {{ $region }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="account" class="sr-only">Account</label>
+                    <select id="account" name="account" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                        <option value="all">All accounts</option>
+                        @foreach($accountOptions as $account)
+                            <option value="{{ $account }}" {{ request('account') === $account ? 'selected' : '' }}>
+                                {{ $account }}
                             </option>
                         @endforeach
                     </select>

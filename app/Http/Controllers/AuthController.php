@@ -6,12 +6,15 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
     public function showLogin()
     {
+        if (Auth::check()) {
+            return redirect($this->dashboardPath(Auth::user()));
+        }
+
         return view('auth.login');
     }
 
@@ -28,15 +31,7 @@ class AuthController extends Controller
         )) {
             $request->session()->regenerate();
 
-            $user = Auth::user();
-
-            if ($user->canManageTickets()) {
-                return redirect()->intended('/admin/dashboard');
-            } elseif ($user->canAccessAdminTickets()) {
-                return redirect()->intended('/admin/tickets');
-            } else {
-                return redirect()->intended('/client/dashboard');
-            }
+            return redirect()->intended($this->dashboardPath(Auth::user()));
         }
 
         $inactiveAccount = User::where('email', $request->email)
@@ -52,41 +47,6 @@ class AuthController extends Controller
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
-    }
-
-    public function showRegister()
-    {
-        return view('auth.register');
-    }
-
-    public function register(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:100',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'department' => $request->department,
-            'password' => Hash::make($request->password),
-            'role' => 'client',
-        ]);
-
-        Auth::login($user);
-
-        return redirect('/client/dashboard');
     }
 
     public function logout(Request $request)
@@ -135,5 +95,18 @@ class AuthController extends Controller
 
         return redirect()->route('account.settings')
             ->with('success', 'Account settings updated successfully.');
+    }
+
+    private function dashboardPath(User $user): string
+    {
+        if ($user->canManageTickets()) {
+            return '/admin/dashboard';
+        }
+
+        if ($user->canAccessAdminTickets()) {
+            return '/admin/tickets';
+        }
+
+        return '/client/dashboard';
     }
 }

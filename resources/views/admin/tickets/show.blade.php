@@ -6,9 +6,9 @@
 @php
     $ticketOwnerDepartment = strtolower((string) data_get($ticket, 'user.department'));
     $clientCompanyLogo = str_contains($ticketOwnerDepartment, 'ione')
-        ? Vite::asset('resources/Pictures/ionelogo.png')
-        : Vite::asset('resources/Pictures/DICTLogo.png');
-    $supportCompanyLogo = Vite::asset('resources/Pictures/ionelogo.png');
+        ? asset('images/ione-logo.png')
+        : asset('images/DICT-logo.png');
+    $supportCompanyLogo = asset('images/ione-logo.png');
 @endphp
 <style>
 #admin-conversation-thread {
@@ -267,6 +267,18 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
                             <dd class="text-sm text-gray-900">{{ $ticket->contact_number ?? ($ticket->user->phone ?? 'Not provided') }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Email</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->email ?? $ticket->user->email }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Province</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->province ?? 'Not provided' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Municipality</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->municipality ?? 'Not provided' }}</dd>
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Category</dt>

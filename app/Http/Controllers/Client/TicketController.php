@@ -47,6 +47,9 @@ class TicketController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'contact_number' => 'required|string|max:30',
+            'email' => 'required|email|max:255',
+            'province' => 'required|string|max:120',
+            'municipality' => 'required|string|max:120',
             'subject' => 'required|string|max:255',
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
@@ -57,6 +60,9 @@ class TicketController extends Controller
         $ticketData = [
             'name' => $request->name,
             'contact_number' => $request->contact_number,
+            'email' => $request->email,
+            'province' => $request->province,
+            'municipality' => $request->municipality,
             'subject' => $request->subject,
             'description' => $request->description,
             'category_id' => $request->category_id,
