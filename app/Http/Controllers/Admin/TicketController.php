@@ -38,19 +38,11 @@ class TicketController extends Controller
             'BARMM',
         ];
 
-        $accountOptions = Ticket::query()
-            ->join('users', 'tickets.user_id', '=', 'users.id')
-            ->whereNotNull('users.department')
-            ->where('users.department', '!=', '')
-            ->distinct()
-            ->orderBy('users.department')
-            ->pluck('users.department')
+        $accountOptions = User::where('role', User::ROLE_CLIENT)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name')
             ->values();
-
-        if (!$accountOptions->contains('DICT-R6')) {
-            $accountOptions->push('DICT-R6');
-            $accountOptions = $accountOptions->sort()->values();
-        }
 
         $activeTab = $request->string('tab')->toString();
         if (!in_array($activeTab, ['tickets', 'scheduled', 'history'], true)) {
@@ -90,14 +82,14 @@ class TicketController extends Controller
         if ($request->region && $request->region !== 'all') {
             $selectedRegion = strtolower($request->region);
             $query->whereHas('user', function ($userQuery) use ($selectedRegion) {
-                $userQuery->whereRaw('LOWER(COALESCE(department, "")) LIKE ?', ['%' . $selectedRegion . '%']);
+                $userQuery->whereRaw("LOWER(COALESCE(department, '')) LIKE ?", ['%' . $selectedRegion . '%']);
             });
         }
 
         if ($request->filled('account') && $request->account !== 'all') {
             $selectedAccount = strtolower(trim((string) $request->account));
             $query->whereHas('user', function ($userQuery) use ($selectedAccount) {
-                $userQuery->whereRaw('LOWER(COALESCE(department, "")) LIKE ?', ['%' . $selectedAccount . '%']);
+                $userQuery->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%' . $selectedAccount . '%']);
             });
         }
 
@@ -466,7 +458,7 @@ class TicketController extends Controller
         ];
     }
 
-    private function assignableAgentRule(): Rule
+    private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists
     {
         return Rule::exists('users', 'id')->where(function ($query) {
             $query->whereIn('role', User::TICKET_CONSOLE_ROLES)

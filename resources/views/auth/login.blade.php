@@ -36,10 +36,10 @@
                     @csrf
 
                     <div>
-                        <label for="email" class="form-label">Email address</label>
-                        <input id="email" name="email" type="email" autocomplete="email" required
-                               class="form-input @error('email') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
-                               placeholder="you@company.com" value="{{ old('email') }}">
+                        <label for="login" class="form-label">Username / Email address</label>
+                        <input id="login" name="login" type="text" autocomplete="username" required
+                               class="form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
+                               placeholder="Username or email" value="{{ old('login') }}">
                     </div>
 
                     <div>

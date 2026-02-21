@@ -20,13 +20,16 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => 'required|email',
+        $request->validate([
+            'login' => 'required|string',
             'password' => 'required',
         ]);
 
+        $loginValue = $request->login;
+        $fieldName = str_contains($loginValue, '@') ? 'email' : 'name';
+
         if (Auth::attempt(
-            array_merge($credentials, ['is_active' => true]),
+            [$fieldName => $loginValue, 'password' => $request->password, 'is_active' => true],
             $request->filled('remember')
         )) {
             $request->session()->regenerate();
@@ -34,19 +37,19 @@ class AuthController extends Controller
             return redirect()->intended($this->dashboardPath(Auth::user()));
         }
 
-        $inactiveAccount = User::where('email', $request->email)
+        $inactiveAccount = User::where($fieldName, $loginValue)
             ->where('is_active', false)
             ->exists();
 
         if ($inactiveAccount) {
             return back()->withErrors([
-                'email' => 'Your account is inactive. Please contact an administrator.',
-            ])->onlyInput('email');
+                'login' => 'Your account is inactive. Please contact an administrator.',
+            ])->onlyInput('login');
         }
 
         return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
-        ])->onlyInput('email');
+            'login' => 'The provided credentials do not match our records.',
+        ])->onlyInput('login');
     }
 
     public function logout(Request $request)

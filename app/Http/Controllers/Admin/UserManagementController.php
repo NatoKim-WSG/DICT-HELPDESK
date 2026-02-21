@@ -75,7 +75,7 @@ class UserManagementController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'nullable|email|unique:users,email|max:255',
             'phone' => 'nullable|string|max:20',
             'department' => 'nullable|string|max:255',
             'role' => ['required', Rule::in($availableRoles)],
