@@ -11,18 +11,23 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const ROLE_CLIENT = 'client';
-    public const ROLE_TECHNICIAN = 'technician';
     public const ROLE_ADMIN = 'admin';
+    public const ROLE_TECHNICIAN = 'technician';
+    public const ROLE_TECHNICAL = 'technical';
+    public const ROLE_SUPER_USER = 'super_user';
     public const ROLE_SUPER_ADMIN = 'super_admin';
 
     public const TICKET_CONSOLE_ROLES = [
         self::ROLE_ADMIN,
-        self::ROLE_SUPER_ADMIN,
         self::ROLE_TECHNICIAN,
+        self::ROLE_SUPER_USER,
+        self::ROLE_SUPER_ADMIN,
+        self::ROLE_TECHNICAL,
     ];
 
     public const ADMIN_LEVEL_ROLES = [
         self::ROLE_ADMIN,
+        self::ROLE_SUPER_USER,
         self::ROLE_SUPER_ADMIN,
     ];
 
@@ -67,7 +72,7 @@ class User extends Authenticatable
 
     public function isAdmin()
     {
-        return $this->role === self::ROLE_ADMIN;
+        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
     }
 
     public function isSuperAdmin()
@@ -82,7 +87,7 @@ class User extends Authenticatable
 
     public function isTechnician()
     {
-        return $this->role === self::ROLE_TECHNICIAN;
+        return $this->normalizedRole() === self::ROLE_TECHNICAL;
     }
 
     public function canAccessAdminTickets()
@@ -102,11 +107,25 @@ class User extends Authenticatable
 
     public function canCreateAdmins()
     {
-        return $this->role === self::ROLE_SUPER_ADMIN;
+        return $this->normalizedRole() === self::ROLE_SUPER_ADMIN;
     }
 
     public function isAdminLevel()
     {
-        return in_array($this->role, self::ADMIN_LEVEL_ROLES, true);
+        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
+    }
+
+    public function normalizedRole(): string
+    {
+        return self::normalizeRole($this->role);
+    }
+
+    public static function normalizeRole(?string $role): string
+    {
+        return match ($role) {
+            self::ROLE_ADMIN => self::ROLE_SUPER_USER,
+            self::ROLE_TECHNICIAN => self::ROLE_TECHNICAL,
+            default => (string) $role,
+        };
     }
 }

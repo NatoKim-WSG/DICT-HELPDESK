@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -58,10 +59,12 @@ class UserManagementController extends Controller
             ->orderByRaw("
                 CASE role
                     WHEN 'super_admin' THEN 1
+                    WHEN 'super_user' THEN 2
                     WHEN 'admin' THEN 2
+                    WHEN 'technical' THEN 3
                     WHEN 'technician' THEN 3
                     WHEN 'client' THEN 4
-                    ELSE 5
+                    ELSE 6
                 END
             ")
             ->orderBy('created_at', 'desc')
@@ -79,7 +82,7 @@ class UserManagementController extends Controller
         $segmentTitle = $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts';
         $segmentDescription = $segment === 'clients'
             ? 'Manage client accounts separately from internal staff.'
-            : 'Manage internal admin and technician accounts.';
+            : 'Manage internal super user and technical accounts.';
 
         return view('admin.users.index', compact(
             'users',
@@ -116,16 +119,34 @@ class UserManagementController extends Controller
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
+        $persistedRole = $this->normalizeRoleForPersistence($role);
 
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'department' => $department,
-            'role' => $role,
-            'password' => Hash::make($request->password),
-            'is_active' => true,
-        ]);
+        try {
+            User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'department' => $department,
+                'role' => $persistedRole,
+                'password' => Hash::make($request->password),
+                'is_active' => true,
+            ]);
+        } catch (QueryException $exception) {
+            $fallbackRole = $this->legacyFallbackRole($persistedRole);
+            if (!$fallbackRole) {
+                throw $exception;
+            }
+
+            User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'department' => $department,
+                'role' => $fallbackRole,
+                'password' => Hash::make($request->password),
+                'is_active' => true,
+            ]);
+        }
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User created successfully.');
@@ -191,13 +212,14 @@ class UserManagementController extends Controller
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
+        $persistedRole = $this->normalizeRoleForPersistence($role);
 
         $updateData = [
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
             'department' => $department,
-            'role' => $role,
+            'role' => $persistedRole,
             'is_active' => $request->boolean('is_active'),
         ];
 
@@ -205,7 +227,17 @@ class UserManagementController extends Controller
             $updateData['password'] = Hash::make($request->password);
         }
 
-        $user->update($updateData);
+        try {
+            $user->update($updateData);
+        } catch (QueryException $exception) {
+            $fallbackRole = $this->legacyFallbackRole($persistedRole);
+            if (!$fallbackRole) {
+                throw $exception;
+            }
+
+            $updateData['role'] = $fallbackRole;
+            $user->update($updateData);
+        }
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
@@ -266,10 +298,10 @@ class UserManagementController extends Controller
 
     private function availableRolesFor(User $currentUser): array
     {
-        $roles = [User::ROLE_CLIENT, User::ROLE_TECHNICIAN];
+        $roles = [User::ROLE_CLIENT, User::ROLE_TECHNICAL];
 
         if ($currentUser->isSuperAdmin()) {
-            $roles[] = User::ROLE_ADMIN;
+            $roles[] = User::ROLE_SUPER_USER;
         }
 
         return $roles;
@@ -277,7 +309,7 @@ class UserManagementController extends Controller
 
     private function manageableRolesForAdmin(): array
     {
-        return [User::ROLE_CLIENT, User::ROLE_TECHNICIAN];
+        return [User::ROLE_CLIENT, User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN];
     }
 
     private function applyVisibilityScope($query, User $currentUser): void
@@ -296,11 +328,17 @@ class UserManagementController extends Controller
         }
 
         if ($currentUser->isSuperAdmin()) {
-            $query->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN]);
+            $query->whereIn('role', [
+                User::ROLE_SUPER_ADMIN,
+                User::ROLE_SUPER_USER,
+                User::ROLE_ADMIN,
+                User::ROLE_TECHNICAL,
+                User::ROLE_TECHNICIAN,
+            ]);
             return;
         }
 
-        $query->where('role', User::ROLE_TECHNICIAN);
+        $query->whereIn('role', [User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN]);
     }
 
     private function availableRolesFilterForSegment(string $segment, User $currentUser): array
@@ -310,10 +348,16 @@ class UserManagementController extends Controller
         }
 
         if ($currentUser->isSuperAdmin()) {
-            return [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN];
+            return [
+                User::ROLE_SUPER_ADMIN,
+                User::ROLE_SUPER_USER,
+                User::ROLE_ADMIN,
+                User::ROLE_TECHNICAL,
+                User::ROLE_TECHNICIAN,
+            ];
         }
 
-        return [User::ROLE_TECHNICIAN];
+        return [User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN];
     }
 
     private function allowedDepartments(): array
@@ -323,10 +367,26 @@ class UserManagementController extends Controller
 
     private function departmentForRole(string $role, string $department): string
     {
-        if (in_array($role, [User::ROLE_ADMIN, User::ROLE_TECHNICIAN, User::ROLE_SUPER_ADMIN], true)) {
+        $normalizedRole = User::normalizeRole($role);
+
+        if (in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL, User::ROLE_SUPER_ADMIN], true)) {
             return 'iOne';
         }
 
         return $department;
+    }
+
+    private function normalizeRoleForPersistence(string $role): string
+    {
+        return User::normalizeRole($role);
+    }
+
+    private function legacyFallbackRole(string $role): ?string
+    {
+        return match (User::normalizeRole($role)) {
+            User::ROLE_SUPER_USER => User::ROLE_ADMIN,
+            User::ROLE_TECHNICAL => User::ROLE_TECHNICIAN,
+            default => null,
+        };
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +26,10 @@ class RoleMiddleware
             return $next($request);
         }
 
-        if (in_array($user->role, $roles, true)) {
+        $normalizedCurrentRole = User::normalizeRole($user->role);
+        $normalizedAllowedRoles = array_map(static fn (string $role): string => User::normalizeRole($role), $roles);
+
+        if (in_array($normalizedCurrentRole, $normalizedAllowedRoles, true)) {
             return $next($request);
         }
 
