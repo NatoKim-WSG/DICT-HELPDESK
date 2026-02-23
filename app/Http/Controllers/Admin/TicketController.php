@@ -45,7 +45,10 @@ class TicketController extends Controller
             ->values();
 
         $activeTab = $request->string('tab')->toString();
-        if (!in_array($activeTab, ['tickets', 'scheduled', 'history'], true)) {
+        if ($activeTab === 'scheduled') {
+            $activeTab = 'attention';
+        }
+        if (!in_array($activeTab, ['tickets', 'attention', 'history'], true)) {
             $activeTab = 'tickets';
         }
 
@@ -53,9 +56,9 @@ class TicketController extends Controller
 
         if ($activeTab === 'history') {
             $query->whereIn('status', Ticket::CLOSED_STATUSES);
-        } elseif ($activeTab === 'scheduled') {
-            $query->whereNotNull('due_date')
-                ->where('due_date', '>=', now());
+        } elseif ($activeTab === 'attention') {
+            $query->whereNotIn('status', Ticket::CLOSED_STATUSES)
+                ->where('created_at', '<=', now()->subHours(16));
         } else {
             $query->whereNotIn('status', Ticket::CLOSED_STATUSES);
         }
@@ -378,7 +381,7 @@ class TicketController extends Controller
 
         if ($action === 'assign') {
             if (!$request->filled('assigned_to')) {
-                return redirect()->back()->with('error', 'Please choose a technician.');
+                return redirect()->back()->with('error', 'Please choose a technical user.');
             }
 
             Ticket::whereIn('id', $selectedIds)->update(['assigned_to' => $request->integer('assigned_to')]);

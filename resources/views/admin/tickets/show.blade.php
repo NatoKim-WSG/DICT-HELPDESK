@@ -337,7 +337,7 @@
                         <div>
                             <label for="assigned_to" class="form-label">Assign To</label>
                             <select name="assigned_to" id="assigned_to" class="form-input">
-                                <option value="">Select Admin</option>
+                                <option value="">Select Support User</option>
                                 @foreach($agents as $agent)
                                     <option value="{{ $agent->id }}"
                                             {{ $ticket->assigned_to == $agent->id ? 'selected' : '' }}>

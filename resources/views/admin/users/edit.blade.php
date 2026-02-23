@@ -176,14 +176,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const syncDepartmentByRole = function () {
         const role = roleSelect.value;
-        const isInternal = role === 'admin' || role === 'technician' || role === 'super_admin';
+        const isInternal = role === 'super_user' || role === 'technical' || role === 'super_admin';
 
         if (isInternal) {
             departmentSelect.value = 'iOne';
             departmentSelect.disabled = true;
             departmentHidden.value = 'iOne';
             departmentHidden.disabled = false;
-            hint.textContent = 'Internal users (Admin/Technician) are automatically assigned to iOne.';
+            hint.textContent = 'Internal users (Super User/Technical) are automatically assigned to iOne.';
             return;
         }
 

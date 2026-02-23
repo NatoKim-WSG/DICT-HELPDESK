@@ -16,7 +16,7 @@ class TicketRepliesFeedVisibilityTest extends TestCase
 
     public function test_client_replies_feed_excludes_internal_replies(): void
     {
-        [$client, $admin, $ticket] = $this->seedTicketWithUsers();
+        [$client, $superUser, $ticket] = $this->seedTicketWithUsers();
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
@@ -27,15 +27,15 @@ class TicketRepliesFeedVisibilityTest extends TestCase
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
-            'user_id' => $admin->id,
-            'message' => 'Internal admin note',
+            'user_id' => $superUser->id,
+            'message' => 'Internal support note',
             'is_internal' => true,
         ]);
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
-            'user_id' => $admin->id,
-            'message' => 'Public admin reply',
+            'user_id' => $superUser->id,
+            'message' => 'Public support reply',
             'is_internal' => false,
         ]);
 
@@ -48,14 +48,14 @@ class TicketRepliesFeedVisibilityTest extends TestCase
         $this->assertTrue(collect($replies)->contains(fn (array $reply) => $reply['from_support'] === true));
     }
 
-    public function test_admin_replies_feed_includes_internal_replies(): void
+    public function test_super_user_replies_feed_includes_internal_replies(): void
     {
-        [$client, $admin, $ticket] = $this->seedTicketWithUsers();
+        [$client, $superUser, $ticket] = $this->seedTicketWithUsers();
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
-            'user_id' => $admin->id,
-            'message' => 'Internal admin note',
+            'user_id' => $superUser->id,
+            'message' => 'Internal support note',
             'is_internal' => true,
         ]);
 
@@ -66,7 +66,7 @@ class TicketRepliesFeedVisibilityTest extends TestCase
             'is_internal' => false,
         ]);
 
-        $response = $this->actingAs($admin)->getJson(route('admin.tickets.replies.feed', $ticket));
+        $response = $this->actingAs($superUser)->getJson(route('admin.tickets.replies.feed', $ticket));
         $response->assertOk();
 
         $replies = $response->json('replies');
@@ -86,12 +86,12 @@ class TicketRepliesFeedVisibilityTest extends TestCase
             'is_active' => true,
         ]);
 
-        $admin = User::create([
-            'name' => 'Admin User',
-            'email' => 'admin-feed@example.com',
+        $superUser = User::create([
+            'name' => 'Super User',
+            'email' => 'super-user-feed@example.com',
             'phone' => '09123451111',
             'department' => 'iOne',
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_USER,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);
@@ -117,6 +117,6 @@ class TicketRepliesFeedVisibilityTest extends TestCase
             'category_id' => $category->id,
         ]);
 
-        return [$client, $admin, $ticket];
+        return [$client, $superUser, $ticket];
     }
 }

@@ -13,7 +13,7 @@ class TicketSeeder extends Seeder
     public function run(): void
     {
         $clients = User::where('role', 'client')->get();
-        $agents = User::whereIn('role', ['admin', 'super_admin', 'technician'])
+        $agents = User::whereIn('role', ['super_user', 'super_admin', 'technical'])
             ->where('is_active', true)
             ->get();
         $categories = Category::all();

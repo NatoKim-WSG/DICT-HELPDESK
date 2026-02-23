@@ -19,7 +19,7 @@
                 @php
                     $user = auth()->user();
                     $isClient = !$user->canAccessAdminTickets();
-                    $isAdmin = $user->canManageTickets();
+                    $canManageConsole = $user->canManageTickets();
                     $departmentRaw = strtolower(trim((string) $user->department));
                     $departmentKey = 'dict';
                     if (str_contains($departmentRaw, 'ione')) {
@@ -94,7 +94,7 @@
 
                         @if($user->canAccessAdminTickets())
                             <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 md:inline-flex">
-                                {{ $isAdmin ? 'Admin Console' : 'Technician Console' }}
+                                {{ $canManageConsole ? 'Super User Console' : 'Technical Console' }}
                             </span>
                         @endif
 

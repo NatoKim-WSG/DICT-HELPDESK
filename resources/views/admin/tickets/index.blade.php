@@ -9,7 +9,7 @@
     $viewedTicketIds = array_map('intval', session('admin_viewed_ticket_ids', []));
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'assigned_to', 'status', 'priority']);
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
-    $tabScheduledUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'scheduled']));
+    $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
 @endphp
 <div class="mx-auto max-w-[1460px]">
@@ -22,7 +22,7 @@
             <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200">
                 <div class="flex items-center gap-7">
                     <a href="{{ $tabTicketsUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'tickets' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Tickets</a>
-                    <a href="{{ $tabScheduledUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'scheduled' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Scheduled Tickets</a>
+                    <a href="{{ $tabAttentionUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Aging (16h+)</a>
                     <a href="{{ $tabHistoryUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'history' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">History</a>
                 </div>
 
@@ -90,7 +90,7 @@
                 <div>
                     <label for="assigned_to" class="sr-only">Assigned To</label>
                     <select id="assigned_to" name="assigned_to" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All technicians</option>
+                        <option value="all">All technical users</option>
                         <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
                         @foreach($agents as $agent)
                             <option value="{{ $agent->id }}" {{ request('assigned_to') == $agent->id ? 'selected' : '' }}>
@@ -139,7 +139,7 @@
                             <input id="select-all-tickets" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-[#0f8d88] focus:ring-[#0f8d88]/30">
                         </th>
                         <th class="px-6 py-4">Details</th>
-                        <th class="px-6 py-4">Assigned Technician</th>
+                        <th class="px-6 py-4">Assigned Technical</th>
                         <th class="px-6 py-4">Priority</th>
                         @if($isHistoryTab)
                             <th class="px-6 py-4">Completed At</th>
@@ -267,13 +267,13 @@
     <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
         <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
-                <h3 class="text-base font-semibold text-slate-900">Assign Technician</h3>
+                <h3 class="text-base font-semibold text-slate-900">Assign Technical User</h3>
                 <p id="assign-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
             </div>
             <form id="assign-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                 @csrf
                 <div>
-                    <label for="assign-modal-select" class="form-label">Technician</label>
+                    <label for="assign-modal-select" class="form-label">Technical User</label>
                     <select id="assign-modal-select" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
                         @foreach($agents as $agent)
@@ -301,7 +301,7 @@
             <form id="edit-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                 @csrf
                 <div>
-                    <label for="edit-modal-assigned" class="form-label">Technician</label>
+                    <label for="edit-modal-assigned" class="form-label">Technical User</label>
                     <select id="edit-modal-assigned" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
                         @foreach($agents as $agent)

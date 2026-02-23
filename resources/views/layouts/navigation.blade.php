@@ -1,7 +1,7 @@
 @php
     $user = auth()->user();
     $isTicketConsole = $user->canAccessAdminTickets();
-    $isAdmin = $user->canManageTickets();
+    $canManageConsole = $user->canManageTickets();
     $isClient = !$isTicketConsole;
     $departmentRaw = strtolower(trim((string) $user->department));
     $departmentKey = 'dict';
@@ -36,12 +36,12 @@
 
     if ($isTicketConsole) {
         $menuItems = [
+            ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false],
             ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
             ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
         ];
 
-        if ($isAdmin) {
-            array_unshift($menuItems, ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false]);
+        if ($canManageConsole) {
             $menuItems[] = ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false];
         }
     } else {
@@ -82,12 +82,12 @@
     <div class="flex h-full flex-col">
         <div @class([
             'relative flex items-center border-b border-[#0d5053] px-5',
-            'h-24' => $isAdmin,
+            'h-24' => $canManageConsole,
             'h-28' => $isClient,
-            'justify-center' => $isAdmin,
+            'justify-center' => $canManageConsole,
             'justify-center' => $isClient,
         ])>
-            <a href="{{ $isTicketConsole ? ($isAdmin ? route('admin.dashboard') : route('admin.tickets.index')) : route('client.dashboard') }}" @class([
+            <a href="{{ $isTicketConsole ? route('admin.dashboard') : route('client.dashboard') }}" @class([
                 'mx-auto',
                 'flex w-full justify-center' => $isTicketConsole,
                 'flex w-full justify-center' => $isClient,
@@ -101,7 +101,7 @@
                                 class="h-14 w-auto"
                             >
                         </span>
-                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $isAdmin ? 'Admin Console' : 'Technician Console' }}</span>
+                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $canManageConsole ? 'Super User Console' : 'Technical Console' }}</span>
                     </span>
                 @else
                     <span class="flex flex-col items-center text-center">
@@ -119,7 +119,7 @@
 
             <button @click="sidebarOpen = false" @class([
                 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
-                'absolute right-5 top-1/2 -translate-y-1/2' => $isAdmin,
+                'absolute right-5 top-1/2 -translate-y-1/2' => $canManageConsole,
                 'absolute right-5 top-1/2 -translate-y-1/2' => $isClient,
             ]) aria-label="Close sidebar">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

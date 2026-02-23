@@ -62,7 +62,7 @@
                 <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
                         <th class="px-6 py-4">Details</th>
-                        <th class="px-6 py-4">Assigned Technician</th>
+                        <th class="px-6 py-4">Assigned Technical</th>
                         <th class="px-6 py-4">Priority</th>
                         <th class="px-6 py-4">Activity Status</th>
                         <th class="px-6 py-4 text-right">Status</th>

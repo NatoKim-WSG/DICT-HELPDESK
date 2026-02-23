@@ -11,24 +11,24 @@ class AdminUserManagementNormalizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_created_technician_is_forced_to_ione_department(): void
+    public function test_super_user_created_technical_is_forced_to_ione_department(): void
     {
-        $admin = User::create([
-            'name' => 'Admin User',
-            'email' => 'admin-user@example.com',
+        $superUser = User::create([
+            'name' => 'Super User',
+            'email' => 'super-user@example.com',
             'phone' => '09100000000',
             'department' => 'iOne',
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_USER,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($admin)->post(route('admin.users.store'), [
-            'name' => 'Tech User',
-            'email' => 'tech-user@example.com',
+        $response = $this->actingAs($superUser)->post(route('admin.users.store'), [
+            'name' => 'Technical User',
+            'email' => 'technical-user@example.com',
             'phone' => '09222222222',
             'department' => 'DAR',
-            'role' => User::ROLE_TECHNICIAN,
+            'role' => User::ROLE_TECHNICAL,
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
@@ -36,8 +36,8 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response->assertRedirect(route('admin.users.index'));
 
         $this->assertDatabaseHas('users', [
-            'email' => 'tech-user@example.com',
-            'role' => User::ROLE_TECHNICIAN,
+            'email' => 'technical-user@example.com',
+            'role' => User::ROLE_TECHNICAL,
             'department' => 'iOne',
         ]);
     }

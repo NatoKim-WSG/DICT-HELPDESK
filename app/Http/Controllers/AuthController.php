@@ -108,12 +108,8 @@ class AuthController extends Controller
 
     private function dashboardPath(User $user): string
     {
-        if ($user->canManageTickets()) {
-            return '/admin/dashboard';
-        }
-
         if ($user->canAccessAdminTickets()) {
-            return '/admin/tickets';
+            return '/admin/dashboard';
         }
 
         return '/client/dashboard';

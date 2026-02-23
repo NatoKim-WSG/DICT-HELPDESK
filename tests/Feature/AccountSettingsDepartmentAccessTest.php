@@ -37,28 +37,28 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertSame('DICT', $client->department);
     }
 
-    public function test_admin_can_change_department_from_account_settings(): void
+    public function test_super_user_can_change_department_from_account_settings(): void
     {
-        $admin = User::create([
-            'name' => 'Admin A',
-            'email' => 'admin-a@example.com',
+        $superUser = User::create([
+            'name' => 'Super User A',
+            'email' => 'super-user-a@example.com',
             'phone' => '09111111111',
             'department' => 'iOne',
-            'role' => User::ROLE_ADMIN,
+            'role' => User::ROLE_SUPER_USER,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($admin)->put(route('account.settings.update'), [
-            'name' => 'Admin A',
-            'email' => 'admin-a@example.com',
+        $response = $this->actingAs($superUser)->put(route('account.settings.update'), [
+            'name' => 'Super User A',
+            'email' => 'super-user-a@example.com',
             'phone' => '09111111111',
             'department' => 'DAR',
         ]);
 
         $response->assertRedirect(route('account.settings'));
 
-        $admin->refresh();
-        $this->assertSame('DAR', $admin->department);
+        $superUser->refresh();
+        $this->assertSame('DAR', $superUser->department);
     }
 }

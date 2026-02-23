@@ -20,20 +20,20 @@ class UserSeeder extends Seeder
         }
 
         User::updateOrCreate(['email' => 'admin@ioneresources.com'], [
-            'name' => 'Admin User',
+            'name' => 'Super User',
             'email' => 'admin@ioneresources.com',
             'password' => Hash::make($plainPassword),
-            'role' => 'admin',
+            'role' => 'super_user',
             'department' => 'IT',
             'phone' => '+1234567890',
             'is_active' => true,
         ]);
 
         User::updateOrCreate(['email' => 'support@ioneresources.com'], [
-            'name' => 'Support Technician',
+            'name' => 'Support Technical',
             'email' => 'support@ioneresources.com',
             'password' => Hash::make($plainPassword),
-            'role' => 'technician',
+            'role' => 'technical',
             'department' => 'IT Support',
             'phone' => '+1234567891',
             'is_active' => true,

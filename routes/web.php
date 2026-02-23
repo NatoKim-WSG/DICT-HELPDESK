@@ -45,9 +45,9 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
 });
 
 // Admin Routes
-Route::middleware(['auth', 'role:admin,super_admin,technician'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
-        ->middleware('role:admin,super_admin')
+        ->middleware('role:super_user,super_admin,technical')
         ->name('dashboard');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
@@ -103,7 +103,7 @@ Route::middleware(['auth', 'role:admin,super_admin,technician'])->prefix('admin'
     })->name('notifications.open');
 
     // User Management Routes
-    Route::middleware('role:admin,super_admin')->group(function () {
+    Route::middleware('role:super_user,super_admin')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/clients', [UserManagementController::class, 'clients'])->name('users.clients');
         Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');

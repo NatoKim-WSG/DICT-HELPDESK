@@ -5,9 +5,9 @@
 @section('content')
 @php
     $isClient = !$user->canAccessAdminTickets();
-    $backRoute = $user->canManageTickets()
+    $backRoute = $user->canAccessAdminTickets()
         ? route('admin.dashboard')
-        : ($user->canAccessAdminTickets() ? route('admin.tickets.index') : route('client.dashboard'));
+        : route('client.dashboard');
 @endphp
 
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
@@ -109,7 +109,7 @@
                     {{ $isClient ? 'readonly aria-readonly=true' : '' }}
                 >
                 @if($isClient)
-                    <p class="mt-1 text-xs text-slate-500">Only admins can change your department assignment.</p>
+                    <p class="mt-1 text-xs text-slate-500">Only super users can change your department assignment.</p>
                 @endif
                 @error('department')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
