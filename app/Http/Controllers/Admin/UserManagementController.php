@@ -12,16 +12,38 @@ class UserManagementController extends Controller
 {
     public function index(Request $request)
     {
+        return $this->renderUserIndex($request, 'staff');
+    }
+
+    public function clients(Request $request)
+    {
+        return $this->renderUserIndex($request, 'clients');
+    }
+
+    private function renderUserIndex(Request $request, string $segment)
+    {
         $currentUser = auth()->user();
         $query = User::query();
+        $departmentsQuery = User::query();
 
-        if (!$currentUser->isSuperAdmin()) {
-            $query->where('id', '!=', $currentUser->id)
-                ->whereIn('role', $this->manageableRolesForAdmin());
-        }
+        $this->applyVisibilityScope($query, $currentUser);
+        $this->applyVisibilityScope($departmentsQuery, $currentUser);
+        $this->applySegmentScope($query, $segment, $currentUser);
+        $this->applySegmentScope($departmentsQuery, $segment, $currentUser);
 
         if ($request->filled('role') && $request->role !== 'all') {
             $query->where('role', $request->role);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->search);
+
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%");
+            });
         }
 
         if ($request->filled('department') && $request->department !== 'all') {
@@ -46,18 +68,27 @@ class UserManagementController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $departments = User::query()
+        $departments = $departmentsQuery
             ->whereNotNull('department')
             ->where('department', '!=', '')
             ->distinct()
             ->orderBy('department')
             ->pluck('department');
 
-        $availableRolesFilter = $currentUser->isSuperAdmin()
-            ? [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN, User::ROLE_CLIENT]
-            : [User::ROLE_TECHNICIAN, User::ROLE_CLIENT];
+        $availableRolesFilter = $this->availableRolesFilterForSegment($segment, $currentUser);
+        $segmentTitle = $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts';
+        $segmentDescription = $segment === 'clients'
+            ? 'Manage client accounts separately from internal staff.'
+            : 'Manage internal admin and technician accounts.';
 
-        return view('admin.users.index', compact('users', 'departments', 'availableRolesFilter'));
+        return view('admin.users.index', compact(
+            'users',
+            'departments',
+            'availableRolesFilter',
+            'segment',
+            'segmentTitle',
+            'segmentDescription'
+        ));
     }
 
     public function create()
@@ -72,22 +103,26 @@ class UserManagementController extends Controller
         $user = auth()->user();
 
         $availableRoles = $this->availableRolesFor($user);
+        $allowedDepartments = $this->allowedDepartments();
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:users,email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:255',
+            'email' => 'required|email|unique:users,email|max:255',
+            'phone' => 'required|string|max:20',
+            'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
             'password' => 'required|string|min:8|confirmed',
         ]);
+
+        $role = $request->string('role')->toString();
+        $department = $this->departmentForRole($role, $request->string('department')->toString());
 
         User::create([
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'department' => $request->department,
-            'role' => $request->role,
+            'department' => $department,
+            'role' => $role,
             'password' => Hash::make($request->password),
             'is_active' => true,
         ]);
@@ -142,23 +177,27 @@ class UserManagementController extends Controller
         }
 
         $availableRoles = $this->availableRolesFor($currentUser);
+        $allowedDepartments = $this->allowedDepartments();
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:255',
+            'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
             'password' => 'nullable|string|min:8|confirmed',
             'is_active' => 'boolean',
         ]);
 
+        $role = $request->string('role')->toString();
+        $department = $this->departmentForRole($role, $request->string('department')->toString());
+
         $updateData = [
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'department' => $request->department,
-            'role' => $request->role,
+            'department' => $department,
+            'role' => $role,
             'is_active' => $request->boolean('is_active'),
         ];
 
@@ -239,5 +278,55 @@ class UserManagementController extends Controller
     private function manageableRolesForAdmin(): array
     {
         return [User::ROLE_CLIENT, User::ROLE_TECHNICIAN];
+    }
+
+    private function applyVisibilityScope($query, User $currentUser): void
+    {
+        if (!$currentUser->isSuperAdmin()) {
+            $query->where('id', '!=', $currentUser->id)
+                ->whereIn('role', $this->manageableRolesForAdmin());
+        }
+    }
+
+    private function applySegmentScope($query, string $segment, User $currentUser): void
+    {
+        if ($segment === 'clients') {
+            $query->where('role', User::ROLE_CLIENT);
+            return;
+        }
+
+        if ($currentUser->isSuperAdmin()) {
+            $query->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN]);
+            return;
+        }
+
+        $query->where('role', User::ROLE_TECHNICIAN);
+    }
+
+    private function availableRolesFilterForSegment(string $segment, User $currentUser): array
+    {
+        if ($segment === 'clients') {
+            return [User::ROLE_CLIENT];
+        }
+
+        if ($currentUser->isSuperAdmin()) {
+            return [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN, User::ROLE_TECHNICIAN];
+        }
+
+        return [User::ROLE_TECHNICIAN];
+    }
+
+    private function allowedDepartments(): array
+    {
+        return ['iOne', 'DEPED', 'DICT', 'DAR'];
+    }
+
+    private function departmentForRole(string $role, string $department): string
+    {
+        if (in_array($role, [User::ROLE_ADMIN, User::ROLE_TECHNICIAN, User::ROLE_SUPER_ADMIN], true)) {
+            return 'iOne';
+        }
+
+        return $department;
     }
 }

@@ -133,6 +133,20 @@ class TicketController extends Controller
         return view('admin.tickets.show', compact('ticket', 'agents'));
     }
 
+    public function replies(Ticket $ticket): JsonResponse
+    {
+        $replies = $ticket->replies()
+            ->with(['user', 'attachments', 'replyTo'])
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
+            ->values();
+
+        return response()->json([
+            'replies' => $replies,
+        ]);
+    }
+
     public function assign(Request $request, Ticket $ticket)
     {
         $request->validate([
@@ -431,6 +445,8 @@ class TicketController extends Controller
 
     private function formatReplyForChat(TicketReply $reply): array
     {
+        $fromSupport = in_array(optional($reply->user)->role, User::TICKET_CONSOLE_ROLES, true);
+
         return [
             'id' => $reply->id,
             'message' => $reply->message,
@@ -440,7 +456,8 @@ class TicketController extends Controller
             'created_at_label' => optional($reply->created_at)?->greaterThan(now()->subDay())
                 ? optional($reply->created_at)?->format('g:i A')
                 : optional($reply->created_at)?->format('M j, Y'),
-            'from_support' => in_array(optional($reply->user)->role, User::TICKET_CONSOLE_ROLES, true),
+            'from_support' => $fromSupport,
+            'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
             'can_manage' => (bool) ($reply->user_id === auth()->id()),
             'edited' => (bool) $reply->edited_at,
             'deleted' => (bool) $reply->deleted_at,
@@ -456,6 +473,29 @@ class TicketController extends Controller
                 ];
             })->values(),
         ];
+    }
+
+    private function departmentLogoForUser(?User $user, bool $fromSupport): string
+    {
+        if ($fromSupport) {
+            return asset('images/ione-logo.png');
+        }
+
+        $department = strtolower((string) optional($user)->department);
+
+        if (str_contains($department, 'deped')) {
+            return asset('images/deped-logo.png');
+        }
+
+        if (str_contains($department, 'dict')) {
+            return asset('images/DICT-logo.png');
+        }
+
+        if (str_contains($department, 'dar')) {
+            return asset('images/dar-logo.png');
+        }
+
+        return asset('images/ione-logo.png');
     }
 
     private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists

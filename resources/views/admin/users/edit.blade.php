@@ -3,7 +3,7 @@
 @section('title', 'Edit User - iOne Resources Inc.')
 
 @section('content')
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <div class="mb-8">
         <div class="flex items-center">
             <a href="{{ route('admin.users.index') }}" class="text-gray-500 hover:text-gray-700 mr-4">
@@ -23,7 +23,7 @@
             @csrf
             @method('PUT')
             <div class="px-4 py-5 sm:p-6">
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
                     <!-- Name -->
                     <div class="sm:col-span-1">
                         <label for="name" class="block text-sm font-medium text-gray-700">
@@ -69,12 +69,21 @@
                     <!-- Department -->
                     <div class="sm:col-span-1">
                         <label for="department" class="block text-sm font-medium text-gray-700">
-                            Department
+                            Department <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input type="text" name="department" id="department" value="{{ old('department', $user->department) }}"
+                            <select name="department" id="department" required
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('department') border-red-300 @enderror">
+                                <option value="">Select department</option>
+                                @foreach(['iOne', 'DEPED', 'DICT', 'DAR'] as $departmentOption)
+                                    <option value="{{ $departmentOption }}" {{ old('department', $user->department) === $departmentOption ? 'selected' : '' }}>
+                                        {{ $departmentOption }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <input type="hidden" id="department_hidden" name="department" value="" disabled>
                         </div>
+                        <p id="department-role-hint" class="mt-2 text-sm text-gray-500"></p>
                         @error('department')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -154,3 +163,38 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const roleSelect = document.getElementById('role');
+    const departmentSelect = document.getElementById('department');
+    const departmentHidden = document.getElementById('department_hidden');
+    const hint = document.getElementById('department-role-hint');
+
+    if (!roleSelect || !departmentSelect || !departmentHidden) return;
+
+    const syncDepartmentByRole = function () {
+        const role = roleSelect.value;
+        const isInternal = role === 'admin' || role === 'technician' || role === 'super_admin';
+
+        if (isInternal) {
+            departmentSelect.value = 'iOne';
+            departmentSelect.disabled = true;
+            departmentHidden.value = 'iOne';
+            departmentHidden.disabled = false;
+            hint.textContent = 'Internal users (Admin/Technician) are automatically assigned to iOne.';
+            return;
+        }
+
+        departmentSelect.disabled = false;
+        departmentHidden.value = '';
+        departmentHidden.disabled = true;
+        hint.textContent = 'Select the client department.';
+    };
+
+    roleSelect.addEventListener('change', syncDepartmentByRole);
+    syncDepartmentByRole();
+});
+</script>
+@endpush

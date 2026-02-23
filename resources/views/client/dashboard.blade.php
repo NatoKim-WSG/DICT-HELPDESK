@@ -3,7 +3,7 @@
 @section('title', 'Dashboard - DICT | iOne Resources Ticketing')
 
 @section('content')
-<div class="app-shell mx-auto">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <div class="mb-6">
         <h1 class="font-display text-3xl font-semibold text-slate-900">Dashboard</h1>
         <p class="mt-1 text-sm text-slate-500">Overview of your ticket activity.</p>

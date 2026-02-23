@@ -10,7 +10,7 @@
         : ($user->canAccessAdminTickets() ? route('admin.tickets.index') : route('client.dashboard'));
 @endphp
 
-<div class="mx-auto max-w-5xl">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="font-display text-3xl font-semibold text-slate-900">Account Settings</h1>
@@ -104,9 +104,13 @@
                     name="department"
                     id="department"
                     value="{{ old('department', $user->department) }}"
-                    class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
-                    placeholder="Optional"
+                    class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isClient ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    placeholder="{{ $isClient ? '' : 'Optional' }}"
+                    {{ $isClient ? 'readonly aria-readonly=true' : '' }}
                 >
+                @if($isClient)
+                    <p class="mt-1 text-xs text-slate-500">Only admins can change your department assignment.</p>
+                @endif
                 @error('department')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror

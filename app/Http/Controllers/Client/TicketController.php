@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
@@ -54,6 +56,7 @@ class TicketController extends Controller
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
             'priority' => 'required|in:' . implode(',', Ticket::PRIORITIES),
+            'attachments' => 'required|array|min:1',
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
 
@@ -99,6 +102,23 @@ class TicketController extends Controller
         return view('client.tickets.show', compact('ticket'));
     }
 
+    public function replies(Ticket $ticket): JsonResponse
+    {
+        $this->assertTicketOwner($ticket);
+
+        $replies = $ticket->replies()
+            ->where('is_internal', false)
+            ->with(['user', 'attachments', 'replyTo'])
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
+            ->values();
+
+        return response()->json([
+            'replies' => $replies,
+        ]);
+    }
+
     public function reply(Request $request, Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
@@ -140,7 +160,7 @@ class TicketController extends Controller
         }
 
         if ($request->expectsJson()) {
-            $reply->load(['attachments', 'replyTo']);
+            $reply->load(['user', 'attachments', 'replyTo']);
 
             return response()->json([
                 'message' => 'Reply sent',
@@ -181,7 +201,7 @@ class TicketController extends Controller
 
         return response()->json([
             'message' => 'Message edited',
-            'reply' => $this->formatReplyForChat($reply->fresh(['attachments', 'replyTo'])),
+            'reply' => $this->formatReplyForChat($reply->fresh(['user', 'attachments', 'replyTo'])),
         ]);
     }
 
@@ -206,7 +226,7 @@ class TicketController extends Controller
 
         return response()->json([
             'message' => 'Message deleted',
-            'reply' => $this->formatReplyForChat($reply->fresh(['attachments', 'replyTo'])),
+            'reply' => $this->formatReplyForChat($reply->fresh(['user', 'attachments', 'replyTo'])),
         ]);
     }
 
@@ -277,21 +297,25 @@ class TicketController extends Controller
 
     private function formatReplyForChat(TicketReply $reply): array
     {
+        $fromSupport = in_array(optional($reply->user)->role, User::TICKET_CONSOLE_ROLES, true);
+
         return [
             'id' => $reply->id,
             'message' => $reply->message,
+            'is_internal' => (bool) $reply->is_internal,
             'created_at_iso' => optional($reply->created_at)->toIso8601String(),
             'created_at_human' => optional($reply->created_at)->diffForHumans(),
             'created_at_label' => optional($reply->created_at)?->greaterThan(now()->subDay())
                 ? optional($reply->created_at)?->format('g:i A')
                 : optional($reply->created_at)?->format('M j, Y'),
-            'from_support' => false,
+            'from_support' => $fromSupport,
+            'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
             'can_manage' => (bool) ($reply->user_id === auth()->id()),
             'edited' => (bool) $reply->edited_at,
             'deleted' => (bool) $reply->deleted_at,
             'reply_to_id' => $reply->reply_to_id,
-            'reply_to_message' => $reply->replyTo?->message,
-            'reply_to_excerpt' => $reply->replyTo?->message,
+            'reply_to_message' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
+            'reply_to_excerpt' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
             'attachments' => $reply->attachments->map(function ($attachment) {
                 return [
                     'download_url' => $attachment->download_url,
@@ -301,6 +325,29 @@ class TicketController extends Controller
                 ];
             })->values(),
         ];
+    }
+
+    private function departmentLogoForUser(?User $user, bool $fromSupport): string
+    {
+        if ($fromSupport) {
+            return asset('images/ione-logo.png');
+        }
+
+        $department = strtolower((string) optional($user)->department);
+
+        if (str_contains($department, 'deped')) {
+            return asset('images/deped-logo.png');
+        }
+
+        if (str_contains($department, 'dict')) {
+            return asset('images/DICT-logo.png');
+        }
+
+        if (str_contains($department, 'dar')) {
+            return asset('images/dar-logo.png');
+        }
+
+        return asset('images/ione-logo.png');
     }
 
     private function assertTicketOwner(Ticket $ticket): void

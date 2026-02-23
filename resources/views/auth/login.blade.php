@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login - DICT | iOne Resources Ticketing</title>
+    <title>Login - iOne Resources Inc. Helpdesk</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -17,8 +17,8 @@
         <div class="relative mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-2xl shadow-slate-200/70 backdrop-blur md:grid-cols-2">
             <div class="hero-glow hidden h-full flex-col justify-between p-10 md:flex">
                 <div>
-                    <img src="{{ asset('images/DICT-logo.png') }}" alt="DICT Logo" class="h-14 w-auto">
-                    <h1 class="mt-8 font-display text-3xl font-semibold text-slate-900">DICT Helpdesk</h1>
+                    <img src="{{ asset('images/ione-logo.png') }}" alt="iOne Logo" class="h-14 w-auto">
+                    <h1 class="mt-8 font-display text-3xl font-semibold text-slate-900">iOne Resources Inc. Helpdesk</h1>
                     <p class="mt-3 max-w-sm text-sm text-slate-600">
                         Centralized ticket management for iOne Resources with faster response tracking and clearer workflows.
                     </p>
@@ -57,7 +57,7 @@
                     @endif
 
                     <label class="inline-flex items-center text-sm text-slate-600">
-                        <input id="remember" name="remember" type="checkbox" class="mr-2 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500">
+                        <input id="remember" name="remember" type="checkbox" value="1" {{ old('remember') ? 'checked' : '' }} class="mr-2 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500">
                         Remember me
                     </label>
 

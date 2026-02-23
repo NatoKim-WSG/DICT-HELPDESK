@@ -20,12 +20,37 @@
                     $user = auth()->user();
                     $isClient = !$user->canAccessAdminTickets();
                     $isAdmin = $user->canManageTickets();
-                    $department = strtolower((string) $user->department);
-                    $isIoneClient = $isClient && str_contains($department, 'ione');
-                    $clientCompanyName = $isIoneClient ? 'iOne Resources' : 'DICT';
-                    $clientCompanyLogo = $isIoneClient
-                        ? asset('images/ione-logo.png')
-                        : asset('images/DICT-logo.png');
+                    $departmentRaw = strtolower(trim((string) $user->department));
+                    $departmentKey = 'dict';
+                    if (str_contains($departmentRaw, 'ione')) {
+                        $departmentKey = 'ione';
+                    } elseif (str_contains($departmentRaw, 'deped')) {
+                        $departmentKey = 'deped';
+                    } elseif (str_contains($departmentRaw, 'dar')) {
+                        $departmentKey = 'dar';
+                    } elseif (str_contains($departmentRaw, 'dict')) {
+                        $departmentKey = 'dict';
+                    }
+
+                    $departmentLogoMap = [
+                        'ione' => 'images/ione-logo.png',
+                        'dict' => 'images/DICT-logo.png',
+                        'deped' => 'images/deped-logo.png',
+                        'dar' => 'images/dar-logo.png',
+                    ];
+                    $departmentNameMap = [
+                        'ione' => 'iOne',
+                        'dict' => 'DICT',
+                        'deped' => 'DEPED',
+                        'dar' => 'DAR',
+                    ];
+
+                    $departmentLogoPath = $departmentLogoMap[$departmentKey] ?? 'images/DICT-logo.png';
+                    if (!file_exists(public_path($departmentLogoPath))) {
+                        $departmentLogoPath = 'images/DICT-logo.png';
+                    }
+                    $clientCompanyName = $departmentNameMap[$departmentKey] ?? 'DICT';
+                    $clientCompanyLogo = asset($departmentLogoPath);
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
                 @endphp
@@ -133,18 +158,12 @@
 
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
-                                @if($isClient)
-                                    <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
-                                        <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="h-8 w-8 object-contain">
-                                    </span>
-                                @else
-                                    <span class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#0f8d88] text-sm font-semibold text-white">
-                                        {{ strtoupper(substr($user->name, 0, 1)) }}
-                                    </span>
-                                @endif
+                                <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
+                                    <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="h-8 w-8 object-contain">
+                                </span>
                                 <span class="hidden text-left sm:block">
                                     <span class="block max-w-[13rem] truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
-                                    <span class="block text-sm text-slate-500">{{ $isClient ? $clientCompanyName : ucfirst(str_replace('_', ' ', $user->role)) }}</span>
+                                    <span class="block text-sm text-slate-500">{{ $clientCompanyName }}</span>
                                 </span>
                             </button>
 
@@ -188,5 +207,6 @@
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>

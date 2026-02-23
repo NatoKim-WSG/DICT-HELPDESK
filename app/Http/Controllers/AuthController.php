@@ -23,6 +23,7 @@ class AuthController extends Controller
         $request->validate([
             'login' => 'required|string',
             'password' => 'required',
+            'remember' => 'nullable|boolean',
         ]);
 
         $loginValue = $request->login;
@@ -30,7 +31,7 @@ class AuthController extends Controller
 
         if (Auth::attempt(
             [$fieldName => $loginValue, 'password' => $request->password, 'is_active' => true],
-            $request->filled('remember')
+            $request->boolean('remember')
         )) {
             $request->session()->regenerate();
 
@@ -71,20 +72,25 @@ class AuthController extends Controller
     public function updateAccountSettings(Request $request)
     {
         $user = Auth::user();
+        $isClient = $user->isClient();
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:255',
+            'department' => $isClient ? 'nullable' : 'nullable|string|max:255',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
         $updateData = [
             'name' => $request->name,
             'email' => $request->email,
-            'department' => $request->department,
         ];
+
+        // Client department is managed only by admins from User Management.
+        if (!$isClient) {
+            $updateData['department'] = $request->department;
+        }
 
         if ($request->has('phone')) {
             $updateData['phone'] = $request->phone;

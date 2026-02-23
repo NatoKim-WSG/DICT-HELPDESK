@@ -3,7 +3,7 @@
 @section('title', 'Create Ticket - iOne Resources Ticketing')
 
 @section('content')
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <div class="mb-8">
         <nav class="flex" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-4">
@@ -43,24 +43,24 @@
             <form action="{{ route('client.tickets.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
-                <div class="grid grid-cols-1 gap-6">
+                <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <div>
                         <label for="name" class="form-label">Name <span class="text-red-600">*</span></label>
                         <input type="text" name="name" id="name" required
                                class="form-input @error('name') border-red-500 @enderror"
-                               value="{{ old('name', auth()->user()->name) }}"
+                               value="{{ old('name') }}"
                                placeholder="Your full name">
                         @error('name')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:col-span-2">
                         <div>
                             <label for="contact_number" class="form-label">Contact Number <span class="text-red-600">*</span></label>
                             <input type="text" name="contact_number" id="contact_number" required
                                    class="form-input @error('contact_number') border-red-500 @enderror"
-                                   value="{{ old('contact_number', auth()->user()->phone) }}"
+                                   value="{{ old('contact_number') }}"
                                    placeholder="e.g. 09123456789">
                             @error('contact_number')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -71,7 +71,7 @@
                             <label for="email" class="form-label">Email <span class="text-red-600">*</span></label>
                             <input type="email" name="email" id="email" required
                                    class="form-input @error('email') border-red-500 @enderror"
-                                   value="{{ old('email', auth()->user()->email) }}"
+                                   value="{{ old('email') }}"
                                    placeholder="you@example.com">
                             @error('email')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -79,7 +79,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:col-span-2">
                         <div>
                             <label for="province" class="form-label">Province <span class="text-red-600">*</span></label>
                             <input type="text" name="province" id="province" required
@@ -114,7 +114,7 @@
                         @enderror
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 xl:col-span-2">
                         <div>
                             <label for="category_id" class="form-label">Category <span class="text-red-600">*</span></label>
                             <select name="category_id" id="category_id" required
@@ -147,7 +147,7 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div class="xl:col-span-2">
                         <label for="description" class="form-label">Description <span class="text-red-600">*</span></label>
                         <textarea name="description" id="description" rows="6" required
                                   class="form-input @error('description') border-red-500 @enderror"
@@ -157,14 +157,17 @@
                         @enderror
                     </div>
 
-                    <div>
-                        <label for="attachments" class="form-label">Attachments</label>
-                        <input type="file" name="attachments[]" id="attachments" multiple
+                    <div class="xl:col-span-2">
+                        <label for="attachments" class="form-label">Attachments <span class="text-red-600">*</span></label>
+                        <input type="file" name="attachments[]" id="attachments" multiple required
                                class="form-input @error('attachments.*') border-red-500 @enderror"
                                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt">
                         <p class="mt-1 text-sm text-gray-500">
-                            You can upload multiple files. Supported formats: JPG, PNG, PDF, DOC, DOCX, TXT (max 10MB each)
+                            Upload at least one file. Supported formats: JPG, PNG, PDF, DOC, DOCX, TXT (max 10MB each)
                         </p>
+                        @error('attachments')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                         @error('attachments.*')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror

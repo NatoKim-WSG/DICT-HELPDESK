@@ -4,10 +4,21 @@
 
 @section('content')
 @php
-    $ticketOwnerDepartment = strtolower((string) data_get($ticket, 'user.department'));
-    $clientCompanyLogo = str_contains($ticketOwnerDepartment, 'ione')
-        ? asset('images/ione-logo.png')
-        : asset('images/DICT-logo.png');
+    $departmentLogo = static function (?string $department, bool $isSupport = false): string {
+        if ($isSupport) {
+            return asset('images/ione-logo.png');
+        }
+
+        $normalized = strtolower((string) $department);
+
+        return match (true) {
+            str_contains($normalized, 'deped') => asset('images/deped-logo.png'),
+            str_contains($normalized, 'dict') => asset('images/DICT-logo.png'),
+            str_contains($normalized, 'dar') => asset('images/dar-logo.png'),
+            default => asset('images/ione-logo.png'),
+        };
+    };
+    $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
     $supportCompanyLogo = asset('images/ione-logo.png');
 @endphp
 <style>
@@ -144,7 +155,7 @@
                             </div>
                         @endif
                         <div class="js-chat-row flex {{ $fromSupport ? 'justify-end' : 'justify-start' }}" data-created-at="{{ $reply->created_at->toIso8601String() }}" data-reply-id="{{ $reply->id }}" data-can-manage="{{ $canManageReply }}">
-                            @php $avatarLogo = $fromSupport ? $supportCompanyLogo : $clientCompanyLogo; @endphp
+                            @php $avatarLogo = $departmentLogo(data_get($reply, 'user.department'), $fromSupport); @endphp
                             <div class="flex w-full max-w-3xl items-start gap-2 {{ $fromSupport ? 'justify-end' : '' }}">
                                 <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white {{ $fromSupport ? 'order-2' : '' }}">
                                     <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="h-7 w-7 object-contain">
@@ -216,7 +227,7 @@
                 </div>
 
                 <div class="border-t border-slate-200 px-4 pb-4 pt-2 sm:px-6">
-                    <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
+                    <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
                         @csrf
                         <p id="admin-reply-error" class="hidden text-xs font-medium text-rose-600"></p>
                         <input type="hidden" id="admin_reply_to_id" name="reply_to_id" value="">
@@ -416,11 +427,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const replyTargetBanner = document.getElementById('admin-reply-target-banner');
     const replyTargetText = document.getElementById('admin-reply-target-text');
     const clearReplyTargetButton = document.getElementById('admin-clear-reply-target');
+    const repliesUrl = replyForm ? replyForm.dataset.repliesUrl : '';
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    const clientLogo = @json($clientCompanyLogo);
+    const defaultClientLogo = @json($clientCompanyLogo);
     const supportLogo = @json($supportCompanyLogo);
+    const knownReplyIds = new Set();
+    let isPollingReplies = false;
+
+    if (thread) {
+        thread.querySelectorAll('.js-chat-row[data-reply-id]').forEach(function (row) {
+            if (row.dataset.replyId) knownReplyIds.add(String(row.dataset.replyId));
+        });
+    }
 
     if (thread) {
         thread.scrollTop = thread.scrollHeight;
@@ -561,8 +581,11 @@ document.addEventListener('DOMContentLoaded', function () {
         row.dataset.createdAt = payload.created_at_iso;
         row.dataset.replyId = payload.id;
         row.dataset.canManage = canManage ? '1' : '0';
+        if (payload.id !== undefined && payload.id !== null) {
+            knownReplyIds.add(String(payload.id));
+        }
 
-        const avatarLogo = fromSupport ? supportLogo : clientLogo;
+        const avatarLogo = payload.avatar_logo || (fromSupport ? supportLogo : defaultClientLogo);
         const isDeleted = Boolean(payload.deleted);
         const isEdited = Boolean(payload.edited);
         const internalBadge = payload.is_internal
@@ -824,6 +847,40 @@ document.addEventListener('DOMContentLoaded', function () {
                     setSendState(false);
                 });
         });
+    }
+
+    const pollReplies = function () {
+        if (!thread || !repliesUrl || isPollingReplies) return;
+        isPollingReplies = true;
+
+        fetch(repliesUrl, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('Unable to refresh replies.');
+                return response.json();
+            })
+            .then(function (data) {
+                const replies = Array.isArray(data && data.replies) ? data.replies : [];
+                replies.forEach(function (reply) {
+                    const replyId = String(reply.id || '');
+                    if (!replyId || knownReplyIds.has(replyId)) return;
+                    appendReply(reply);
+                });
+            })
+            .catch(function () {
+            })
+            .finally(function () {
+                isPollingReplies = false;
+            });
+    };
+
+    if (replyForm && repliesUrl) {
+        window.setInterval(pollReplies, 5000);
     }
 
     const attachmentPreview = window.ModalKit

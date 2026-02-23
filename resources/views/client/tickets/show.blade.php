@@ -4,10 +4,21 @@
 
 @section('content')
 @php
-    $department = strtolower((string) auth()->user()->department);
-    $clientCompanyLogo = str_contains($department, 'ione')
-        ? asset('images/ione-logo.png')
-        : asset('images/DICT-logo.png');
+    $departmentLogo = static function (?string $department, bool $isSupport = false): string {
+        if ($isSupport) {
+            return asset('images/ione-logo.png');
+        }
+
+        $normalized = strtolower((string) $department);
+
+        return match (true) {
+            str_contains($normalized, 'deped') => asset('images/deped-logo.png'),
+            str_contains($normalized, 'dict') => asset('images/DICT-logo.png'),
+            str_contains($normalized, 'dar') => asset('images/dar-logo.png'),
+            default => asset('images/ione-logo.png'),
+        };
+    };
+    $clientCompanyLogo = $departmentLogo(auth()->user()->department);
     $supportCompanyLogo = asset('images/ione-logo.png');
 @endphp
 <style>
@@ -135,7 +146,7 @@
                     @foreach($ticket->replies->where('is_internal', false)->sortBy('created_at') as $reply)
                         @php
                             $fromSupport = $reply->user->canAccessAdminTickets();
-                            $avatarLogo = $fromSupport ? $supportCompanyLogo : $clientCompanyLogo;
+                            $avatarLogo = $departmentLogo(data_get($reply, 'user.department'), $fromSupport);
                             $showTimestamp = $reply->created_at->diffInMinutes($lastTimestamp) >= 15;
                             $canManageReply = (int) ($reply->user_id === auth()->id());
                             $lastTimestamp = $reply->created_at;
@@ -233,6 +244,8 @@
                             enctype="multipart/form-data"
                             class="space-y-3"
                             data-client-logo="{{ $clientCompanyLogo }}"
+                            data-support-logo="{{ $supportCompanyLogo }}"
+                            data-replies-url="{{ route('client.tickets.replies.feed', $ticket) }}"
                             data-update-url-template="{{ route('client.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}"
                             data-delete-url-template="{{ route('client.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}"
                         >
@@ -294,14 +307,6 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Name</dt>
                             <dd class="text-sm text-gray-900">{{ $ticket->name ?? auth()->user()->name }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
-                            <dd class="text-sm text-gray-900">{{ $ticket->contact_number ?? (auth()->user()->phone ?? 'Not provided') }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Email</dt>
-                            <dd class="text-sm text-gray-900">{{ $ticket->email ?? auth()->user()->email }}</dd>
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Province</dt>
@@ -437,16 +442,20 @@
 <div id="resolve-ticket-modal" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black bg-opacity-60" data-resolve-ticket-overlay="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white rounded-lg shadow-xl">
-            <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-base font-medium text-gray-900">Mark Ticket as Resolved</h3>
-                <p class="mt-1 text-sm text-gray-600">Are you sure you want to mark this ticket as resolved?</p>
+        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="px-5 py-4 border-b border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-900">Mark Ticket as Resolved</h3>
+                <p class="mt-1 text-sm text-slate-600">Confirm this ticket is resolved before proceeding.</p>
             </div>
-            <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="p-4">
+            <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="space-y-4 p-5">
                 @csrf
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="resolve-ticket-cancel" class="btn-secondary">Cancel</button>
-                    <button type="submit" class="btn-success">Confirm Resolve</button>
+                <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                    <input id="resolve_confirm_checkbox" type="checkbox" required class="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                    <span class="leading-5">I confirm this ticket has been resolved and can be marked as closed for support follow-up.</span>
+                </label>
+                <div class="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+                    <button type="button" id="resolve-ticket-cancel" class="btn-secondary sm:min-w-[110px]">Cancel</button>
+                    <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[160px] disabled:cursor-not-allowed disabled:opacity-60" disabled>Confirm Resolve</button>
                 </div>
             </form>
         </div>
@@ -518,6 +527,17 @@ document.addEventListener('DOMContentLoaded', function () {
         closeButtons: ['#resolve-ticket-cancel'],
     });
 
+    const resolveConfirmCheckbox = document.getElementById('resolve_confirm_checkbox');
+    const resolveConfirmSubmit = document.getElementById('resolve-confirm-submit');
+    if (resolveConfirmCheckbox && resolveConfirmSubmit) {
+        const syncResolveConfirmState = function () {
+            resolveConfirmSubmit.disabled = !resolveConfirmCheckbox.checked;
+        };
+
+        resolveConfirmCheckbox.addEventListener('change', syncResolveConfirmState);
+        syncResolveConfirmState();
+    }
+
     const closeModal = document.getElementById('close-ticket-modal');
     window.ModalKit.bindById('close-ticket-modal', {
         openButtons: ['#open-close-ticket-modal'],
@@ -543,10 +563,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const clearReplyTargetButton = document.getElementById('clear-reply-target');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const clientLogo = replyForm ? replyForm.dataset.clientLogo : '';
+    const supportLogo = replyForm ? replyForm.dataset.supportLogo : '';
+    const repliesUrl = replyForm ? replyForm.dataset.repliesUrl : '';
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const TIMESTAMP_BREAK_MINUTES = 15;
     const EDIT_DELETE_WINDOW_MS = 3 * 60 * 60 * 1000;
+    const knownReplyIds = new Set();
+    let isPollingReplies = false;
+
+    if (thread) {
+        thread.querySelectorAll('.js-chat-row[data-reply-id]').forEach(function (row) {
+            if (row.dataset.replyId) knownReplyIds.add(String(row.dataset.replyId));
+        });
+    }
 
     const autoResize = function () {
         if (!messageInput) return;
@@ -739,24 +769,33 @@ document.addEventListener('DOMContentLoaded', function () {
         return ref;
     };
 
-    const appendClientReply = function (reply) {
-        if (!thread) return;
+    const appendReplyToThread = function (reply) {
+        if (!thread || !reply) return;
+
+        const fromSupport = Boolean(reply.from_support);
+        const canManage = Boolean(reply.can_manage);
+        const createdAt = reply.created_at_iso || new Date().toISOString();
+        const replyId = String(reply.id || '');
+        if (replyId) {
+            knownReplyIds.add(replyId);
+        }
+
         const wrap = document.createElement('div');
-        wrap.className = 'js-chat-row flex justify-end';
-        wrap.dataset.createdAt = reply.created_at_iso || new Date().toISOString();
-        wrap.dataset.replyId = String(reply.id || '');
-        wrap.dataset.isSupport = '0';
-        wrap.dataset.canManage = '1';
+        wrap.className = 'js-chat-row flex ' + (fromSupport ? 'justify-start' : 'justify-end');
+        wrap.dataset.createdAt = createdAt;
+        wrap.dataset.replyId = replyId;
+        wrap.dataset.isSupport = fromSupport ? '1' : '0';
+        wrap.dataset.canManage = canManage ? '1' : '0';
 
         const rowContent = document.createElement('div');
-        rowContent.className = 'flex w-full max-w-3xl items-start justify-end gap-2';
+        rowContent.className = 'flex w-full max-w-3xl items-start gap-2 ' + (fromSupport ? '' : 'justify-end');
 
         const avatar = document.createElement('div');
-        avatar.className = 'order-2 mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white';
-        avatar.innerHTML = '<img src="' + clientLogo + '" alt="Client company logo" class="h-7 w-7 object-contain">';
+        avatar.className = 'mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white ' + (fromSupport ? '' : 'order-2');
+        avatar.innerHTML = '<img src="' + (reply.avatar_logo || (fromSupport ? supportLogo : clientLogo)) + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="h-7 w-7 object-contain">';
 
         const bubble = document.createElement('div');
-        bubble.className = 'js-chat-bubble group order-1 max-w-[82%] rounded-2xl border border-ione-blue-200 bg-ione-blue-50 px-4 py-3 shadow-sm';
+        bubble.className = 'js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50');
         bubble.dataset.message = reply.message || '';
         bubble.dataset.deleted = reply.deleted ? '1' : '0';
         bubble.dataset.edited = reply.edited ? '1' : '0';
@@ -764,9 +803,17 @@ document.addEventListener('DOMContentLoaded', function () {
         const meta = document.createElement('div');
         meta.className = 'js-state-row mb-1 flex items-center gap-2 ' + ((reply.edited || reply.deleted) ? '' : 'hidden');
         meta.innerHTML = '<span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.edited ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.deleted ? '' : 'hidden') + '">Deleted</span>';
-        meta.appendChild(buildOwnMessageControls(!!reply.deleted, wrap.dataset.createdAt));
 
-        const reference = createReferenceBlock(reply.reply_to_message, 'You replied');
+        if (!fromSupport && canManage) {
+            meta.appendChild(buildOwnMessageControls(!!reply.deleted, createdAt));
+        } else {
+            const controls = document.createElement('div');
+            controls.className = 'js-message-actions absolute -right-10 top-1.5 flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1 shadow-sm opacity-0 transition group-hover:opacity-100';
+            controls.innerHTML = '<button type="button" class="js-reply-msg inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]" aria-label="Reply to this message"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/></svg></button>';
+            meta.appendChild(controls);
+        }
+
+        const reference = createReferenceBlock(reply.reply_to_message, fromSupport ? 'Support replied' : 'You replied');
 
         const text = document.createElement('p');
         text.className = 'js-message-text whitespace-pre-wrap text-sm leading-6 ' + (reply.deleted ? 'italic text-slate-500' : 'text-slate-800');
@@ -912,7 +959,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const data = await response.json();
                 if (data && data.reply) {
-                    appendClientReply(data.reply);
+                    appendReplyToThread(data.reply);
                     incrementMessageCount();
                     replyForm.reset();
                     clearReplyTarget();
@@ -1096,6 +1143,37 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     });
+    }
+
+    const pollReplies = async function () {
+        if (!thread || !repliesUrl || isPollingReplies) return;
+        isPollingReplies = true;
+
+        try {
+            const response = await fetch(repliesUrl, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) return;
+            const data = await response.json();
+            const replies = Array.isArray(data && data.replies) ? data.replies : [];
+            replies.forEach(function (reply) {
+                const replyId = String(reply.id || '');
+                if (!replyId || knownReplyIds.has(replyId)) return;
+                appendReplyToThread(reply);
+                incrementMessageCount();
+            });
+        } catch (error) {
+        } finally {
+            isPollingReplies = false;
+        }
+    };
+
+    if (replyForm && repliesUrl) {
+        window.setInterval(pollReplies, 5000);
     }
 
     document.addEventListener('click', function (event) {

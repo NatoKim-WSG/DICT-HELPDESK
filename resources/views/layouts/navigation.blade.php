@@ -3,6 +3,36 @@
     $isTicketConsole = $user->canAccessAdminTickets();
     $isAdmin = $user->canManageTickets();
     $isClient = !$isTicketConsole;
+    $departmentRaw = strtolower(trim((string) $user->department));
+    $departmentKey = 'dict';
+    if (str_contains($departmentRaw, 'ione')) {
+        $departmentKey = 'ione';
+    } elseif (str_contains($departmentRaw, 'deped')) {
+        $departmentKey = 'deped';
+    } elseif (str_contains($departmentRaw, 'dar')) {
+        $departmentKey = 'dar';
+    } elseif (str_contains($departmentRaw, 'dict')) {
+        $departmentKey = 'dict';
+    }
+
+    $departmentLogoMap = [
+        'ione' => 'images/ione-logo.png',
+        'dict' => 'images/DICT-logo.png',
+        'deped' => 'images/deped-logo.png',
+        'dar' => 'images/dar-logo.png',
+    ];
+    $departmentNameMap = [
+        'ione' => 'iOne',
+        'dict' => 'DICT',
+        'deped' => 'DEPED',
+        'dar' => 'DAR',
+    ];
+    $departmentLogoPath = $departmentLogoMap[$departmentKey] ?? 'images/DICT-logo.png';
+    if (!file_exists(public_path($departmentLogoPath))) {
+        $departmentLogoPath = 'images/DICT-logo.png';
+    }
+    $departmentLogo = asset($departmentLogoPath);
+    $departmentName = $departmentNameMap[$departmentKey] ?? 'DICT';
 
     if ($isTicketConsole) {
         $menuItems = [
@@ -66,8 +96,8 @@
                     <span class="flex flex-col items-center text-center">
                         <span class="inline-flex items-center justify-center px-1 py-1">
                             <img
-                                src="{{ asset('images/ione-logo.png') }}"
-                                alt="iOne Logo"
+                                src="{{ $departmentLogo }}"
+                                alt="{{ $departmentName }} Logo"
                                 class="h-14 w-auto"
                             >
                         </span>
@@ -75,15 +105,14 @@
                     </span>
                 @else
                     <span class="flex flex-col items-center text-center">
-                        <span class="inline-flex items-center justify-center gap-3 px-1 py-1">
+                        <span class="inline-flex items-center justify-center px-1 py-1">
                             <img
-                                src="{{ asset('images/DICT-logo.png') }}"
-                                alt="DICT Logo"
-                                class="h-12 w-auto"
+                                src="{{ $departmentLogo }}"
+                                alt="{{ $departmentName }} Logo"
+                                class="h-14 w-auto"
                             >
-                            <span class="font-display text-[2rem] font-semibold leading-none tracking-wide text-white">DICT</span>
                         </span>
-                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">iOne Resources Inc.</span>
+                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $departmentName }}</span>
                     </span>
                 @endif
             </a>

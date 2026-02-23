@@ -35,6 +35,7 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
     Route::get('/tickets/create', [ClientTicketController::class, 'create'])->name('tickets.create');
     Route::post('/tickets', [ClientTicketController::class, 'store'])->name('tickets.store');
     Route::get('/tickets/{ticket}', [ClientTicketController::class, 'show'])->name('tickets.show');
+    Route::get('/tickets/{ticket}/replies', [ClientTicketController::class, 'replies'])->name('tickets.replies.feed');
     Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])->name('tickets.reply');
     Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])->name('tickets.replies.update');
     Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
@@ -51,6 +52,7 @@ Route::middleware(['auth', 'role:admin,super_admin,technician'])->prefix('admin'
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
+    Route::get('/tickets/{ticket}/replies', [AdminTicketController::class, 'replies'])->name('tickets.replies.feed');
     Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])->name('tickets.bulk-action');
     Route::post('/tickets/{ticket}/quick-update', [AdminTicketController::class, 'quickUpdate'])->name('tickets.quick-update');
     Route::post('/tickets/{ticket}/assign', [AdminTicketController::class, 'assign'])->name('tickets.assign');
@@ -103,6 +105,7 @@ Route::middleware(['auth', 'role:admin,super_admin,technician'])->prefix('admin'
     // User Management Routes
     Route::middleware('role:admin,super_admin')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+        Route::get('/users/clients', [UserManagementController::class, 'clients'])->name('users.clients');
         Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
         Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
         Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');

@@ -3,7 +3,7 @@
 @section('title', 'Admin Dashboard - iOne Resources Inc.')
 
 @section('content')
-<div class="app-shell mx-auto">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <section class="hero-glow panel mb-8 animate-fade-in-up px-6 py-6 sm:px-8">
         <h1 class="font-display text-3xl font-semibold text-slate-900">Admin Dashboard</h1>
         <p class="mt-2 text-sm text-slate-600">Operational overview, ticket health, and quick actions in one place.</p>

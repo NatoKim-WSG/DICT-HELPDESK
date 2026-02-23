@@ -14,6 +14,11 @@ return new class extends Migration
     {
         $driver = Schema::getConnection()->getDriverName();
 
+        if ($driver === 'sqlite') {
+            // SQLite role constraint is rebuilt in a later dedicated migration.
+            return;
+        }
+
         if ($driver === 'pgsql') {
             // PostgreSQL: drop the old check constraint and add a new one
             DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
@@ -29,6 +34,10 @@ return new class extends Migration
     public function down(): void
     {
         $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return;
+        }
 
         if ($driver === 'pgsql') {
             DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
