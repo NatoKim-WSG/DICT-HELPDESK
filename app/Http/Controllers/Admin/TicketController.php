@@ -322,6 +322,10 @@ class TicketController extends Controller
 
     public function destroy(Ticket $ticket)
     {
+        if (!$this->canRunDestructiveAction()) {
+            abort(403, 'Only super users or super admins can delete tickets.');
+        }
+
         DB::transaction(function () use ($ticket) {
             $ticket->attachments()->get()->each->delete();
             $ticket->replies()->with('attachments')->get()->each(function ($reply) {
@@ -362,6 +366,10 @@ class TicketController extends Controller
 
         if ($tickets->isEmpty()) {
             return redirect()->back()->with('error', 'Selected tickets were not found.');
+        }
+
+        if ($this->isDestructiveBulkAction($action) && !$this->canRunDestructiveAction()) {
+            return redirect()->back()->with('error', 'Only super users or super admins can run delete/merge actions.');
         }
 
         if ($action === 'delete') {
@@ -513,12 +521,38 @@ class TicketController extends Controller
     {
         $status = $updateData['status'] ?? null;
 
+        if (in_array($status, ['open', 'in_progress', 'pending'], true)) {
+            $updateData['resolved_at'] = null;
+            $updateData['closed_at'] = null;
+            return;
+        }
+
         if ($status === 'resolved' && (!$ticket || !$ticket->resolved_at)) {
             $updateData['resolved_at'] = now();
+        }
+
+        if ($status === 'resolved') {
+            $updateData['closed_at'] = null;
         }
 
         if ($status === 'closed' && (!$ticket || !$ticket->closed_at)) {
             $updateData['closed_at'] = now();
         }
+
+        if ($status === 'closed' && (!$ticket || !$ticket->resolved_at)) {
+            $updateData['resolved_at'] = now();
+        }
+    }
+
+    private function canRunDestructiveAction(): bool
+    {
+        $user = auth()->user();
+
+        return $user && $user->isAdminLevel();
+    }
+
+    private function isDestructiveBulkAction(string $action): bool
+    {
+        return in_array($action, ['delete', 'merge'], true);
     }
 }

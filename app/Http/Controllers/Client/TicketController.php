@@ -156,7 +156,11 @@ class TicketController extends Controller
         }
 
         if (in_array($ticket->status, Ticket::CLOSED_STATUSES, true)) {
-            $ticket->update(['status' => 'open']);
+            $ticket->update([
+                'status' => 'open',
+                'resolved_at' => null,
+                'closed_at' => null,
+            ]);
         }
 
         if ($request->expectsJson()) {
@@ -247,6 +251,7 @@ class TicketController extends Controller
 
         $ticket->update([
             'status' => 'closed',
+            'resolved_at' => null,
             'closed_at' => now(),
         ]);
 
@@ -272,6 +277,7 @@ class TicketController extends Controller
             $ticket->update([
                 'status' => 'resolved',
                 'resolved_at' => now(),
+                'closed_at' => null,
             ]);
         }
 

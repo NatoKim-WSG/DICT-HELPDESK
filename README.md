@@ -6,7 +6,7 @@ Laravel 11 help desk application with separate client and admin portals for tick
 
 - PHP 8.2+
 - Laravel 11
-- MySQL or MariaDB
+- PostgreSQL (default) or MySQL/MariaDB
 - Vite + Tailwind CSS
 
 ## Core Features
@@ -14,7 +14,7 @@ Laravel 11 help desk application with separate client and admin portals for tick
 - Client ticket creation with attachments
 - Ticket replies with threaded reply targets
 - Admin assignment, priority, status, and due date management
-- Role-based access (`client`, `admin`, `super_admin`)
+- Role-based access (`client`, `super_user`, `technical`, `super_admin`)
 - Account activation/deactivation controls
 
 ## Setup
@@ -56,8 +56,15 @@ php artisan serve
 
 Seeded users use `SEED_DEFAULT_USER_PASSWORD` from `.env`.
 
+- `admin@ioneresources.com` (`super_user`)
+- `support@ioneresources.com` (`technical`)
+- `client@ioneresources.com` (`client`)
+- `jane@ioneresources.com` (`client`)
+- `bob@ioneresources.com` (`client`)
+
 - If `SEED_DEFAULT_USER_PASSWORD` is missing, the seeder generates a random temporary password and prints it during seeding.
 - `SuperAdminSeeder` uses `SEED_SUPER_ADMIN_PASSWORD` (or generates one and prints it).
+- `admin@ione.com` is created as `super_admin`.
 
 ## Security Notes
 

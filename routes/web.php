@@ -33,15 +33,29 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
 
     Route::get('/tickets', [ClientTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/create', [ClientTicketController::class, 'create'])->name('tickets.create');
-    Route::post('/tickets', [ClientTicketController::class, 'store'])->name('tickets.store');
+    Route::post('/tickets', [ClientTicketController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('tickets.store');
     Route::get('/tickets/{ticket}', [ClientTicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/replies', [ClientTicketController::class, 'replies'])->name('tickets.replies.feed');
-    Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])->name('tickets.reply');
-    Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])->name('tickets.replies.update');
-    Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
-    Route::post('/tickets/{ticket}/resolve', [ClientTicketController::class, 'resolve'])->name('tickets.resolve');
-    Route::post('/tickets/{ticket}/close', [ClientTicketController::class, 'close'])->name('tickets.close');
-    Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])->name('tickets.rate');
+    Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])
+        ->middleware('throttle:30,1')
+        ->name('tickets.reply');
+    Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])
+        ->middleware('throttle:30,1')
+        ->name('tickets.replies.update');
+    Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])
+        ->middleware('throttle:30,1')
+        ->name('tickets.replies.delete');
+    Route::post('/tickets/{ticket}/resolve', [ClientTicketController::class, 'resolve'])
+        ->middleware('throttle:15,1')
+        ->name('tickets.resolve');
+    Route::post('/tickets/{ticket}/close', [ClientTicketController::class, 'close'])
+        ->middleware('throttle:15,1')
+        ->name('tickets.close');
+    Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])
+        ->middleware('throttle:15,1')
+        ->name('tickets.rate');
 });
 
 // Admin Routes
@@ -53,16 +67,36 @@ Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('ad
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/replies', [AdminTicketController::class, 'replies'])->name('tickets.replies.feed');
-    Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])->name('tickets.bulk-action');
-    Route::post('/tickets/{ticket}/quick-update', [AdminTicketController::class, 'quickUpdate'])->name('tickets.quick-update');
-    Route::post('/tickets/{ticket}/assign', [AdminTicketController::class, 'assign'])->name('tickets.assign');
-    Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])->name('tickets.status');
-    Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])->name('tickets.priority');
-    Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])->name('tickets.destroy');
-    Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])->name('tickets.reply');
-    Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'updateReply'])->name('tickets.replies.update');
-    Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])->name('tickets.replies.delete');
-    Route::post('/tickets/{ticket}/due-date', [AdminTicketController::class, 'setDueDate'])->name('tickets.due-date');
+    Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])
+        ->middleware('throttle:20,1')
+        ->name('tickets.bulk-action');
+    Route::post('/tickets/{ticket}/quick-update', [AdminTicketController::class, 'quickUpdate'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.quick-update');
+    Route::post('/tickets/{ticket}/assign', [AdminTicketController::class, 'assign'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.assign');
+    Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.status');
+    Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.priority');
+    Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
+        ->middleware(['throttle:20,1', 'role:super_user,super_admin'])
+        ->name('tickets.destroy');
+    Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.reply');
+    Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'updateReply'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.replies.update');
+    Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.replies.delete');
+    Route::post('/tickets/{ticket}/due-date', [AdminTicketController::class, 'setDueDate'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.due-date');
 
     Route::post('/notifications/dismiss', function (Request $request) {
         $request->validate([
@@ -81,7 +115,7 @@ Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('ad
         session(['dismissed_notifications' => $dismissedNotifications]);
 
         return back();
-    })->name('notifications.dismiss');
+    })->middleware('throttle:60,1')->name('notifications.dismiss');
 
     Route::get('/notifications/open/{ticket}', function (Request $request, \App\Models\Ticket $ticket) {
         $notificationKey = $request->query('notification_key');
@@ -107,12 +141,20 @@ Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('ad
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/clients', [UserManagementController::class, 'clients'])->name('users.clients');
         Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
-        Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
+        Route::post('/users', [UserManagementController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('users.store');
         Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
         Route::get('/users/{user}/edit', [UserManagementController::class, 'edit'])->name('users.edit');
-        Route::put('/users/{user}', [UserManagementController::class, 'update'])->name('users.update');
-        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
-        Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
+        Route::put('/users/{user}', [UserManagementController::class, 'update'])
+            ->middleware('throttle:20,1')
+            ->name('users.update');
+        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])
+            ->middleware('throttle:10,1')
+            ->name('users.destroy');
+        Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])
+            ->middleware('throttle:30,1')
+            ->name('users.toggle-status');
     });
 });
 

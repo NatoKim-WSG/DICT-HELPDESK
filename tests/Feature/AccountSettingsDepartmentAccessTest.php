@@ -61,4 +61,55 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $superUser->refresh();
         $this->assertSame('DAR', $superUser->department);
     }
+
+    public function test_changing_email_requires_current_password(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Email',
+            'email' => 'super-user-email@example.com',
+            'phone' => '09111112222',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->from(route('account.settings'))
+            ->put(route('account.settings.update'), [
+                'name' => 'Super User Email',
+                'email' => 'super-user-email-new@example.com',
+                'phone' => '09111112222',
+                'department' => 'iOne',
+            ]);
+
+        $response->assertRedirect(route('account.settings'));
+        $response->assertSessionHasErrors('current_password');
+    }
+
+    public function test_changing_email_with_current_password_succeeds(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Email 2',
+            'email' => 'super-user-email2@example.com',
+            'phone' => '09111113333',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)->put(route('account.settings.update'), [
+            'name' => 'Super User Email 2',
+            'email' => 'super-user-email2-new@example.com',
+            'phone' => '09111113333',
+            'department' => 'iOne',
+            'current_password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('account.settings'));
+
+        $superUser->refresh();
+        $this->assertSame('super-user-email2-new@example.com', $superUser->email);
+    }
 }

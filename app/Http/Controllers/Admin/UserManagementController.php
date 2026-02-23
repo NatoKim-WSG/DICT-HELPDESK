@@ -265,10 +265,15 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to delete this user.');
         }
 
-        $user->delete();
+        if (!$user->is_active) {
+            return redirect()->route('admin.users.index')
+                ->with('success', 'User is already deactivated.');
+        }
+
+        $user->update(['is_active' => false]);
 
         return redirect()->route('admin.users.index')
-            ->with('success', 'User deleted successfully.');
+            ->with('success', 'User deactivated successfully. Historical records were preserved.');
     }
 
     public function toggleStatus(User $user)

@@ -6,9 +6,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "laravel/breeze": "^2.0",
         "laravel/framework": "^11.0",
         "laravel/tinker": "^2.9",
-        "laravel/breeze": "^2.0"
+        "symfony/console": "^7.3.0",
+        "symfony/http-foundation": "^7.3.7",
+        "symfony/process": "^7.3.11"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

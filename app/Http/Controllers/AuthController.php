@@ -21,16 +21,15 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'login' => 'required|string',
+            'login' => 'required|email',
             'password' => 'required',
             'remember' => 'nullable|boolean',
         ]);
 
-        $loginValue = $request->login;
-        $fieldName = str_contains($loginValue, '@') ? 'email' : 'name';
+        $loginEmail = $request->string('login')->toString();
 
         if (Auth::attempt(
-            [$fieldName => $loginValue, 'password' => $request->password, 'is_active' => true],
+            ['email' => $loginEmail, 'password' => $request->password, 'is_active' => true],
             $request->boolean('remember')
         )) {
             $request->session()->regenerate();
@@ -38,7 +37,7 @@ class AuthController extends Controller
             return redirect()->intended($this->dashboardPath(Auth::user()));
         }
 
-        $inactiveAccount = User::where($fieldName, $loginValue)
+        $inactiveAccount = User::where('email', $loginEmail)
             ->where('is_active', false)
             ->exists();
 
@@ -74,17 +73,28 @@ class AuthController extends Controller
         $user = Auth::user();
         $isClient = $user->isClient();
 
-        $request->validate([
+        $email = $request->string('email')->toString();
+        $requiresCurrentPassword = $email !== $user->email || $request->filled('password');
+
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'department' => $isClient ? 'nullable' : 'nullable|string|max:255',
             'password' => 'nullable|string|min:8|confirmed',
-        ]);
+        ];
+
+        if ($requiresCurrentPassword) {
+            $rules['current_password'] = ['required', 'current_password'];
+        } else {
+            $rules['current_password'] = ['nullable'];
+        }
+
+        $request->validate($rules);
 
         $updateData = [
             'name' => $request->name,
-            'email' => $request->email,
+            'email' => $email,
         ];
 
         // Client department is managed only by admins from User Management.

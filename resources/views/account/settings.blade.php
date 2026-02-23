@@ -140,6 +140,20 @@
         </div>
 
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+                <label for="current_password" class="form-label">Current Password</label>
+                <input
+                    type="password"
+                    name="current_password"
+                    id="current_password"
+                    class="form-input @error('current_password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                >
+                <p class="mt-1 text-xs text-slate-500">Required when changing your email address or password.</p>
+                @error('current_password')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div>
                 <label for="password" class="form-label">New Password</label>
                 <div class="relative">
