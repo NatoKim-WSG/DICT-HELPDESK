@@ -5,19 +5,12 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $plainPassword = env('SEED_DEFAULT_USER_PASSWORD');
-        $passwordWasGenerated = false;
-
-        if (!$plainPassword) {
-            $plainPassword = Str::random(20);
-            $passwordWasGenerated = true;
-        }
+        $plainPassword = env('SEED_DEFAULT_USER_PASSWORD', 'i0n3i0n3');
 
         User::updateOrCreate(['email' => 'admin@ioneresources.com'], [
             'name' => 'Super User',
@@ -69,10 +62,8 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        if ($passwordWasGenerated && $this->command) {
-            $this->command->warn('SEED_DEFAULT_USER_PASSWORD is not set. A temporary password was generated for seeded users.');
-            $this->command->warn("Seeded users temporary password: {$plainPassword}");
-            $this->command->error('Set SEED_DEFAULT_USER_PASSWORD in .env before seeding non-local environments.');
+        if ($this->command) {
+            $this->command->warn("Seeded users default password: {$plainPassword}");
         }
     }
 }

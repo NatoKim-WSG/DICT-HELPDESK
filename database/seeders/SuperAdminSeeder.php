@@ -3,10 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class SuperAdminSeeder extends Seeder
 {
@@ -15,20 +13,9 @@ class SuperAdminSeeder extends Seeder
      */
     public function run(): void
     {
-        // Check if super admin already exists
-        if (User::where('role', 'super_admin')->exists()) {
-            $this->command->info('Super admin user already exists.');
-            return;
-        }
+        $plainPassword = env('SEED_SUPER_ADMIN_PASSWORD', 'i0n3i0n3');
 
-        $plainPassword = env('SEED_SUPER_ADMIN_PASSWORD');
-        if (!$plainPassword) {
-            $plainPassword = Str::random(20);
-            $this->command->warn('SEED_SUPER_ADMIN_PASSWORD is not set. A temporary password was generated.');
-        }
-
-        // Create the super admin user
-        User::create([
+        User::updateOrCreate(['email' => 'admin@ione.com'], [
             'name' => 'Super Administrator',
             'email' => 'admin@ione.com',
             'phone' => '+1234567890',
@@ -39,9 +26,9 @@ class SuperAdminSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        $this->command->info('Super admin user created successfully.');
+        $this->command->info('Super admin user seeded successfully.');
         $this->command->warn('Email: admin@ione.com');
         $this->command->warn("Password: {$plainPassword}");
-        $this->command->error('Please change the password after first login.');
+        $this->command->warn('Default password is intended for local/dev use only.');
     }
 }

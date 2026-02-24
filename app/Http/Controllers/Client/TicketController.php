@@ -328,6 +328,7 @@ class TicketController extends Controller
                     'preview_url' => $attachment->preview_url,
                     'original_filename' => $attachment->original_filename,
                     'mime_type' => $attachment->mime_type,
+                    'is_image' => str_starts_with((string) $attachment->mime_type, 'image/'),
                 ];
             })->values(),
         ];

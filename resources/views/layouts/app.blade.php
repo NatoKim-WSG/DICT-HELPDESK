@@ -8,10 +8,31 @@
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
+    <script>
+        (function () {
+            if (localStorage.getItem('ione_theme') === 'dark') {
+                document.documentElement.classList.add('theme-dark');
+            }
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[#f3f5f7] font-sans antialiased text-slate-900">
-    <div class="min-h-screen bg-[#f3f5f7]" x-data="{ sidebarOpen: false }">
+    <div
+        class="min-h-screen bg-[#f3f5f7]"
+        x-data="{
+            sidebarOpen: false,
+            darkMode: false,
+            init() {
+                this.darkMode = document.documentElement.classList.contains('theme-dark');
+            },
+            toggleDarkMode() {
+                this.darkMode = !this.darkMode;
+                document.documentElement.classList.toggle('theme-dark', this.darkMode);
+                localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+            }
+        }"
+    >
         @include('layouts.navigation')
 
         <div class="min-h-screen lg:pl-64">
@@ -53,6 +74,11 @@
                     $clientCompanyLogo = asset($departmentLogoPath);
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
+                    $consoleLabel = match ($user->normalizedRole()) {
+                        'super_admin' => 'Super Admin Console',
+                        'super_user' => 'Super User Console',
+                        default => 'Technical Console',
+                    };
                 @endphp
 
                 <div class="relative flex h-20 items-center px-4 sm:px-6 lg:px-8">
@@ -64,6 +90,20 @@
                         >
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            @click="toggleDarkMode"
+                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                            :aria-pressed="darkMode.toString()"
+                            aria-label="Toggle dark mode"
+                        >
+                            <svg x-show="!darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-10h-1M4.34 12h-1m14.02 6.36-.7-.7M7.02 7.02l-.7-.7m12.02 0-.7.7M7.02 16.98l-.7.7M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
+                            </svg>
+                            <svg x-show="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"></path>
                             </svg>
                         </button>
                     </div>
@@ -94,7 +134,7 @@
 
                         @if($user->canAccessAdminTickets())
                             <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 md:inline-flex">
-                                {{ $canManageConsole ? 'Super User Console' : 'Technical Console' }}
+                                {{ $consoleLabel }}
                             </span>
                         @endif
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
+use App\Models\Ticket;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -56,6 +57,31 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
     Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])
         ->middleware('throttle:15,1')
         ->name('tickets.rate');
+
+    Route::get('/notifications/open/{ticket}', function (Request $request, Ticket $ticket) {
+        if ((int) $ticket->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        $notificationKey = $request->query('notification_key');
+        if (is_string($notificationKey) && $notificationKey !== '') {
+            $dismissedNotifications = session('dismissed_notifications', []);
+            if (!in_array($notificationKey, $dismissedNotifications, true)) {
+                $dismissedNotifications[] = $notificationKey;
+            }
+
+            if (count($dismissedNotifications) > 500) {
+                $dismissedNotifications = array_slice($dismissedNotifications, -500);
+            }
+            session(['dismissed_notifications' => $dismissedNotifications]);
+        }
+
+        $seenTicketUpdates = session('seen_ticket_updates', []);
+        $seenTicketUpdates[(string) $ticket->id] = optional($ticket->updated_at)->timestamp ?? now()->timestamp;
+        session(['seen_ticket_updates' => $seenTicketUpdates]);
+
+        return redirect()->route('client.tickets.show', $ticket);
+    })->name('notifications.open');
 });
 
 // Admin Routes
@@ -132,6 +158,10 @@ Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('ad
 
             session(['dismissed_notifications' => $dismissedNotifications]);
         }
+
+        $seenTicketUpdates = session('seen_ticket_updates', []);
+        $seenTicketUpdates[(string) $ticket->id] = optional($ticket->updated_at)->timestamp ?? now()->timestamp;
+        session(['seen_ticket_updates' => $seenTicketUpdates]);
 
         return redirect()->route('admin.tickets.show', $ticket);
     })->name('notifications.open');

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ticket;
+use App\Models\TicketReply;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -24,8 +27,8 @@ class UserManagementController extends Controller
     private function renderUserIndex(Request $request, string $segment)
     {
         $currentUser = auth()->user();
-        $query = User::query();
-        $departmentsQuery = User::query();
+        $query = User::query()->where('email', 'not like', '%@system.local');
+        $departmentsQuery = User::query()->where('email', 'not like', '%@system.local');
 
         $this->applyVisibilityScope($query, $currentUser);
         $this->applyVisibilityScope($departmentsQuery, $currentUser);
@@ -247,6 +250,11 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be deleted.');
+        }
+
         // Users cannot delete themselves
         if ($user->id === $currentUser->id) {
             return redirect()->route('admin.users.index')
@@ -265,15 +273,26 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to delete this user.');
         }
 
-        if (!$user->is_active) {
-            return redirect()->route('admin.users.index')
-                ->with('success', 'User is already deactivated.');
-        }
+        DB::transaction(function () use ($user) {
+            $replacementUser = $this->replacementUserForDeletedAccount($user);
 
-        $user->update(['is_active' => false]);
+            Ticket::where('user_id', $user->id)->update([
+                'user_id' => $replacementUser->id,
+            ]);
+
+            TicketReply::where('user_id', $user->id)->update([
+                'user_id' => $replacementUser->id,
+            ]);
+
+            Ticket::where('assigned_to', $user->id)->update([
+                'assigned_to' => null,
+            ]);
+
+            $user->delete();
+        });
 
         return redirect()->route('admin.users.index')
-            ->with('success', 'User deactivated successfully. Historical records were preserved.');
+            ->with('success', 'User deleted successfully. Ticket and chat history were preserved.');
     }
 
     public function toggleStatus(User $user)
@@ -393,5 +412,46 @@ class UserManagementController extends Controller
             User::ROLE_TECHNICAL => User::ROLE_TECHNICIAN,
             default => null,
         };
+    }
+
+    private function isSystemReplacementUser(User $user): bool
+    {
+        return str_ends_with(strtolower((string) $user->email), '@system.local');
+    }
+
+    private function replacementUserForDeletedAccount(User $deletedUser): User
+    {
+        $normalizedRole = $deletedUser->normalizedRole();
+        $isSupportAccount = in_array($normalizedRole, [
+            User::ROLE_SUPER_ADMIN,
+            User::ROLE_SUPER_USER,
+            User::ROLE_TECHNICAL,
+        ], true);
+
+        if ($isSupportAccount) {
+            return User::firstOrCreate(
+                ['email' => 'deleted.support@system.local'],
+                [
+                    'name' => 'Deleted Support Account',
+                    'phone' => null,
+                    'department' => 'iOne',
+                    'role' => User::ROLE_TECHNICAL,
+                    'password' => Hash::make('password'),
+                    'is_active' => false,
+                ]
+            );
+        }
+
+        return User::firstOrCreate(
+            ['email' => 'deleted.client@system.local'],
+            [
+                'name' => 'Deleted Client Account',
+                'phone' => null,
+                'department' => 'iOne',
+                'role' => User::ROLE_CLIENT,
+                'password' => Hash::make('password'),
+                'is_active' => false,
+            ]
+        );
     }
 }

@@ -48,6 +48,10 @@
         @apply btn bg-rose-500 text-white hover:brightness-95;
     }
 
+    .btn-warning {
+        @apply btn bg-amber-400 text-amber-950 hover:bg-amber-300;
+    }
+
     .btn-success {
         @apply btn bg-emerald-600 text-white hover:brightness-95;
     }
@@ -96,5 +100,86 @@
 
     .hero-glow {
         background: linear-gradient(120deg, rgba(15, 141, 136, 0.08), rgba(255, 47, 136, 0.06));
+    }
+}
+
+@layer base {
+    .theme-dark body {
+        background-color: #0b1220 !important;
+        color: #dbeafe;
+    }
+
+    .theme-dark .bg-\[\#f3f5f7\],
+    .theme-dark .min-h-screen {
+        background-color: #0b1220 !important;
+    }
+
+    .theme-dark .bg-white,
+    .theme-dark .panel,
+    .theme-dark .card,
+    .theme-dark .stat-card {
+        background-color: #111827 !important;
+        border-color: #334155 !important;
+        color: #dbeafe !important;
+    }
+
+    .theme-dark .bg-slate-50,
+    .theme-dark .bg-slate-100,
+    .theme-dark .bg-gray-50,
+    .theme-dark .bg-gray-100 {
+        background-color: #1f2937 !important;
+    }
+
+    .theme-dark .border-slate-100,
+    .theme-dark .border-slate-200,
+    .theme-dark .border-slate-300,
+    .theme-dark .border-gray-200,
+    .theme-dark .border-gray-300 {
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .text-slate-900,
+    .theme-dark .text-gray-900 {
+        color: #f8fafc !important;
+    }
+
+    .theme-dark .text-slate-800,
+    .theme-dark .text-gray-800 {
+        color: #e2e8f0 !important;
+    }
+
+    .theme-dark .text-slate-700,
+    .theme-dark .text-slate-600,
+    .theme-dark .text-slate-500,
+    .theme-dark .text-gray-700,
+    .theme-dark .text-gray-600,
+    .theme-dark .text-gray-500 {
+        color: #94a3b8 !important;
+    }
+
+    .theme-dark .form-input,
+    .theme-dark input,
+    .theme-dark select,
+    .theme-dark textarea {
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .btn-secondary {
+        background-color: #1f2937 !important;
+        color: #e2e8f0 !important;
+        border-color: #334155 !important;
+    }
+
+    .theme-dark .btn-primary {
+        background-color: #0f766e !important;
+    }
+
+    .theme-dark .shadow-sm,
+    .theme-dark .shadow,
+    .theme-dark .shadow-lg,
+    .theme-dark .shadow-xl {
+        box-shadow: 0 10px 28px rgba(2, 6, 23, 0.45) !important;
     }
 }

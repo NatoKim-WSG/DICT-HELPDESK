@@ -21,27 +21,43 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'login' => 'required|email',
+            'login' => 'required|string|max:255',
             'password' => 'required',
             'remember' => 'nullable|boolean',
         ]);
 
-        $loginEmail = $request->string('login')->toString();
+        $loginInput = trim($request->string('login')->toString());
+        $remember = $request->boolean('remember');
+        $isEmailLogin = filter_var($loginInput, FILTER_VALIDATE_EMAIL) !== false;
 
-        if (Auth::attempt(
-            ['email' => $loginEmail, 'password' => $request->password, 'is_active' => true],
-            $request->boolean('remember')
-        )) {
-            $request->session()->regenerate();
-
-            return redirect()->intended($this->dashboardPath(Auth::user()));
+        if ($isEmailLogin) {
+            // Email login remains case-insensitive.
+            $matchedUsers = User::whereRaw('LOWER(email) = ?', [strtolower($loginInput)])
+                ->get();
+        } else {
+            // Username login (full name) is case-sensitive.
+            $matchedUsers = User::whereRaw('LOWER(name) = ?', [strtolower($loginInput)])
+                ->get()
+                ->filter(fn (User $user) => $user->name === $loginInput)
+                ->values();
         }
 
-        $inactiveAccount = User::where('email', $loginEmail)
-            ->where('is_active', false)
-            ->exists();
+        $activeUser = $matchedUsers->first(function (User $user) use ($request) {
+            return $user->is_active && Hash::check($request->password, $user->password);
+        });
 
-        if ($inactiveAccount) {
+        if ($activeUser) {
+            Auth::login($activeUser, $remember);
+            $request->session()->regenerate();
+
+            return redirect()->intended($this->dashboardPath($activeUser));
+        }
+
+        $inactiveMatch = $matchedUsers->first(function (User $user) use ($request) {
+            return !$user->is_active && Hash::check($request->password, $user->password);
+        });
+
+        if ($inactiveMatch) {
             return back()->withErrors([
                 'login' => 'Your account is inactive. Please contact an administrator.',
             ])->onlyInput('login');

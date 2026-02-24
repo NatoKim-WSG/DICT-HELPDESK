@@ -31,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $dismissedNotifications = collect(session('dismissed_notifications', []));
+            $seenTicketUpdates = collect(session('seen_ticket_updates', []));
 
             if (!$user->canAccessAdminTickets()) {
                 $notifications = Ticket::where('user_id', $user->id)
@@ -44,11 +45,17 @@ class AppServiceProvider extends ServiceProvider
                             'title' => 'Ticket update',
                             'meta' => $ticket->subject,
                             'time' => $ticket->updated_at->diffForHumans(),
-                            'url' => route('client.tickets.show', $ticket) . '?notification_key=' . $key,
+                            'url' => route('client.notifications.open', ['ticket' => $ticket, 'notification_key' => $key]),
                             'key' => $key,
+                            'ticket_id' => $ticket->id,
+                            'updated_ts' => optional($ticket->updated_at)->timestamp ?? 0,
                             'can_dismiss' => false,
                             'dismiss_url' => null,
                         ];
+                    })
+                    ->filter(function ($notification) use ($seenTicketUpdates) {
+                        $lastSeen = (int) $seenTicketUpdates->get((string) $notification['ticket_id'], 0);
+                        return (int) $notification['updated_ts'] > $lastSeen;
                     })
                     ->reject(fn ($notification) => $dismissedNotifications->contains($notification['key']))
                     ->take(5)
@@ -68,9 +75,15 @@ class AppServiceProvider extends ServiceProvider
                             'time' => $ticket->updated_at->diffForHumans(),
                             'url' => route('admin.notifications.open', ['ticket' => $ticket, 'notification_key' => $key]),
                             'key' => $key,
+                            'ticket_id' => $ticket->id,
+                            'updated_ts' => optional($ticket->updated_at)->timestamp ?? 0,
                             'can_dismiss' => true,
                             'dismiss_url' => route('admin.notifications.dismiss'),
                         ];
+                    })
+                    ->filter(function ($notification) use ($seenTicketUpdates) {
+                        $lastSeen = (int) $seenTicketUpdates->get((string) $notification['ticket_id'], 0);
+                        return (int) $notification['updated_ts'] > $lastSeen;
                     })
                     ->reject(fn ($notification) => $dismissedNotifications->contains($notification['key']))
                     ->take(5)

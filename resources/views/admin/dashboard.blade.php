@@ -8,7 +8,7 @@
         <h3 class="font-display text-lg font-semibold text-slate-900">Quick Actions</h3>
         <div class="mt-4 flex flex-wrap gap-3">
             <a href="{{ route('admin.tickets.index') }}" class="btn-primary">View All Tickets</a>
-            <a href="{{ route('admin.tickets.index', ['tab' => 'attention']) }}" class="btn-secondary">Needs Attention</a>
+            <a href="{{ route('admin.tickets.index', ['tab' => 'attention']) }}" class="btn-warning">Needs Attention</a>
             <a href="{{ route('admin.tickets.index', ['priority' => 'urgent']) }}" class="btn-danger">Urgent Tickets</a>
             @if(!$isTechnical)
                 <a href="{{ route('admin.users.index') }}" class="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Manage Users</a>

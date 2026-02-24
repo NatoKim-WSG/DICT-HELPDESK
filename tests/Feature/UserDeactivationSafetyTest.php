@@ -14,7 +14,7 @@ class UserDeactivationSafetyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_destroy_user_route_deactivates_user_and_preserves_ticket_history(): void
+    public function test_destroy_user_route_deletes_user_and_preserves_ticket_history(): void
     {
         $superUser = User::create([
             'name' => 'Super User',
@@ -69,20 +69,24 @@ class UserDeactivationSafetyTest extends TestCase
 
         $response->assertRedirect(route('admin.users.index'));
 
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseMissing('users', [
             'id' => $client->id,
-            'is_active' => false,
         ]);
+
+        $archivedClient = User::where('email', 'deleted.client@system.local')->firstOrFail();
+
+        $this->assertFalse((bool) $archivedClient->is_active);
+        $this->assertSame(User::ROLE_CLIENT, $archivedClient->role);
 
         $this->assertDatabaseHas('tickets', [
             'id' => $ticket->id,
-            'user_id' => $client->id,
+            'user_id' => $archivedClient->id,
         ]);
 
         $this->assertDatabaseHas('ticket_replies', [
             'id' => $reply->id,
             'ticket_id' => $ticket->id,
-            'user_id' => $client->id,
+            'user_id' => $archivedClient->id,
         ]);
     }
 }

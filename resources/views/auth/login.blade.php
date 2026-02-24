@@ -7,6 +7,13 @@
     <title>Login - iOne Resources Inc. Helpdesk</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
+    <script>
+        (function () {
+            if (localStorage.getItem('ione_theme') === 'dark') {
+                document.documentElement.classList.add('theme-dark');
+            }
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="font-sans antialiased">
@@ -36,10 +43,11 @@
                     @csrf
 
                     <div>
-                        <label for="login" class="form-label">Email address</label>
-                        <input id="login" name="login" type="email" autocomplete="username" required
+                        <label for="login" class="form-label">Email or Full Name</label>
+                        <input id="login" name="login" type="text" autocomplete="username" required
                                class="form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
-                               placeholder="you@example.com" value="{{ old('login') }}">
+                               placeholder="you@example.com or Juan Dela Cruz" value="{{ old('login') }}">
+                        <p class="mt-1 text-xs text-slate-500">Full name login is case-sensitive.</p>
                     </div>
 
                     <div>

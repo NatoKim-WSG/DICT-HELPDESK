@@ -159,9 +159,14 @@ class TicketController extends Controller
             ],
         ]);
 
+        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $newAssignedTo = $request->filled('assigned_to') ? $request->integer('assigned_to') : null;
+
         $ticket->update([
-            'assigned_to' => $request->filled('assigned_to') ? $request->assigned_to : null,
+            'assigned_to' => $newAssignedTo,
         ]);
+
+        $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
 
         return redirect()->back()->with('success', 'Ticket assignment updated successfully!');
     }
@@ -312,10 +317,13 @@ class TicketController extends Controller
             'status' => $request->string('status')->toString(),
             'priority' => $request->string('priority')->toString(),
         ];
+        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $newAssignedTo = $updateData['assigned_to'];
 
         $this->applyLifecycleTimestamps($ticket, $updateData);
 
         $ticket->update($updateData);
+        $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
 
         return redirect()->back()->with('success', 'Ticket updated successfully.');
     }
@@ -392,7 +400,12 @@ class TicketController extends Controller
                 return redirect()->back()->with('error', 'Please choose a technical user.');
             }
 
-            Ticket::whereIn('id', $selectedIds)->update(['assigned_to' => $request->integer('assigned_to')]);
+            $newAssignedTo = $request->integer('assigned_to');
+            Ticket::whereIn('id', $selectedIds)->get()->each(function (Ticket $ticket) use ($newAssignedTo) {
+                $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+                $ticket->update(['assigned_to' => $newAssignedTo]);
+                $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+            });
             return redirect()->back()->with('success', 'Selected tickets assigned successfully.');
         }
 
@@ -481,6 +494,7 @@ class TicketController extends Controller
                     'preview_url' => $attachment->preview_url,
                     'original_filename' => $attachment->original_filename,
                     'mime_type' => $attachment->mime_type,
+                    'is_image' => str_starts_with((string) $attachment->mime_type, 'image/'),
                 ];
             })->values(),
         ];
@@ -554,5 +568,34 @@ class TicketController extends Controller
     private function isDestructiveBulkAction(string $action): bool
     {
         return in_array($action, ['delete', 'merge'], true);
+    }
+
+    private function recordAssignmentHandoff(Ticket $ticket, ?int $previousAssignedTo, ?int $newAssignedTo): void
+    {
+        if ($previousAssignedTo === $newAssignedTo) {
+            return;
+        }
+
+        $actorName = optional(auth()->user())->name ?? 'System';
+        $previousAssigneeName = $previousAssignedTo ? optional(User::find($previousAssignedTo))->name : null;
+        $newAssigneeName = $newAssignedTo ? optional(User::find($newAssignedTo))->name : null;
+
+        $message = match (true) {
+            $previousAssignedTo === null && $newAssigneeName !== null => "Ticket was assigned to {$newAssigneeName} by {$actorName}.",
+            $previousAssigneeName !== null && $newAssigneeName !== null => "Ticket handoff: {$previousAssigneeName} -> {$newAssigneeName} by {$actorName}.",
+            $previousAssigneeName !== null && $newAssignedTo === null => "Ticket was unassigned from {$previousAssigneeName} by {$actorName}.",
+            default => null,
+        };
+
+        if (!$message) {
+            return;
+        }
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => auth()->id(),
+            'message' => $message . ' Previous conversation remains available for continuity.',
+            'is_internal' => true,
+        ]);
     }
 }

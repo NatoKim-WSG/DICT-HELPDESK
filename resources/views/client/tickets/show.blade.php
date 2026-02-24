@@ -123,16 +123,27 @@
                                 @if($ticket->attachments->count() > 0)
                                     <div class="js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         @foreach($ticket->attachments as $attachment)
-                                            <a href="{{ $attachment->download_url }}"
-                                               class="js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
-                                               data-file-url="{{ $attachment->preview_url }}"
-                                               data-file-name="{{ $attachment->original_filename }}"
-                                               data-file-mime="{{ $attachment->mime_type }}">
-                                                <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                                                </svg>
-                                                <span class="truncate">{{ $attachment->original_filename }}</span>
-                                            </a>
+                                            @if(str_starts_with((string) $attachment->mime_type, 'image/'))
+                                                <a href="{{ $attachment->download_url }}"
+                                                   class="js-attachment-link block overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50"
+                                                   data-file-url="{{ $attachment->preview_url }}"
+                                                   data-file-name="{{ $attachment->original_filename }}"
+                                                   data-file-mime="{{ $attachment->mime_type }}">
+                                                    <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                    <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
+                                                </a>
+                                            @else
+                                                <a href="{{ $attachment->download_url }}"
+                                                   class="js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                   data-file-url="{{ $attachment->preview_url }}"
+                                                   data-file-name="{{ $attachment->original_filename }}"
+                                                   data-file-mime="{{ $attachment->mime_type }}">
+                                                    <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                                    </svg>
+                                                    <span class="truncate">{{ $attachment->original_filename }}</span>
+                                                </a>
+                                            @endif
                                         @endforeach
                                     </div>
                                 @endif
@@ -216,16 +227,27 @@
                                     @if($reply->attachments && $reply->attachments->count() > 0 && !$reply->deleted_at)
                                         <div class="js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                             @foreach($reply->attachments as $attachment)
-                                                <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
-                                                   data-file-url="{{ $attachment->preview_url }}"
-                                                   data-file-name="{{ $attachment->original_filename }}"
-                                                   data-file-mime="{{ $attachment->mime_type }}">
-                                                    <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                                                    </svg>
-                                                    <span class="truncate">{{ $attachment->original_filename }}</span>
-                                                </a>
+                                                @if(str_starts_with((string) $attachment->mime_type, 'image/'))
+                                                    <a href="{{ $attachment->download_url }}"
+                                                       class="js-attachment-link block overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm transition hover:bg-slate-50"
+                                                       data-file-url="{{ $attachment->preview_url }}"
+                                                       data-file-name="{{ $attachment->original_filename }}"
+                                                       data-file-mime="{{ $attachment->mime_type }}">
+                                                        <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                        <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ $attachment->download_url }}"
+                                                       class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                       data-file-url="{{ $attachment->preview_url }}"
+                                                       data-file-name="{{ $attachment->original_filename }}"
+                                                       data-file-mime="{{ $attachment->mime_type }}">
+                                                        <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                                        </svg>
+                                                        <span class="truncate">{{ $attachment->original_filename }}</span>
+                                                    </a>
+                                                @endif
                                             @endforeach
                                         </div>
                                     @endif
@@ -598,10 +620,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const createAttachmentLink = function (attachment) {
         const link = document.createElement('a');
         link.href = attachment.download_url;
-        link.className = 'js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
         link.dataset.fileUrl = attachment.preview_url;
         link.dataset.fileName = attachment.original_filename;
         link.dataset.fileMime = attachment.mime_type;
+
+        if (attachment.is_image) {
+            link.className = 'js-attachment-link block overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50';
+
+            const image = document.createElement('img');
+            image.src = attachment.preview_url;
+            image.alt = attachment.original_filename || 'Attachment image';
+            image.className = 'h-40 w-full rounded-lg object-cover';
+
+            const caption = document.createElement('span');
+            caption.className = 'mt-2 block truncate text-xs text-slate-600';
+            caption.textContent = attachment.original_filename;
+
+            link.appendChild(image);
+            link.appendChild(caption);
+            return link;
+        }
+
+        link.className = 'js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
 
         const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         icon.setAttribute('class', 'mr-2 h-4 w-4 text-slate-500');

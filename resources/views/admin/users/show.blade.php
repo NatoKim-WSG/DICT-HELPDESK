@@ -190,7 +190,7 @@
                             @if(!$user->isSuperAdmin())
                                 <button onclick="deleteUser({{ $user->id }})"
                                         class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md">
-                                    Deactivate Account
+                                    Delete Account
                                 </button>
                             @endif
                         </div>
@@ -241,17 +241,18 @@
 
 <!-- Deactivate User Modal -->
 <div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="flex min-h-full items-center justify-center p-4">
+    <div class="relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 mt-2">Deactivate User</h3>
+            <h3 class="text-lg font-medium text-gray-900 mt-2">Delete User</h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500">
-                    Are you sure you want to deactivate this user? This preserves historical records and prevents login access.
+                    Are you sure you want to delete this user? Ticket history will be preserved.
                 </p>
                 <label class="mt-3 inline-flex items-center text-sm text-gray-700">
                     <input id="deleteConfirmCheckbox" type="checkbox" required aria-required="true" class="mr-2 rounded border-gray-300 text-red-600 focus:ring-red-500">
@@ -260,13 +261,14 @@
             </div>
             <div class="items-center px-4 py-3">
                 <button id="confirmDelete" disabled class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60">
-                    Deactivate
+                    Delete
                 </button>
                 <button onclick="closeDeleteModal()" class="mt-3 px-4 py-2 bg-white text-gray-500 text-base font-medium rounded-md w-full shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                     Cancel
                 </button>
             </div>
         </div>
+    </div>
     </div>
 </div>
 

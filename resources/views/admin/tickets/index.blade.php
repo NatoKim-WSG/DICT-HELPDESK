@@ -22,7 +22,7 @@
             <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200">
                 <div class="flex items-center gap-7">
                     <a href="{{ $tabTicketsUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'tickets' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Tickets</a>
-                    <a href="{{ $tabAttentionUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Aging (16h+)</a>
+                    <a href="{{ $tabAttentionUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Needs Attention</a>
                     <a href="{{ $tabHistoryUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'history' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">History</a>
                 </div>
 

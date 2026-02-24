@@ -92,29 +92,16 @@
                 'flex w-full justify-center' => $isTicketConsole,
                 'flex w-full justify-center' => $isClient,
             ])>
-                @if($isTicketConsole)
-                    <span class="flex flex-col items-center text-center">
-                        <span class="inline-flex items-center justify-center px-1 py-1">
-                            <img
-                                src="{{ $departmentLogo }}"
-                                alt="{{ $departmentName }} Logo"
-                                class="h-14 w-auto"
-                            >
-                        </span>
-                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $canManageConsole ? 'Super User Console' : 'Technical Console' }}</span>
+                <span class="flex flex-col items-center text-center">
+                    <span class="inline-flex items-center justify-center px-1 py-1">
+                        <img
+                            src="{{ $departmentLogo }}"
+                            alt="{{ $departmentName }} Logo"
+                            class="h-14 w-auto"
+                        >
                     </span>
-                @else
-                    <span class="flex flex-col items-center text-center">
-                        <span class="inline-flex items-center justify-center px-1 py-1">
-                            <img
-                                src="{{ $departmentLogo }}"
-                                alt="{{ $departmentName }} Logo"
-                                class="h-14 w-auto"
-                            >
-                        </span>
-                        <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $departmentName }}</span>
-                    </span>
-                @endif
+                    <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">iOne Resources. Inc</span>
+                </span>
             </a>
 
             <button @click="sidebarOpen = false" @class([
