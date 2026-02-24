@@ -107,7 +107,7 @@ class AuthController extends Controller
         $requiresCurrentPassword = $email !== $user->email || $request->filled('password');
 
         $rules = [
-            'name' => 'required|string|max:255',
+            'name' => $isClient ? 'nullable' : 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'department' => $departmentRules,
@@ -123,9 +123,12 @@ class AuthController extends Controller
         $request->validate($rules);
 
         $updateData = [
-            'name' => $request->name,
             'email' => $email,
         ];
+
+        if (!$isClient) {
+            $updateData['name'] = $request->name;
+        }
 
         // Department for clients/technical users is managed from User Management.
         if (!$isDepartmentLocked) {
@@ -140,7 +143,14 @@ class AuthController extends Controller
             $updateData['password'] = Hash::make($request->password);
         }
 
-        $user->update($updateData);
+        $user->fill($updateData);
+
+        if (!$user->isDirty()) {
+            return redirect()->route('account.settings')
+                ->with('success', 'No changes were detected.');
+        }
+
+        $user->save();
 
         return redirect()->route('account.settings')
             ->with('success', 'Account settings updated successfully.');

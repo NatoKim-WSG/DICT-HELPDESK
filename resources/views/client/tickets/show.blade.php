@@ -5,11 +5,11 @@
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) return asset('images/ione-logo.png');
+        if ($isSupport) return asset('images/iOne Logo.png');
         return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(auth()->user()->department);
-    $supportCompanyLogo = asset('images/ione-logo.png');
+    $supportCompanyLogo = asset('images/iOne Logo.png');
 @endphp
 <style>
 #conversation-thread {

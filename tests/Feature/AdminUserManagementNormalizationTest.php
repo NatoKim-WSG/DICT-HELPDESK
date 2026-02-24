@@ -251,4 +251,84 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response->assertDontSee('name="password_confirmation"', false);
         $response->assertSee('Password changes for client accounts are restricted to Super Admins.', false);
     }
+
+    public function test_staff_index_keeps_role_hierarchy_and_sorts_names_alphabetically_within_role_group(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Zulu Super Admin',
+            'email' => 'zulu-super-admin@example.com',
+            'phone' => '09100000012',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Bravo Super Admin',
+            'email' => 'bravo-super-admin@example.com',
+            'phone' => '09100000013',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Alpha Super User',
+            'email' => 'alpha-super-user@example.com',
+            'phone' => '09100000014',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Beta Legacy Admin',
+            'email' => 'beta-legacy-admin@example.com',
+            'phone' => '09100000015',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Aaron Technical',
+            'email' => 'aaron-technical@example.com',
+            'phone' => '09100000016',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.users.index'));
+        $response->assertOk();
+
+        $content = $response->getContent();
+        $tbodyStart = strpos($content, '<tbody');
+        $tbodyEnd = strpos($content, '</tbody>');
+        $this->assertNotFalse($tbodyStart);
+        $this->assertNotFalse($tbodyEnd);
+
+        $tbodyContent = substr($content, (int) $tbodyStart, ((int) $tbodyEnd - (int) $tbodyStart) + 8);
+
+        $expectedOrder = [
+            'Bravo Super Admin',
+            'Zulu Super Admin',
+            'Alpha Super User',
+            'Beta Legacy Admin',
+            'Aaron Technical',
+        ];
+
+        $previousPosition = -1;
+        foreach ($expectedOrder as $expectedName) {
+            $position = strpos($tbodyContent, $expectedName);
+            $this->assertNotFalse($position, "Missing expected name in users table: {$expectedName}");
+            $this->assertGreaterThan($previousPosition, $position, "Unexpected order in users table around: {$expectedName}");
+            $previousPosition = $position;
+        }
+    }
 }

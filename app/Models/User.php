@@ -31,7 +31,20 @@ class User extends Authenticatable
         self::ROLE_SUPER_ADMIN,
     ];
 
-    public const ALLOWED_DEPARTMENTS = ['iOne', 'DEPED', 'DICT', 'DAR'];
+    public const ALLOWED_DEPARTMENTS = [
+        'iOne',
+        'BOC',
+        'DSWD',
+        'DEPED',
+        'PCG',
+        'NAVY',
+        'DA',
+        'DAR',
+        'AFP',
+        'LGU Pasig',
+        'DICT',
+        'Others',
+    ];
 
     protected $fillable = [
         'name',
@@ -134,43 +147,42 @@ class User extends Authenticatable
     public static function departmentBrandKey(?string $department, ?string $role = null): string
     {
         $normalizedDepartment = strtolower(trim((string) $department));
-
-        if (
-            str_contains($normalizedDepartment, 'ione')
-            || str_contains($normalizedDepartment, 'i one')
-            || str_contains($normalizedDepartment, 'administration')
-            || $normalizedDepartment === 'it'
-        ) {
-            return 'ione';
-        }
-
-        if (str_contains($normalizedDepartment, 'deped')) {
-            return 'deped';
-        }
-
-        if (str_contains($normalizedDepartment, 'dar')) {
-            return 'dar';
-        }
-
-        if (str_contains($normalizedDepartment, 'dict')) {
-            return 'dict';
-        }
-
+        $departmentToken = preg_replace('/[^a-z0-9]+/', '', $normalizedDepartment);
         $normalizedRole = self::normalizeRole($role);
-        if (in_array($normalizedRole, [self::ROLE_SUPER_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true)) {
-            return 'ione';
-        }
 
-        return 'dict';
+        return match (true) {
+            in_array($departmentToken, ['ione', 'ioneresources', 'administration', 'it'], true) => 'ione',
+            $departmentToken === 'boc' => 'boc',
+            $departmentToken === 'dswd' => 'dswd',
+            $departmentToken === 'deped' => 'deped',
+            $departmentToken === 'pcg' => 'pcg',
+            $departmentToken === 'navy' => 'navy',
+            $departmentToken === 'dar' => 'dar',
+            $departmentToken === 'da' => 'da',
+            $departmentToken === 'afp' => 'afp',
+            in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
+            $departmentToken === 'dict' => 'dict',
+            $departmentToken === 'others' => 'others',
+            in_array($normalizedRole, [self::ROLE_SUPER_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
+            default => 'dict',
+        };
     }
 
     public static function departmentBrandMap(): array
     {
         return [
-            'ione' => ['name' => 'iOne', 'logo' => 'images/ione-logo.png'],
-            'dict' => ['name' => 'DICT', 'logo' => 'images/DICT-logo.png'],
-            'deped' => ['name' => 'DEPED', 'logo' => 'images/deped-logo.png'],
-            'dar' => ['name' => 'DAR', 'logo' => 'images/dar-logo.png'],
+            'ione' => ['name' => 'iOne', 'logo' => 'images/iOne Logo.png'],
+            'boc' => ['name' => 'BOC', 'logo' => 'images/BOC Logo.png'],
+            'dswd' => ['name' => 'DSWD', 'logo' => 'images/DSWD Logo.png'],
+            'deped' => ['name' => 'DEPED', 'logo' => 'images/DEPED Logo.png'],
+            'pcg' => ['name' => 'PCG', 'logo' => 'images/PCG Logo.png'],
+            'navy' => ['name' => 'NAVY', 'logo' => 'images/Navy Logo.png'],
+            'da' => ['name' => 'DA', 'logo' => 'images/DA Logo.png'],
+            'dar' => ['name' => 'DAR', 'logo' => 'images/DAR Logo.png'],
+            'afp' => ['name' => 'AFP', 'logo' => 'images/AFP Logo.png'],
+            'lgu_pasig' => ['name' => 'LGU Pasig', 'logo' => 'images/LGUP Logo.png'],
+            'dict' => ['name' => 'DICT', 'logo' => 'images/DICT Logo.png'],
+            'others' => ['name' => 'Others', 'logo' => 'images/Others Logo.png'],
         ];
     }
 
@@ -179,10 +191,11 @@ class User extends Authenticatable
         $brandKey = self::departmentBrandKey($department, $role);
         $brandMap = self::departmentBrandMap();
         $brand = $brandMap[$brandKey] ?? $brandMap['ione'];
-        $logoPath = $brand['logo'] ?? 'images/ione-logo.png';
+        $defaultLogoPath = $brandMap['ione']['logo'] ?? 'images/iOne Logo.png';
+        $logoPath = $brand['logo'] ?? $defaultLogoPath;
 
         if (!file_exists(public_path($logoPath))) {
-            $logoPath = 'images/ione-logo.png';
+            $logoPath = $defaultLogoPath;
         }
 
         return [
@@ -195,6 +208,9 @@ class User extends Authenticatable
 
     public static function allowedDepartments(): array
     {
-        return self::ALLOWED_DEPARTMENTS;
+        $departments = self::ALLOWED_DEPARTMENTS;
+        usort($departments, fn (string $left, string $right) => strnatcasecmp($left, $right));
+
+        return $departments;
     }
 }

@@ -75,6 +75,8 @@ class UserManagementController extends Controller
                     ELSE 6
                 END
             ")
+            ->orderByRaw("LOWER(COALESCE(name, ''))")
+            ->orderBy('name')
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
@@ -83,8 +85,9 @@ class UserManagementController extends Controller
             ->whereNotNull('department')
             ->where('department', '!=', '')
             ->distinct()
-            ->orderBy('department')
-            ->pluck('department');
+            ->pluck('department')
+            ->sort(fn (string $left, string $right) => strnatcasecmp($left, $right))
+            ->values();
 
         $availableRolesFilter = $this->availableRolesFilterForSegment($segment, $currentUser);
         $segmentTitle = $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts';
@@ -260,16 +263,23 @@ class UserManagementController extends Controller
             $updateData['password'] = Hash::make($request->password);
         }
 
+        $user->fill($updateData);
+
+        if (!$user->isDirty()) {
+            return redirect()->route('admin.users.index')
+                ->with('success', 'No changes were detected.');
+        }
+
         try {
-            $user->update($updateData);
+            $user->save();
         } catch (QueryException $exception) {
             $fallbackRole = $this->legacyFallbackRole($persistedRole);
             if (!$fallbackRole) {
                 throw $exception;
             }
 
-            $updateData['role'] = $fallbackRole;
-            $user->update($updateData);
+            $user->role = $fallbackRole;
+            $user->save();
         }
 
         return redirect()->route('admin.users.index')

@@ -138,6 +138,10 @@ class TicketController extends Controller
         $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
         $newAssignedTo = $request->filled('assigned_to') ? $request->integer('assigned_to') : null;
 
+        if ($previousAssignedTo === $newAssignedTo) {
+            return redirect()->back()->with('success', 'No changes were detected.');
+        }
+
         $ticket->update([
             'assigned_to' => $newAssignedTo,
         ]);
@@ -161,6 +165,11 @@ class TicketController extends Controller
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
+
+        if ($previousStatus === $nextStatus) {
+            return redirect()->back()->with('success', 'No changes were detected.');
+        }
+
         $updateData = ['status' => $nextStatus];
         $this->applyLifecycleTimestamps($ticket, $updateData);
 
@@ -173,6 +182,10 @@ class TicketController extends Controller
     public function updatePriority(Request $request, Ticket $ticket)
     {
         $request->validate(['priority' => 'required|in:' . implode(',', Ticket::PRIORITIES)]);
+
+        if ($ticket->priority === $request->priority) {
+            return redirect()->back()->with('success', 'No changes were detected.');
+        }
 
         $ticket->update(['priority' => $request->priority]);
 
@@ -188,21 +201,33 @@ class TicketController extends Controller
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
 
-        if (!$this->replyTargetExistsForTicket($ticket, $request->integer('reply_to_id'))) {
+        $replyToId = $request->integer('reply_to_id') ?: null;
+
+        if (!$this->replyTargetExistsForTicket($ticket, $replyToId)) {
             return redirect()->back()->with('error', 'Invalid reply target.');
         }
+
+        $replyTarget = null;
+        if ($replyToId) {
+            $replyTarget = $ticket->replies()
+                ->select(['id', 'is_internal'])
+                ->whereKey($replyToId)
+                ->first();
+        }
+
+        $isInternal = $request->boolean('is_internal') || (bool) optional($replyTarget)->is_internal;
 
         $reply = TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
-            'reply_to_id' => $request->integer('reply_to_id') ?: null,
+            'reply_to_id' => $replyToId,
             'message' => $request->message,
-            'is_internal' => $request->boolean('is_internal'),
+            'is_internal' => $isInternal,
         ]);
 
         $this->persistAttachmentsFromRequest($request, $reply);
 
-        if ($ticket->status === 'open' && !$request->boolean('is_internal')) {
+        if ($ticket->status === 'open' && !$isInternal) {
             $ticket->update(['status' => 'in_progress']);
         }
 
@@ -268,6 +293,12 @@ class TicketController extends Controller
             'due_date' => 'required|date|after:now',
         ]);
 
+        $incomingDueDateLabel = \Illuminate\Support\Carbon::parse($request->due_date)->format('Y-m-d H:i');
+        $existingDueDateLabel = optional($ticket->due_date)->format('Y-m-d H:i');
+        if ($existingDueDateLabel === $incomingDueDateLabel) {
+            return redirect()->back()->with('success', 'No changes were detected.');
+        }
+
         $ticket->update(['due_date' => $request->due_date]);
 
         return redirect()->back()->with('success', 'Due date set successfully!');
@@ -292,13 +323,23 @@ class TicketController extends Controller
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
+        $nextPriority = $request->string('priority')->toString();
         $updateData = [
             'assigned_to' => $request->filled('assigned_to') ? $request->integer('assigned_to') : null,
             'status' => $nextStatus,
-            'priority' => $request->string('priority')->toString(),
+            'priority' => $nextPriority,
         ];
         $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
         $newAssignedTo = $updateData['assigned_to'];
+        $previousPriority = (string) $ticket->priority;
+
+        if (
+            $previousAssignedTo === $newAssignedTo
+            && $previousStatus === $nextStatus
+            && strtolower($previousPriority) === strtolower($nextPriority)
+        ) {
+            return redirect()->back()->with('success', 'No changes were detected.');
+        }
 
         $this->applyLifecycleTimestamps($ticket, $updateData);
 

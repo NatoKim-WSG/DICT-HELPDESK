@@ -65,20 +65,18 @@
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
             <div class="sm:col-span-1">
                 <label for="name" class="form-label">
-                    {{ $isClient ? 'Company Name' : 'Username' }} <span class="text-rose-500">*</span>
+                    Username @if(!$isClient)<span class="text-rose-500">*</span>@endif
                 </label>
                 <input
                     type="text"
                     name="name"
                     id="name"
-                    value="{{ old('name', $user->name) }}"
+                    value="{{ $isClient ? $user->name : old('name', $user->name) }}"
                     required
-                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
-                    placeholder="{{ $isClient ? 'Enter company name' : 'Enter username' }}"
+                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isClient ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    placeholder="Enter username"
+                    {{ $isClient ? 'readonly aria-readonly=true' : '' }}
                 >
-                @if($isClient)
-                    <p class="mt-1 text-xs text-slate-500">Use your organization or company name.</p>
-                @endif
                 @error('name')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
@@ -95,6 +93,9 @@
                     class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                     placeholder="you@example.com"
                 >
+                @if($isClient)
+                    <p class="mt-1 px-3.5 text-xs text-slate-500">Use the primary email of your account admin/leader.</p>
+                @endif
                 @error('email')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror

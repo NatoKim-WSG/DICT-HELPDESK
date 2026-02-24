@@ -75,7 +75,7 @@
                             <select name="department" id="department" required
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('department') border-red-300 @enderror">
                                 <option value="">Select department</option>
-                                @foreach(['iOne', 'DEPED', 'DICT', 'DAR'] as $departmentOption)
+                                @foreach(\App\Models\User::allowedDepartments() as $departmentOption)
                                     <option value="{{ $departmentOption }}" {{ old('department', $user->department) === $departmentOption ? 'selected' : '' }}>
                                         {{ $departmentOption }}
                                     </option>

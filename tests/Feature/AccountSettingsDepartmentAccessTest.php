@@ -11,7 +11,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_client_cannot_change_department_from_account_settings(): void
+    public function test_client_cannot_change_name_or_department_from_account_settings(): void
     {
         $client = User::create([
             'name' => 'Client A',
@@ -33,7 +33,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response->assertRedirect(route('account.settings'));
 
         $client->refresh();
-        $this->assertSame('Client A Updated', $client->name);
+        $this->assertSame('Client A', $client->name);
         $this->assertSame('DICT', $client->department);
     }
 
@@ -126,6 +126,26 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('name="department"', $response->getContent());
         $this->assertStringContainsString('readonly aria-readonly=true', $response->getContent());
+    }
+
+    public function test_client_sees_read_only_username_and_email_guidance_on_account_settings(): void
+    {
+        $client = User::create([
+            'name' => 'Client Label Check',
+            'email' => 'client-label-check@example.com',
+            'phone' => '09111110000',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($client)->get(route('account.settings'));
+        $response->assertOk();
+        $this->assertStringContainsString('Username', $response->getContent());
+        $this->assertStringNotContainsString('Username <span class="text-rose-500">*</span>', $response->getContent());
+        $this->assertStringNotContainsString('Use your organization or company name.', $response->getContent());
+        $this->assertStringContainsString('Use the primary email of your account admin/leader.', $response->getContent());
     }
 
     public function test_changing_email_requires_current_password(): void

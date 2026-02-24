@@ -5,11 +5,11 @@
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) return asset('images/ione-logo.png');
+        if ($isSupport) return asset('images/iOne Logo.png');
         return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
-    $supportCompanyLogo = asset('images/ione-logo.png');
+    $supportCompanyLogo = asset('images/iOne Logo.png');
 @endphp
 <style>
 #admin-conversation-thread {
@@ -173,7 +173,7 @@
                                 {{ $reply->created_at->greaterThan(now()->subDay()) ? $reply->created_at->format('g:i A') : $reply->created_at->format('M j, Y') }}
                             </div>
                         @endif
-                        <div class="js-chat-row flex {{ $fromSupport ? 'justify-end' : 'justify-start' }}" data-created-at="{{ $reply->created_at->toIso8601String() }}" data-reply-id="{{ $reply->id }}" data-can-manage="{{ $canManageReply }}">
+                        <div class="js-chat-row flex {{ $fromSupport ? 'justify-end' : 'justify-start' }}" data-created-at="{{ $reply->created_at->toIso8601String() }}" data-reply-id="{{ $reply->id }}" data-can-manage="{{ $canManageReply }}" data-is-internal="{{ $isInternal ? '1' : '0' }}">
                             @php $avatarLogo = $departmentLogo(data_get($reply, 'user.department'), $fromSupport); @endphp
                             <div class="flex w-full max-w-3xl items-start gap-2 {{ $fromSupport ? 'justify-end' : '' }}">
                                 <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white {{ $fromSupport ? 'order-2' : '' }}">
@@ -472,6 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const messageCountNode = document.getElementById('admin-message-count');
     const replyError = document.getElementById('admin-reply-error');
     const replyToInput = document.getElementById('admin_reply_to_id');
+    const internalNoteInput = document.getElementById('is_internal');
     const replyTargetBanner = document.getElementById('admin-reply-target-banner');
     const replyTargetText = document.getElementById('admin-reply-target-text');
     const clearReplyTargetButton = document.getElementById('admin-clear-reply-target');
@@ -596,11 +597,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    const setReplyTarget = function (replyId, message) {
+    const setReplyTarget = function (replyId, message, isInternalTarget) {
         clearEditingTarget({ resetInput: false });
         if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
         replyToInput.value = String(replyId);
         replyTargetText.textContent = 'Replying to: ' + (message || '').slice(0, 120);
+        if (isInternalTarget && internalNoteInput) {
+            internalNoteInput.checked = true;
+        }
         replyTargetBanner.classList.remove('hidden');
         replyTargetBanner.classList.add('flex');
         if (messageInput) messageInput.focus();
@@ -706,6 +710,7 @@ document.addEventListener('DOMContentLoaded', function () {
         row.dataset.createdAt = payload.created_at_iso;
         row.dataset.replyId = payload.id;
         row.dataset.canManage = canManage ? '1' : '0';
+        row.dataset.isInternal = payload.is_internal ? '1' : '0';
         if (payload.id !== undefined && payload.id !== null) {
             knownReplyIds.add(String(payload.id));
         }
@@ -843,10 +848,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!row) return;
 
                 const replyId = row.dataset.replyId;
+                const isInternalTarget = row.dataset.isInternal === '1';
                 const messageNode = row.querySelector('.js-message-text');
                 const message = messageNode ? messageNode.textContent.trim() : '';
                 if (replyId) {
-                    setReplyTarget(replyId, message);
+                    setReplyTarget(replyId, message, isInternalTarget);
                 }
                 closeMenus();
                 return;
