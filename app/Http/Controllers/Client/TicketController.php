@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers\Client;
 
+use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
+    use InteractsWithTicketReplies;
+
     public function index(Request $request)
     {
         $query = auth()->user()->tickets()
@@ -75,19 +76,7 @@ class TicketController extends Controller
 
         $ticket = Ticket::create($ticketData);
 
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('attachments', 'public');
-
-                $ticket->attachments()->create([
-                    'filename' => basename($path),
-                    'original_filename' => $file->getClientOriginalName(),
-                    'file_path' => $path,
-                    'mime_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
-                ]);
-            }
-        }
+        $this->persistAttachmentsFromRequest($request, $ticket);
 
         return redirect()->route('client.tickets.show', $ticket)
             ->with('success', 'Ticket created successfully!');
@@ -141,19 +130,7 @@ class TicketController extends Controller
             'is_internal' => false,
         ]);
 
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('attachments', 'public');
-
-                $reply->attachments()->create([
-                    'filename' => basename($path),
-                    'original_filename' => $file->getClientOriginalName(),
-                    'file_path' => $path,
-                    'mime_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
-                ]);
-            }
-        }
+        $this->persistAttachmentsFromRequest($request, $reply);
 
         if (in_array($ticket->status, Ticket::CLOSED_STATUSES, true)) {
             $ticket->update([
@@ -301,47 +278,6 @@ class TicketController extends Controller
         return redirect()->back()->with('success', 'Rating submitted successfully!');
     }
 
-    private function formatReplyForChat(TicketReply $reply): array
-    {
-        $fromSupport = in_array(optional($reply->user)->role, User::TICKET_CONSOLE_ROLES, true);
-
-        return [
-            'id' => $reply->id,
-            'message' => $reply->message,
-            'is_internal' => (bool) $reply->is_internal,
-            'created_at_iso' => optional($reply->created_at)->toIso8601String(),
-            'created_at_human' => optional($reply->created_at)->diffForHumans(),
-            'created_at_label' => optional($reply->created_at)?->greaterThan(now()->subDay())
-                ? optional($reply->created_at)?->format('g:i A')
-                : optional($reply->created_at)?->format('M j, Y'),
-            'from_support' => $fromSupport,
-            'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
-            'can_manage' => (bool) ($reply->user_id === auth()->id()),
-            'edited' => (bool) $reply->edited_at,
-            'deleted' => (bool) $reply->deleted_at,
-            'reply_to_id' => $reply->reply_to_id,
-            'reply_to_message' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'reply_to_excerpt' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'attachments' => $reply->attachments->map(function ($attachment) {
-                return [
-                    'download_url' => $attachment->download_url,
-                    'preview_url' => $attachment->preview_url,
-                    'original_filename' => $attachment->original_filename,
-                    'mime_type' => $attachment->mime_type,
-                    'is_image' => str_starts_with((string) $attachment->mime_type, 'image/'),
-                ];
-            })->values(),
-        ];
-    }
-
-    private function departmentLogoForUser(?User $user, bool $fromSupport): string
-    {
-        if ($fromSupport) {
-            return asset('images/ione-logo.png');
-        }
-        return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];
-    }
-
     private function assertTicketOwner(Ticket $ticket): void
     {
         if ($ticket->user_id !== auth()->id()) {
@@ -355,9 +291,7 @@ class TicketController extends Controller
             return null;
         }
 
-        $replyTo = TicketReply::where('ticket_id', $ticket->id)->find($request->integer('reply_to_id'));
-
-        if ($replyTo) {
+        if ($this->replyTargetExistsForTicket($ticket, $request->integer('reply_to_id'))) {
             return null;
         }
 

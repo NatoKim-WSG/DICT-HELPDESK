@@ -31,6 +31,8 @@ class User extends Authenticatable
         self::ROLE_SUPER_ADMIN,
     ];
 
+    public const ALLOWED_DEPARTMENTS = ['iOne', 'DEPED', 'DICT', 'DAR'];
+
     protected $fillable = [
         'name',
         'email',
@@ -92,17 +94,17 @@ class User extends Authenticatable
 
     public function canAccessAdminTickets()
     {
-        return in_array($this->role, self::TICKET_CONSOLE_ROLES, true);
+        return in_array($this->normalizedRole(), self::TICKET_CONSOLE_ROLES, true);
     }
 
     public function canManageTickets()
     {
-        return in_array($this->role, self::ADMIN_LEVEL_ROLES, true);
+        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
     }
 
     public function canManageUsers()
     {
-        return in_array($this->role, self::ADMIN_LEVEL_ROLES, true);
+        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
     }
 
     public function canCreateAdmins()
@@ -189,5 +191,10 @@ class User extends Authenticatable
             'logo_path' => $logoPath,
             'logo_url' => asset($logoPath),
         ];
+    }
+
+    public static function allowedDepartments(): array
+    {
+        return self::ALLOWED_DEPARTMENTS;
     }
 }

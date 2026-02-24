@@ -7,7 +7,7 @@
     $tab = $activeTab ?? 'tickets';
     $isHistoryTab = $tab === 'history';
     $viewedTicketIds = array_map('intval', session('admin_viewed_ticket_ids', []));
-    $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'assigned_to', 'status', 'priority']);
+    $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
@@ -88,25 +88,24 @@
                 </div>
 
                 <div>
-                    <label for="assigned_to" class="sr-only">Assigned To</label>
-                    <select id="assigned_to" name="assigned_to" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All technical users</option>
-                        <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
-                        @foreach($agents as $agent)
-                            <option value="{{ $agent->id }}" {{ request('assigned_to') == $agent->id ? 'selected' : '' }}>
-                                {{ $agent->name }}
+                    <label for="province" class="sr-only">Province</label>
+                    <select id="province" name="province" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                        <option value="all">All provinces</option>
+                        @foreach($provinceOptions as $province)
+                            <option value="{{ $province }}" {{ request('province') === $province ? 'selected' : '' }}>
+                                {{ $province }}
                             </option>
                         @endforeach
                     </select>
                 </div>
 
                 <div>
-                    <label for="region" class="sr-only">Region</label>
-                    <select id="region" name="region" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All regions</option>
-                        @foreach($regions as $region)
-                            <option value="{{ $region }}" {{ request('region') === $region ? 'selected' : '' }}>
-                                {{ $region }}
+                    <label for="municipality" class="sr-only">Municipality</label>
+                    <select id="municipality" name="municipality" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                        <option value="all">All municipalities</option>
+                        @foreach($municipalityOptions as $municipality)
+                            <option value="{{ $municipality }}" {{ request('municipality') === $municipality ? 'selected' : '' }}>
+                                {{ $municipality }}
                             </option>
                         @endforeach
                     </select>
@@ -114,11 +113,11 @@
 
                 <div>
                     <label for="account" class="sr-only">Account</label>
-                    <select id="account" name="account" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                    <select id="account" name="account_id" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                         <option value="all">All accounts</option>
                         @foreach($accountOptions as $account)
-                            <option value="{{ $account }}" {{ request('account') === $account ? 'selected' : '' }}>
-                                {{ $account }}
+                            <option value="{{ $account->id }}" {{ (string) request('account_id') === (string) $account->id ? 'selected' : '' }}>
+                                {{ $account->name }}
                             </option>
                         @endforeach
                     </select>

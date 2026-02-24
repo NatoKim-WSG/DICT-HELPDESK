@@ -9,6 +9,10 @@ Laravel 11 help desk application with separate client and admin portals for tick
 - PostgreSQL (default) or MySQL/MariaDB
 - Vite + Tailwind CSS
 
+## Environment Notes
+
+- Enable the PHP `intl` extension if you plan to use `php artisan db:show` or `php artisan db:table`.
+
 ## Core Features
 
 - Client ticket creation with attachments

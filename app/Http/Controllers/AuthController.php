@@ -82,7 +82,7 @@ class AuthController extends Controller
     public function accountSettings()
     {
         $user = Auth::user();
-        $departmentOptions = $this->allowedDepartments();
+        $departmentOptions = User::allowedDepartments();
 
         return view('account.settings', compact('user', 'departmentOptions'));
     }
@@ -100,7 +100,7 @@ class AuthController extends Controller
         if ($isDepartmentLocked) {
             $departmentRules = ['nullable'];
         } elseif ($isSuperDepartmentRole) {
-            $departmentRules = ['required', Rule::in($this->allowedDepartments())];
+            $departmentRules = ['required', Rule::in(User::allowedDepartments())];
         }
 
         $email = $request->string('email')->toString();
@@ -144,11 +144,6 @@ class AuthController extends Controller
 
         return redirect()->route('account.settings')
             ->with('success', 'Account settings updated successfully.');
-    }
-
-    private function allowedDepartments(): array
-    {
-        return ['iOne', 'DEPED', 'DICT', 'DAR'];
     }
 
     private function dashboardPath(User $user): string

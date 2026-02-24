@@ -2,46 +2,32 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
 use App\Models\Attachment;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
+    use InteractsWithTicketReplies;
+
     public function index(Request $request)
     {
-        $regions = [
-            'NCR',
-            'CAR',
-            'Region I',
-            'Region II',
-            'Region III',
-            'Region IV-A',
-            'Region IV-B',
-            'Region V',
-            'Region VI',
-            'Region VII',
-            'Region VIII',
-            'Region IX',
-            'Region X',
-            'Region XI',
-            'Region XII',
-            'Region XIII',
-            'BARMM',
-        ];
+        $provinceOptions = $this->distinctTicketColumnOptions('province');
+        $municipalityOptions = $this->distinctTicketColumnOptions('municipality');
 
         $accountOptions = User::where('role', User::ROLE_CLIENT)
             ->where('is_active', true)
             ->orderBy('name')
-            ->pluck('name')
+            ->get(['id', 'name'])
             ->values();
 
         $activeTab = $request->string('tab')->toString();
@@ -74,26 +60,16 @@ class TicketController extends Controller
                 $builder->where('category_id', $request->integer('category'));
             });
 
-        if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
-            if ($request->assigned_to === 'unassigned') {
-                $query->whereNull('assigned_to');
-            } else {
-                $query->where('assigned_to', $request->integer('assigned_to'));
-            }
+        if ($request->filled('province') && $request->province !== 'all') {
+            $this->applyCaseInsensitiveExactMatch($query, 'province', (string) $request->province);
         }
 
-        if ($request->region && $request->region !== 'all') {
-            $selectedRegion = strtolower($request->region);
-            $query->whereHas('user', function ($userQuery) use ($selectedRegion) {
-                $userQuery->whereRaw("LOWER(COALESCE(department, '')) LIKE ?", ['%' . $selectedRegion . '%']);
-            });
+        if ($request->filled('municipality') && $request->municipality !== 'all') {
+            $this->applyCaseInsensitiveExactMatch($query, 'municipality', (string) $request->municipality);
         }
 
-        if ($request->filled('account') && $request->account !== 'all') {
-            $selectedAccount = strtolower(trim((string) $request->account));
-            $query->whereHas('user', function ($userQuery) use ($selectedAccount) {
-                $userQuery->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%' . $selectedAccount . '%']);
-            });
+        if ($request->filled('account_id') && $request->account_id !== 'all') {
+            $query->where('user_id', $request->integer('account_id'));
         }
 
         $query->when($request->filled('search'), function ($builder) use ($request) {
@@ -115,7 +91,7 @@ class TicketController extends Controller
             ->where('is_active', true)
             ->get();
 
-        return view('admin.tickets.index', compact('tickets', 'categories', 'agents', 'regions', 'accountOptions', 'activeTab'));
+        return view('admin.tickets.index', compact('tickets', 'categories', 'agents', 'provinceOptions', 'municipalityOptions', 'accountOptions', 'activeTab'));
     }
 
     public function show(Ticket $ticket)
@@ -212,11 +188,8 @@ class TicketController extends Controller
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
 
-        if ($request->filled('reply_to_id')) {
-            $replyTo = TicketReply::where('ticket_id', $ticket->id)->find($request->integer('reply_to_id'));
-            if (!$replyTo) {
-                return redirect()->back()->with('error', 'Invalid reply target.');
-            }
+        if (!$this->replyTargetExistsForTicket($ticket, $request->integer('reply_to_id'))) {
+            return redirect()->back()->with('error', 'Invalid reply target.');
         }
 
         $reply = TicketReply::create([
@@ -227,19 +200,7 @@ class TicketController extends Controller
             'is_internal' => $request->boolean('is_internal'),
         ]);
 
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('attachments', 'public');
-
-                $reply->attachments()->create([
-                    'filename' => basename($path),
-                    'original_filename' => $file->getClientOriginalName(),
-                    'file_path' => $path,
-                    'mime_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
-                ]);
-            }
-        }
+        $this->persistAttachmentsFromRequest($request, $reply);
 
         if ($ticket->status === 'open' && !$request->boolean('is_internal')) {
             $ticket->update(['status' => 'in_progress']);
@@ -503,47 +464,6 @@ class TicketController extends Controller
         return redirect()->back()->with('error', 'Invalid bulk action.');
     }
 
-    private function formatReplyForChat(TicketReply $reply): array
-    {
-        $fromSupport = in_array(optional($reply->user)->role, User::TICKET_CONSOLE_ROLES, true);
-
-        return [
-            'id' => $reply->id,
-            'message' => $reply->message,
-            'is_internal' => (bool) $reply->is_internal,
-            'created_at_iso' => optional($reply->created_at)->toIso8601String(),
-            'created_at_human' => optional($reply->created_at)->diffForHumans(),
-            'created_at_label' => optional($reply->created_at)?->greaterThan(now()->subDay())
-                ? optional($reply->created_at)?->format('g:i A')
-                : optional($reply->created_at)?->format('M j, Y'),
-            'from_support' => $fromSupport,
-            'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
-            'can_manage' => (bool) ($reply->user_id === auth()->id()),
-            'edited' => (bool) $reply->edited_at,
-            'deleted' => (bool) $reply->deleted_at,
-            'reply_to_id' => $reply->reply_to_id,
-            'reply_to_message' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'reply_to_excerpt' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'attachments' => $reply->attachments->map(function ($attachment) {
-                return [
-                    'download_url' => $attachment->download_url,
-                    'preview_url' => $attachment->preview_url,
-                    'original_filename' => $attachment->original_filename,
-                    'mime_type' => $attachment->mime_type,
-                    'is_image' => str_starts_with((string) $attachment->mime_type, 'image/'),
-                ];
-            })->values(),
-        ];
-    }
-
-    private function departmentLogoForUser(?User $user, bool $fromSupport): string
-    {
-        if ($fromSupport) {
-            return asset('images/ione-logo.png');
-        }
-        return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];
-    }
-
     private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists
     {
         return Rule::exists('users', 'id')->where(function ($query) {
@@ -639,5 +559,34 @@ class TicketController extends Controller
             'message' => "Ticket was closed by {$actorName}.\nReason: {$reason}",
             'is_internal' => true,
         ]);
+    }
+
+    private function distinctTicketColumnOptions(string $column): \Illuminate\Support\Collection
+    {
+        $this->assertSupportedLocationColumn($column);
+
+        return Ticket::query()
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->select($column)
+            ->distinct()
+            ->orderBy($column)
+            ->pluck($column)
+            ->values();
+    }
+
+    private function applyCaseInsensitiveExactMatch(Builder $query, string $column, string $value): void
+    {
+        $this->assertSupportedLocationColumn($column);
+
+        $normalizedValue = strtolower(trim($value));
+        $query->whereRaw("LOWER(COALESCE({$column}, '')) = ?", [$normalizedValue]);
+    }
+
+    private function assertSupportedLocationColumn(string $column): void
+    {
+        if (!in_array($column, ['province', 'municipality'], true)) {
+            throw new \InvalidArgumentException('Unsupported ticket location column.');
+        }
     }
 }

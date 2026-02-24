@@ -12,8 +12,12 @@ class TicketSeeder extends Seeder
 {
     public function run(): void
     {
-        $clients = User::where('role', 'client')->get();
-        $agents = User::whereIn('role', ['super_user', 'super_admin', 'technical'])
+        $clients = User::where('role', User::ROLE_CLIENT)->get();
+        $agents = User::whereIn('role', [
+                User::ROLE_SUPER_USER,
+                User::ROLE_SUPER_ADMIN,
+                User::ROLE_TECHNICAL,
+            ])
             ->where('is_active', true)
             ->get();
         $categories = Category::all();
@@ -22,6 +26,14 @@ class TicketSeeder extends Seeder
             $this->command?->warn('Skipping TicketSeeder: missing client or support users.');
             return;
         }
+
+        $seedLocations = [
+            ['province' => 'Rizal', 'municipality' => 'Antipolo'],
+            ['province' => 'Laguna', 'municipality' => 'Calamba'],
+            ['province' => 'Cavite', 'municipality' => 'Dasmarinas'],
+            ['province' => 'Cebu', 'municipality' => 'Cebu City'],
+            ['province' => 'Iloilo', 'municipality' => 'Iloilo City'],
+        ];
 
         $sampleTickets = [
             [
@@ -98,8 +110,14 @@ class TicketSeeder extends Seeder
 
             $client = $clients->random();
             $agent = $agents->random();
+            $location = $seedLocations[array_rand($seedLocations)];
 
             $ticket = Ticket::create([
+                'name' => $client->name,
+                'contact_number' => $client->phone ?: 'N/A',
+                'email' => $client->email,
+                'province' => $location['province'],
+                'municipality' => $location['municipality'],
                 'subject' => $ticketData['subject'],
                 'description' => $ticketData['description'],
                 'priority' => $ticketData['priority'],

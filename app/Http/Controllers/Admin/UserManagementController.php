@@ -114,7 +114,7 @@ class UserManagementController extends Controller
         $user = auth()->user();
 
         $availableRoles = $this->availableRolesFor($user);
-        $allowedDepartments = $this->allowedDepartments();
+        $allowedDepartments = User::allowedDepartments();
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -164,7 +164,12 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be accessed from user management.');
+        }
+
+        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to view this user.');
         }
@@ -176,12 +181,17 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be accessed from user management.');
+        }
+
         if ($user->id === $currentUser->id) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -196,18 +206,23 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be modified.');
+        }
+
         if ($user->id === $currentUser->id) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
 
         $availableRoles = $this->availableRolesFor($currentUser);
-        $allowedDepartments = $this->allowedDepartments();
+        $allowedDepartments = User::allowedDepartments();
         $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
 
         $validationRules = [
@@ -283,7 +298,7 @@ class UserManagementController extends Controller
         }
 
         // Super users can only delete client accounts.
-        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
         }
@@ -314,6 +329,10 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
+        if ($this->isSystemReplacementUser($user)) {
+            return response()->json(['error' => 'System archive users cannot be modified.'], 403);
+        }
+
         if ($user->id === $currentUser->id) {
             return response()->json(['error' => 'You cannot deactivate your own account.'], 403);
         }
@@ -322,7 +341,7 @@ class UserManagementController extends Controller
             return response()->json(['error' => 'Super admin users cannot be deactivated.'], 403);
         }
 
-        if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
+        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
             return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
         }
 
@@ -350,6 +369,11 @@ class UserManagementController extends Controller
     private function manageableRolesForAdmin(): array
     {
         return [User::ROLE_CLIENT];
+    }
+
+    private function isManageableByNonSuperAdmin(User $user): bool
+    {
+        return in_array(User::normalizeRole($user->role), $this->manageableRolesForAdmin(), true);
     }
 
     private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
@@ -410,11 +434,6 @@ class UserManagementController extends Controller
         }
 
         return [User::ROLE_CLIENT];
-    }
-
-    private function allowedDepartments(): array
-    {
-        return ['iOne', 'DEPED', 'DICT', 'DAR'];
     }
 
     private function departmentForRole(string $role, string $department): string
