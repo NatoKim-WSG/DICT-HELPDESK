@@ -11,7 +11,7 @@ class AdminUserManagementNormalizationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_super_user_created_technical_is_forced_to_ione_department(): void
+    public function test_super_user_cannot_create_technical_account(): void
     {
         $superUser = User::create([
             'name' => 'Super User',
@@ -33,12 +33,222 @@ class AdminUserManagementNormalizationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $response->assertSessionHasErrors('role');
+        $this->assertDatabaseMissing('users', [
+            'email' => 'technical-user@example.com',
+        ]);
+    }
 
+    public function test_super_admin_can_still_create_technical_account(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'super-admin@example.com',
+            'phone' => '09100000001',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
+            'name' => 'Technical User',
+            'email' => 'technical-user@example.com',
+            'phone' => '09222222222',
+            'department' => 'DAR',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('admin.users.index'));
         $this->assertDatabaseHas('users', [
             'email' => 'technical-user@example.com',
             'role' => User::ROLE_TECHNICAL,
             'department' => 'iOne',
         ]);
+    }
+
+    public function test_super_user_cannot_edit_technical_account(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User',
+            'email' => 'super-user-edit@example.com',
+            'phone' => '09100000002',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $technical = User::create([
+            'name' => 'Technical User',
+            'email' => 'technical-edit@example.com',
+            'phone' => '09100000003',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $editResponse = $this->actingAs($superUser)->get(route('admin.users.edit', $technical));
+        $editResponse->assertRedirect(route('admin.users.index'));
+        $editResponse->assertSessionHas('error', 'You do not have permission to edit this user.');
+
+        $updateResponse = $this->actingAs($superUser)->put(route('admin.users.update', $technical), [
+            'name' => 'Technical Updated',
+            'email' => 'technical-edit@example.com',
+            'phone' => '09100000003',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'is_active' => true,
+        ]);
+
+        $updateResponse->assertRedirect(route('admin.users.index'));
+        $updateResponse->assertSessionHas('error', 'You do not have permission to edit this user.');
+
+        $technical->refresh();
+        $this->assertSame('Technical User', $technical->name);
+    }
+
+    public function test_super_user_user_index_shows_clients_segment(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Segment',
+            'email' => 'super-user-segment@example.com',
+            'phone' => '09100000004',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Client Segment',
+            'email' => 'client-segment@example.com',
+            'phone' => '09100000005',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.users.index'));
+
+        $response->assertOk();
+        $response->assertSee('Client Accounts');
+        $response->assertDontSee('Staff Accounts');
+    }
+
+    public function test_super_user_cannot_change_client_password(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Password Guard',
+            'email' => 'super-user-password-guard@example.com',
+            'phone' => '09100000006',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Password Guard',
+            'email' => 'client-password-guard@example.com',
+            'phone' => '09100000007',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('oldpassword123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->from(route('admin.users.edit', $client))
+            ->put(route('admin.users.update', $client), [
+                'name' => 'Client Password Guard',
+                'email' => 'client-password-guard@example.com',
+                'phone' => '09100000007',
+                'department' => 'DICT',
+                'role' => User::ROLE_CLIENT,
+                'is_active' => true,
+                'password' => 'newpassword123',
+                'password_confirmation' => 'newpassword123',
+            ]);
+
+        $response->assertRedirect(route('admin.users.edit', $client));
+        $response->assertSessionHasErrors(['password', 'password_confirmation']);
+
+        $client->refresh();
+        $this->assertTrue(Hash::check('oldpassword123', $client->password));
+        $this->assertFalse(Hash::check('newpassword123', $client->password));
+    }
+
+    public function test_super_admin_can_still_change_client_password(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin Password',
+            'email' => 'super-admin-password@example.com',
+            'phone' => '09100000008',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Password Update',
+            'email' => 'client-password-update@example.com',
+            'phone' => '09100000009',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('oldpassword123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $client), [
+            'name' => 'Client Password Update',
+            'email' => 'client-password-update@example.com',
+            'phone' => '09100000009',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertRedirect(route('admin.users.index'));
+
+        $client->refresh();
+        $this->assertTrue(Hash::check('newpassword123', $client->password));
+    }
+
+    public function test_super_user_edit_client_form_hides_password_fields(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Form Check',
+            'email' => 'super-user-form-check@example.com',
+            'phone' => '09100000010',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Form Check',
+            'email' => 'client-form-check@example.com',
+            'phone' => '09100000011',
+            'department' => 'DEPED',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.users.edit', $client));
+
+        $response->assertOk();
+        $response->assertDontSee('name="password"', false);
+        $response->assertDontSee('name="password_confirmation"', false);
+        $response->assertSee('Password changes for client accounts are restricted to Super Admins.', false);
     }
 }

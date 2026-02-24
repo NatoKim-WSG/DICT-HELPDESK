@@ -173,12 +173,23 @@ class TicketController extends Controller
 
     public function updateStatus(Request $request, Ticket $ticket)
     {
-        $request->validate(['status' => 'required|in:' . implode(',', Ticket::STATUSES)]);
+        $request->validate([
+            'status' => 'required|in:' . implode(',', Ticket::STATUSES),
+            'close_reason' => [
+                Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
 
-        $updateData = ['status' => $request->status];
+        $previousStatus = $ticket->status;
+        $nextStatus = $request->string('status')->toString();
+        $updateData = ['status' => $nextStatus];
         $this->applyLifecycleTimestamps($ticket, $updateData);
 
         $ticket->update($updateData);
+        $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
 
         return redirect()->back()->with('success', 'Ticket status updated successfully!');
     }
@@ -310,11 +321,19 @@ class TicketController extends Controller
             ],
             'status' => 'required|in:' . implode(',', Ticket::STATUSES),
             'priority' => 'required|in:' . implode(',', Ticket::PRIORITIES),
+            'close_reason' => [
+                Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
         ]);
 
+        $previousStatus = $ticket->status;
+        $nextStatus = $request->string('status')->toString();
         $updateData = [
             'assigned_to' => $request->filled('assigned_to') ? $request->integer('assigned_to') : null,
-            'status' => $request->string('status')->toString(),
+            'status' => $nextStatus,
             'priority' => $request->string('priority')->toString(),
         ];
         $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
@@ -324,6 +343,7 @@ class TicketController extends Controller
 
         $ticket->update($updateData);
         $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+        $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
 
         return redirect()->back()->with('success', 'Ticket updated successfully.');
     }
@@ -415,10 +435,26 @@ class TicketController extends Controller
             }
 
             $newStatus = $request->string('status')->toString();
+            $closeReason = trim($request->string('close_reason')->toString());
+            if ($newStatus === 'closed' && $closeReason === '') {
+                return redirect()->back()->with('error', 'Please provide a reason before closing ticket(s).');
+            }
+
+            $ticketsForCloseNote = $newStatus === 'closed'
+                ? $tickets->filter(fn (Ticket $ticket) => $ticket->status !== 'closed')
+                : collect();
+
             $updateData = ['status' => $newStatus];
             $this->applyLifecycleTimestamps(null, $updateData);
 
             Ticket::whereIn('id', $selectedIds)->update($updateData);
+
+            if ($newStatus === 'closed' && $ticketsForCloseNote->isNotEmpty()) {
+                $ticketsForCloseNote->each(function (Ticket $ticket) use ($closeReason) {
+                    $this->recordStatusClosureReason($ticket, $ticket->status, 'closed', $closeReason);
+                });
+            }
+
             return redirect()->back()->with('success', 'Selected ticket statuses updated.');
         }
 
@@ -505,22 +541,7 @@ class TicketController extends Controller
         if ($fromSupport) {
             return asset('images/ione-logo.png');
         }
-
-        $department = strtolower((string) optional($user)->department);
-
-        if (str_contains($department, 'deped')) {
-            return asset('images/deped-logo.png');
-        }
-
-        if (str_contains($department, 'dict')) {
-            return asset('images/DICT-logo.png');
-        }
-
-        if (str_contains($department, 'dar')) {
-            return asset('images/dar-logo.png');
-        }
-
-        return asset('images/ione-logo.png');
+        return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];
     }
 
     private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists
@@ -595,6 +616,27 @@ class TicketController extends Controller
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
             'message' => $message . ' Previous conversation remains available for continuity.',
+            'is_internal' => true,
+        ]);
+    }
+
+    private function recordStatusClosureReason(Ticket $ticket, string $previousStatus, string $nextStatus, string $closeReason): void
+    {
+        if ($nextStatus !== 'closed' || $previousStatus === 'closed') {
+            return;
+        }
+
+        $reason = trim($closeReason);
+        if ($reason === '') {
+            return;
+        }
+
+        $actorName = optional(auth()->user())->name ?? 'System';
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => auth()->id(),
+            'message' => "Ticket was closed by {$actorName}.\nReason: {$reason}",
             'is_internal' => true,
         ]);
     }

@@ -133,10 +133,10 @@
 
         <div class="max-h-[70vh] overflow-auto">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
-                <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
                         <th class="w-10 px-6 py-4">
-                            <input id="select-all-tickets" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-[#0f8d88] focus:ring-[#0f8d88]/30">
+                            <input id="select-all-tickets" type="checkbox" class="ticket-checkbox">
                         </th>
                         <th class="px-6 py-4">Details</th>
                         <th class="px-6 py-4">Assigned Technical</th>
@@ -161,9 +161,9 @@
                             $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
                         @endphp
 
-                        <tr class="transition hover:bg-slate-50/90">
+                        <tr class="transition hover:bg-slate-50">
                             <td class="px-6 py-5 align-top">
-                                <input type="checkbox" value="{{ $ticket->id }}" class="js-ticket-checkbox h-4 w-4 rounded border-slate-300 text-[#0f8d88] focus:ring-[#0f8d88]/30">
+                                <input type="checkbox" value="{{ $ticket->id }}" class="js-ticket-checkbox ticket-checkbox">
                             </td>
 
                             <td class="px-6 py-5 align-top">
@@ -319,6 +319,16 @@
                         <option value="closed">Closed</option>
                     </select>
                 </div>
+                <div id="edit-modal-close-reason-wrap" class="hidden">
+                    <label for="edit-modal-close-reason" class="form-label">Close Reason <span class="text-rose-500">*</span></label>
+                    <textarea
+                        id="edit-modal-close-reason"
+                        name="close_reason"
+                        rows="3"
+                        class="form-input"
+                        placeholder="Provide a reason for closing this ticket..."
+                    ></textarea>
+                </div>
                 <div>
                     <label for="edit-modal-priority" class="form-label">Priority</label>
                     <select id="edit-modal-priority" name="priority" class="form-input">
@@ -381,6 +391,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const editTicketText = document.getElementById('edit-modal-ticket');
     const editAssignedSelect = document.getElementById('edit-modal-assigned');
     const editStatusSelect = document.getElementById('edit-modal-status');
+    const editCloseReasonWrap = document.getElementById('edit-modal-close-reason-wrap');
+    const editCloseReasonInput = document.getElementById('edit-modal-close-reason');
     const editPrioritySelect = document.getElementById('edit-modal-priority');
     const editDeleteButton = document.getElementById('edit-modal-delete-btn');
     const deleteForm = document.getElementById('delete-ticket-form');
@@ -418,6 +430,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const editModalController = window.ModalKit ? window.ModalKit.bind(editModal) : null;
     const deleteModalController = window.ModalKit ? window.ModalKit.bind(deleteModal) : null;
 
+    const syncEditCloseReasonVisibility = function () {
+        if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
+        const isClosed = editStatusSelect.value === 'closed';
+        editCloseReasonWrap.classList.toggle('hidden', !isClosed);
+        editCloseReasonInput.required = isClosed;
+        if (!isClosed) {
+            editCloseReasonInput.value = '';
+        }
+    };
+
+    if (editStatusSelect) {
+        editStatusSelect.addEventListener('change', syncEditCloseReasonVisibility);
+    }
+
     document.querySelectorAll('.js-open-assign-modal').forEach(function (button) {
         button.addEventListener('click', function () {
             const ticketId = button.dataset.ticketId;
@@ -445,7 +471,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             if (editAssignedSelect) editAssignedSelect.value = button.dataset.assignedTo || '';
             if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
+            if (editCloseReasonInput) editCloseReasonInput.value = '';
             if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
+            syncEditCloseReasonVisibility();
 
             if (editDeleteButton) {
                 editDeleteButton.dataset.ticketId = ticketId;
@@ -467,6 +495,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (deleteModalController) deleteModalController.open();
         });
     }
+
+    syncEditCloseReasonVisibility();
 });
 </script>
 @endsection

@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -35,7 +36,7 @@ class AuthController extends Controller
             $matchedUsers = User::whereRaw('LOWER(email) = ?', [strtolower($loginInput)])
                 ->get();
         } else {
-            // Username login (full name) is case-sensitive.
+            // Username login is case-sensitive.
             $matchedUsers = User::whereRaw('LOWER(name) = ?', [strtolower($loginInput)])
                 ->get()
                 ->filter(fn (User $user) => $user->name === $loginInput)
@@ -81,13 +82,26 @@ class AuthController extends Controller
     public function accountSettings()
     {
         $user = Auth::user();
-        return view('account.settings', compact('user'));
+        $departmentOptions = $this->allowedDepartments();
+
+        return view('account.settings', compact('user', 'departmentOptions'));
     }
 
     public function updateAccountSettings(Request $request)
     {
         $user = Auth::user();
+        $normalizedRole = $user->normalizedRole();
         $isClient = $user->isClient();
+        $isTechnical = $normalizedRole === User::ROLE_TECHNICAL;
+        $isDepartmentLocked = $isClient || $isTechnical;
+        $isSuperDepartmentRole = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_SUPER_ADMIN], true);
+
+        $departmentRules = ['nullable', 'string', 'max:255'];
+        if ($isDepartmentLocked) {
+            $departmentRules = ['nullable'];
+        } elseif ($isSuperDepartmentRole) {
+            $departmentRules = ['required', Rule::in($this->allowedDepartments())];
+        }
 
         $email = $request->string('email')->toString();
         $requiresCurrentPassword = $email !== $user->email || $request->filled('password');
@@ -96,7 +110,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
-            'department' => $isClient ? 'nullable' : 'nullable|string|max:255',
+            'department' => $departmentRules,
             'password' => 'nullable|string|min:8|confirmed',
         ];
 
@@ -113,8 +127,8 @@ class AuthController extends Controller
             'email' => $email,
         ];
 
-        // Client department is managed only by admins from User Management.
-        if (!$isClient) {
+        // Department for clients/technical users is managed from User Management.
+        if (!$isDepartmentLocked) {
             $updateData['department'] = $request->department;
         }
 
@@ -130,6 +144,11 @@ class AuthController extends Controller
 
         return redirect()->route('account.settings')
             ->with('success', 'Account settings updated successfully.');
+    }
+
+    private function allowedDepartments(): array
+    {
+        return ['iOne', 'DEPED', 'DICT', 'DAR'];
     }
 
     private function dashboardPath(User $user): string

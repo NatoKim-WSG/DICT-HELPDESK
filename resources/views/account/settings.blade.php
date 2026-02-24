@@ -5,6 +5,9 @@
 @section('content')
 @php
     $isClient = !$user->canAccessAdminTickets();
+    $isTechnical = $user->normalizedRole() === \App\Models\User::ROLE_TECHNICAL;
+    $isDepartmentLocked = $isClient || $isTechnical;
+    $isSuperDepartmentRole = in_array($user->normalizedRole(), [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_SUPER_ADMIN], true);
     $backRoute = $user->canAccessAdminTickets()
         ? route('admin.dashboard')
         : route('client.dashboard');
@@ -62,7 +65,7 @@
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
             <div class="sm:col-span-1">
                 <label for="name" class="form-label">
-                    {{ $isClient ? 'Company Name' : 'Full Name' }} <span class="text-rose-500">*</span>
+                    {{ $isClient ? 'Company Name' : 'Username' }} <span class="text-rose-500">*</span>
                 </label>
                 <input
                     type="text"
@@ -71,7 +74,7 @@
                     value="{{ old('name', $user->name) }}"
                     required
                     class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
-                    placeholder="{{ $isClient ? 'Enter company name' : 'Enter full name' }}"
+                    placeholder="{{ $isClient ? 'Enter company name' : 'Enter username' }}"
                 >
                 @if($isClient)
                     <p class="mt-1 text-xs text-slate-500">Use your organization or company name.</p>
@@ -99,16 +102,30 @@
 
             <div class="sm:col-span-1">
                 <label for="department" class="form-label">{{ $isClient ? 'Department / Unit' : 'Department' }}</label>
-                <input
-                    type="text"
-                    name="department"
-                    id="department"
-                    value="{{ old('department', $user->department) }}"
-                    class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isClient ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
-                    placeholder="{{ $isClient ? '' : 'Optional' }}"
-                    {{ $isClient ? 'readonly aria-readonly=true' : '' }}
-                >
-                @if($isClient)
+                @if($isSuperDepartmentRole)
+                    <select
+                        name="department"
+                        id="department"
+                        class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    >
+                        @foreach($departmentOptions as $departmentOption)
+                            <option value="{{ $departmentOption }}" {{ old('department', $user->department) === $departmentOption ? 'selected' : '' }}>
+                                {{ $departmentOption }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    <input
+                        type="text"
+                        name="department"
+                        id="department"
+                        value="{{ old('department', $user->department) }}"
+                        class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isDepartmentLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                        placeholder="{{ $isDepartmentLocked ? '' : 'Optional' }}"
+                        {{ $isDepartmentLocked ? 'readonly aria-readonly=true' : '' }}
+                    >
+                @endif
+                @if($isDepartmentLocked && !$isClient)
                     <p class="mt-1 text-xs text-slate-500">Only super users can change your department assignment.</p>
                 @endif
                 @error('department')
@@ -140,7 +157,7 @@
         </div>
 
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
-            <div class="sm:col-span-2">
+            <div class="sm:col-span-1">
                 <label for="current_password" class="form-label">Current Password</label>
                 <input
                     type="password"

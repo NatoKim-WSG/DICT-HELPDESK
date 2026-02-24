@@ -339,22 +339,7 @@ class TicketController extends Controller
         if ($fromSupport) {
             return asset('images/ione-logo.png');
         }
-
-        $department = strtolower((string) optional($user)->department);
-
-        if (str_contains($department, 'deped')) {
-            return asset('images/deped-logo.png');
-        }
-
-        if (str_contains($department, 'dict')) {
-            return asset('images/DICT-logo.png');
-        }
-
-        if (str_contains($department, 'dar')) {
-            return asset('images/dar-logo.png');
-        }
-
-        return asset('images/ione-logo.png');
+        return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];
     }
 
     private function assertTicketOwner(Ticket $ticket): void

@@ -21,16 +21,18 @@
         </div>
     </div>
 
-    <div class="mb-6 inline-flex rounded-lg border border-gray-200 bg-white p-1 text-sm">
-        <a href="{{ route('admin.users.index') }}"
-           class="rounded-md px-3 py-1.5 font-medium {{ ($segment ?? 'staff') === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
-            Staff
-        </a>
-        <a href="{{ route('admin.users.clients') }}"
-           class="rounded-md px-3 py-1.5 font-medium {{ ($segment ?? 'staff') === 'clients' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
-            Clients
-        </a>
-    </div>
+    @if(auth()->user()->isSuperAdmin())
+        <div class="mb-6 inline-flex rounded-lg border border-gray-200 bg-white p-1 text-sm">
+            <a href="{{ route('admin.users.index') }}"
+               class="rounded-md px-3 py-1.5 font-medium {{ ($segment ?? 'staff') === 'staff' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                Staff
+            </a>
+            <a href="{{ route('admin.users.clients') }}"
+               class="rounded-md px-3 py-1.5 font-medium {{ ($segment ?? 'staff') === 'clients' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100' }}">
+                Clients
+            </a>
+        </div>
+    @endif
 
     <form method="GET" class="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
@@ -111,36 +113,17 @@
                     @forelse($users as $user)
                         @php
                             $currentUser = auth()->user();
-                            $canEdit = $currentUser->isSuperAdmin()
-                                || (($user->isClient() || $user->isTechnician()) && $user->id !== $currentUser->id);
+                            $canEdit = $user->id !== $currentUser->id
+                                && ($currentUser->isSuperAdmin() || $user->isClient());
                             $canDelete = false;
-                            $departmentRaw = strtolower(trim((string) $user->department));
-                            $departmentKey = 'ione';
-                            if (str_contains($departmentRaw, 'deped')) {
-                                $departmentKey = 'deped';
-                            } elseif (str_contains($departmentRaw, 'dict')) {
-                                $departmentKey = 'dict';
-                            } elseif (str_contains($departmentRaw, 'dar')) {
-                                $departmentKey = 'dar';
-                            }
-
-                            $avatarPathMap = [
-                                'ione' => 'images/ione-logo.png',
-                                'dict' => 'images/DICT-logo.png',
-                                'deped' => 'images/deped-logo.png',
-                                'dar' => 'images/dar-logo.png',
-                            ];
-                            $avatarPath = $avatarPathMap[$departmentKey] ?? 'images/ione-logo.png';
-                            if (!file_exists(public_path($avatarPath))) {
-                                $avatarPath = 'images/ione-logo.png';
-                            }
-                            $avatarUrl = asset($avatarPath);
+                            $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
+                            $avatarUrl = $departmentBrand['logo_url'];
                             $initials = strtoupper(substr((string) $user->name, 0, 2));
 
                             if ($user->id !== $currentUser->id && !$user->isSuperAdmin()) {
                                 if ($currentUser->isSuperAdmin()) {
                                     $canDelete = true;
-                                } elseif ($currentUser->isAdmin() && ($user->isClient() || $user->isTechnician())) {
+                                } elseif ($currentUser->isAdmin() && $user->isClient()) {
                                     $canDelete = true;
                                 }
                             }
@@ -153,7 +136,7 @@
                                             <img
                                                 src="{{ $avatarUrl }}"
                                                 alt="{{ $user->name }} profile image"
-                                                class="h-full w-full object-contain p-1"
+                                                class="avatar-logo"
                                                 loading="lazy"
                                                 onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
                                             >

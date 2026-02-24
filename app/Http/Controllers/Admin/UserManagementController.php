@@ -27,6 +27,11 @@ class UserManagementController extends Controller
     private function renderUserIndex(Request $request, string $segment)
     {
         $currentUser = auth()->user();
+
+        if (!$currentUser->isSuperAdmin()) {
+            $segment = 'clients';
+        }
+
         $query = User::query()->where('email', 'not like', '%@system.local');
         $departmentsQuery = User::query()->where('email', 'not like', '%@system.local');
 
@@ -171,9 +176,9 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if ($user->id === $currentUser->id && !$currentUser->isSuperAdmin()) {
+        if ($user->id === $currentUser->id) {
             return redirect()->route('admin.users.index')
-                ->with('error', 'You cannot edit your own account.');
+                ->with('error', 'Use Account Settings to edit your own account.');
         }
 
         if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
@@ -182,17 +187,18 @@ class UserManagementController extends Controller
         }
 
         $availableRoles = $this->availableRolesFor($currentUser);
+        $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
 
-        return view('admin.users.edit', compact('user', 'availableRoles'));
+        return view('admin.users.edit', compact('user', 'availableRoles', 'canEditPassword'));
     }
 
     public function update(Request $request, User $user)
     {
         $currentUser = auth()->user();
 
-        if ($user->id === $currentUser->id && !$currentUser->isSuperAdmin()) {
+        if ($user->id === $currentUser->id) {
             return redirect()->route('admin.users.index')
-                ->with('error', 'You cannot edit your own account.');
+                ->with('error', 'Use Account Settings to edit your own account.');
         }
 
         if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
@@ -202,16 +208,25 @@ class UserManagementController extends Controller
 
         $availableRoles = $this->availableRolesFor($currentUser);
         $allowedDepartments = $this->allowedDepartments();
+        $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
 
-        $request->validate([
+        $validationRules = [
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
             'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => $canEditPassword
+                ? 'nullable|string|min:8|confirmed'
+                : 'prohibited',
             'is_active' => 'boolean',
-        ]);
+        ];
+
+        if (!$canEditPassword) {
+            $validationRules['password_confirmation'] = 'prohibited';
+        }
+
+        $request->validate($validationRules);
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
@@ -267,7 +282,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Super admin users cannot be deleted.');
         }
 
-        // Regular admins can only delete clients
+        // Super users can only delete client accounts.
         if (!$currentUser->isSuperAdmin() && !in_array($user->role, $this->manageableRolesForAdmin(), true)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
@@ -322,9 +337,10 @@ class UserManagementController extends Controller
 
     private function availableRolesFor(User $currentUser): array
     {
-        $roles = [User::ROLE_CLIENT, User::ROLE_TECHNICAL];
+        $roles = [User::ROLE_CLIENT];
 
         if ($currentUser->isSuperAdmin()) {
+            $roles[] = User::ROLE_TECHNICAL;
             $roles[] = User::ROLE_SUPER_USER;
         }
 
@@ -333,7 +349,19 @@ class UserManagementController extends Controller
 
     private function manageableRolesForAdmin(): array
     {
-        return [User::ROLE_CLIENT, User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN];
+        return [User::ROLE_CLIENT];
+    }
+
+    private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
+    {
+        if ($currentUser->isSuperAdmin()) {
+            return true;
+        }
+
+        return !(
+            $currentUser->normalizedRole() === User::ROLE_SUPER_USER
+            && User::normalizeRole($targetUser->role) === User::ROLE_CLIENT
+        );
     }
 
     private function applyVisibilityScope($query, User $currentUser): void
@@ -381,7 +409,7 @@ class UserManagementController extends Controller
             ];
         }
 
-        return [User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN];
+        return [User::ROLE_CLIENT];
     }
 
     private function allowedDepartments(): array

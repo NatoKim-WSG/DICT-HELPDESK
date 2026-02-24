@@ -5,18 +5,8 @@
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) {
-            return asset('images/ione-logo.png');
-        }
-
-        $normalized = strtolower((string) $department);
-
-        return match (true) {
-            str_contains($normalized, 'deped') => asset('images/deped-logo.png'),
-            str_contains($normalized, 'dict') => asset('images/DICT-logo.png'),
-            str_contains($normalized, 'dar') => asset('images/dar-logo.png'),
-            default => asset('images/ione-logo.png'),
-        };
+        if ($isSupport) return asset('images/ione-logo.png');
+        return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
     $supportCompanyLogo = asset('images/ione-logo.png');
@@ -48,6 +38,22 @@
 
 #admin-conversation-thread:hover::-webkit-scrollbar-track {
     background: transparent;
+}
+
+.theme-dark #admin-conversation-thread:hover {
+    scrollbar-color: #38414d #12161c;
+}
+
+.theme-dark #admin-conversation-thread {
+    background: linear-gradient(180deg, #171b21 0%, #101215 100%) !important;
+}
+
+.theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-thumb {
+    background: #38414d;
+}
+
+.theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-track {
+    background: #12161c;
 }
 </style>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,14 +112,14 @@
                     </div>
                 </div>
 
-                <div id="admin-conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6">
+                <div id="admin-conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
                         {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
                     <div class="js-chat-row flex justify-start" data-created-at="{{ $ticket->created_at->toIso8601String() }}">
                         <div class="flex w-full max-w-3xl items-start gap-2">
                             <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
-                                <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="h-7 w-7 object-contain">
+                                <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="avatar-logo">
                             </div>
                             <div class="max-w-[82%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                                 <p class="js-message-text whitespace-pre-wrap text-sm leading-6 text-slate-800">{!! nl2br(e($ticket->description)) !!}</p>
@@ -156,6 +162,8 @@
                         @php
                             $isInternal = (bool) $reply->is_internal;
                             $fromSupport = $reply->user->canAccessAdminTickets();
+                            $isDeleted = (bool) $reply->deleted_at;
+                            $showEditedBadge = (bool) $reply->edited_at && !$isDeleted;
                             $showTimestamp = $reply->created_at->diffInMinutes($lastTimestamp) >= 15;
                             $canManageReply = (int) ($reply->user_id === auth()->id());
                             $lastTimestamp = $reply->created_at;
@@ -169,12 +177,12 @@
                             @php $avatarLogo = $departmentLogo(data_get($reply, 'user.department'), $fromSupport); @endphp
                             <div class="flex w-full max-w-3xl items-start gap-2 {{ $fromSupport ? 'justify-end' : '' }}">
                                 <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white {{ $fromSupport ? 'order-2' : '' }}">
-                                    <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="h-7 w-7 object-contain">
+                                    <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="avatar-logo">
                                 </div>
-                                <div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white' }}" data-message="{{ e($reply->message) }}" data-deleted="{{ $reply->deleted_at ? '1' : '0' }}" data-edited="{{ $reply->edited_at ? '1' : '0' }}">
-                                    <div class="js-state-row mb-1 flex items-center gap-2 {{ $reply->edited_at || $reply->deleted_at ? '' : 'hidden' }}">
-                                        <span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 {{ $reply->edited_at ? '' : 'hidden' }}">Edited</span>
-                                        <span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 {{ $reply->deleted_at ? '' : 'hidden' }}">Deleted</span>
+                                <div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}" data-message="{{ e($reply->message) }}" data-deleted="{{ $reply->deleted_at ? '1' : '0' }}" data-edited="{{ $reply->edited_at ? '1' : '0' }}">
+                                    <div class="js-state-row mb-1 flex items-center gap-2 {{ $showEditedBadge || $isDeleted ? '' : 'hidden' }}">
+                                        <span class="js-edited-badge chat-meta-badge {{ $showEditedBadge ? '' : 'hidden' }}">Edited</span>
+                                        <span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted {{ $isDeleted ? '' : 'hidden' }}">Deleted</span>
                                     </div>
                                     <div class="mb-1 flex items-center gap-2 {{ $isInternal ? '' : 'hidden' }}">
                                         <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
@@ -256,6 +264,10 @@
                         <div id="admin-reply-target-banner" class="hidden items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
                             <span id="admin-reply-target-text" class="truncate pr-3 font-medium"></span>
                             <button type="button" id="admin-clear-reply-target" class="rounded-md px-2 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Cancel</button>
+                        </div>
+                        <div id="admin-edit-target-banner" class="hidden items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+                            <span id="admin-edit-target-text" class="truncate pr-3 font-medium"></span>
+                            <button type="button" id="admin-cancel-edit-target" class="rounded-md px-2 py-0.5 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900">Cancel edit</button>
                         </div>
                         <div class="px-0 py-0">
                             <textarea name="message" id="message" rows="1" required class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Write your reply..."></textarea>
@@ -374,15 +386,29 @@
                     <!-- Update Status -->
                     <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
                         @csrf
+                        @php $selectedStatus = old('status', $ticket->status); @endphp
                         <div>
                             <label for="status" class="form-label">Status</label>
                             <select name="status" id="status" class="form-input">
-                                <option value="open" {{ $ticket->status === 'open' ? 'selected' : '' }}>Open</option>
-                                <option value="in_progress" {{ $ticket->status === 'in_progress' ? 'selected' : '' }}>In Progress</option>
-                                <option value="pending" {{ $ticket->status === 'pending' ? 'selected' : '' }}>Pending</option>
-                                <option value="resolved" {{ $ticket->status === 'resolved' ? 'selected' : '' }}>Resolved</option>
-                                <option value="closed" {{ $ticket->status === 'closed' ? 'selected' : '' }}>Closed</option>
+                                <option value="open" {{ $selectedStatus === 'open' ? 'selected' : '' }}>Open</option>
+                                <option value="in_progress" {{ $selectedStatus === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                                <option value="pending" {{ $selectedStatus === 'pending' ? 'selected' : '' }}>Pending</option>
+                                <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
+                                <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }}>Closed</option>
                             </select>
+                            <div id="status-close-reason-wrap" class="mt-2 hidden">
+                                <label for="status_close_reason" class="form-label">Close Reason <span class="text-rose-500">*</span></label>
+                                <textarea
+                                    name="close_reason"
+                                    id="status_close_reason"
+                                    rows="3"
+                                    class="form-input @error('close_reason') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                                    placeholder="Provide a reason for closing this ticket..."
+                                >{{ old('close_reason') }}</textarea>
+                                @error('close_reason')
+                                    <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                                @enderror
+                            </div>
                             <button type="submit" class="mt-2 btn-secondary w-full">Update Status</button>
                         </div>
                     </form>
@@ -449,7 +475,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const replyTargetBanner = document.getElementById('admin-reply-target-banner');
     const replyTargetText = document.getElementById('admin-reply-target-text');
     const clearReplyTargetButton = document.getElementById('admin-clear-reply-target');
-    const repliesUrl = replyForm ? replyForm.dataset.repliesUrl : '';
+    const editTargetBanner = document.getElementById('admin-edit-target-banner');
+    const editTargetText = document.getElementById('admin-edit-target-text');
+    const cancelEditTargetButton = document.getElementById('admin-cancel-edit-target');
+    const repliesUrl = (replyForm ? replyForm.dataset.repliesUrl : '') || (thread ? thread.dataset.repliesUrl : '');
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -457,6 +486,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const supportLogo = @json($supportCompanyLogo);
     const knownReplyIds = new Set();
     let isPollingReplies = false;
+    let editingReplyId = '';
+    let autoResize = function () {};
+
+    const isEditingReply = function () {
+        return editingReplyId !== '';
+    };
 
     if (thread) {
         thread.querySelectorAll('.js-chat-row[data-reply-id]').forEach(function (row) {
@@ -468,15 +503,16 @@ document.addEventListener('DOMContentLoaded', function () {
         thread.scrollTop = thread.scrollHeight;
     }
 
-    if (messageInput) {
-        const autoResize = function () {
-            const maxHeight = 192;
-            messageInput.style.height = 'auto';
-            const nextHeight = Math.min(messageInput.scrollHeight, maxHeight);
-            messageInput.style.height = nextHeight + 'px';
-            messageInput.style.overflowY = messageInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
-        };
+    autoResize = function () {
+        if (!messageInput) return;
+        const maxHeight = 192;
+        messageInput.style.height = 'auto';
+        const nextHeight = Math.min(messageInput.scrollHeight, maxHeight);
+        messageInput.style.height = nextHeight + 'px';
+        messageInput.style.overflowY = messageInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    };
 
+    if (messageInput) {
         autoResize();
         messageInput.addEventListener('input', autoResize);
 
@@ -490,19 +526,32 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    const refreshSubmitButtonLabel = function () {
+        if (!sendReplyButton) return;
+        sendReplyButton.textContent = isEditingReply() ? 'Save' : 'Send';
+    };
+
     const setSendState = function (isSending) {
         if (!sendReplyButton) return;
+        sendReplyButton.disabled = isSending;
         if (isSending) {
-            sendReplyButton.disabled = true;
-            sendReplyButton.textContent = 'Sending...';
-        } else {
-            sendReplyButton.disabled = false;
-            sendReplyButton.textContent = 'Send';
+            sendReplyButton.textContent = isEditingReply() ? 'Saving...' : 'Sending...';
+            return;
         }
+        refreshSubmitButtonLabel();
+    };
+
+    const setAttachmentsEnabled = function (enabled) {
+        if (!attachmentInput) return;
+        attachmentInput.disabled = !enabled;
     };
 
     const updateAttachmentCount = function () {
         if (!attachmentInput || !attachmentCount) return;
+        if (attachmentInput.disabled) {
+            attachmentCount.textContent = 'Attachments disabled while editing';
+            return;
+        }
         const totalFiles = attachmentInput.files ? attachmentInput.files.length : 0;
         attachmentCount.textContent = totalFiles > 0
             ? (totalFiles + (totalFiles === 1 ? ' file selected' : ' files selected'))
@@ -514,7 +563,41 @@ document.addEventListener('DOMContentLoaded', function () {
         updateAttachmentCount();
     }
 
+    const clearReplyTarget = function () {
+        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
+        replyToInput.value = '';
+        replyTargetText.textContent = '';
+        replyTargetBanner.classList.remove('flex');
+        replyTargetBanner.classList.add('hidden');
+    };
+
+    const clearEditingTarget = function (options) {
+        const shouldResetInput = options && options.resetInput;
+        editingReplyId = '';
+
+        if (editTargetBanner) {
+            editTargetBanner.classList.remove('flex');
+            editTargetBanner.classList.add('hidden');
+        }
+        if (editTargetText) {
+            editTargetText.textContent = '';
+        }
+
+        if (attachmentInput) {
+            attachmentInput.value = '';
+        }
+        setAttachmentsEnabled(true);
+        updateAttachmentCount();
+        refreshSubmitButtonLabel();
+
+        if (shouldResetInput && messageInput) {
+            messageInput.value = '';
+            autoResize();
+        }
+    };
+
     const setReplyTarget = function (replyId, message) {
+        clearEditingTarget({ resetInput: false });
         if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
         replyToInput.value = String(replyId);
         replyTargetText.textContent = 'Replying to: ' + (message || '').slice(0, 120);
@@ -523,12 +606,32 @@ document.addEventListener('DOMContentLoaded', function () {
         if (messageInput) messageInput.focus();
     };
 
-    const clearReplyTarget = function () {
-        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
-        replyToInput.value = '';
-        replyTargetText.textContent = '';
-        replyTargetBanner.classList.remove('flex');
-        replyTargetBanner.classList.add('hidden');
+    const setEditingTarget = function (row) {
+        if (!row || !messageInput || !editTargetBanner || !editTargetText) return;
+
+        const replyId = row.dataset.replyId;
+        if (!replyId) return;
+
+        const bubble = row.querySelector('.js-chat-bubble');
+        const currentMessage = bubble ? (bubble.dataset.message || '') : '';
+        if (!currentMessage.trim()) return;
+
+        clearReplyTarget();
+        editingReplyId = String(replyId);
+        editTargetText.textContent = 'Editing message';
+        editTargetBanner.classList.remove('hidden');
+        editTargetBanner.classList.add('flex');
+
+        messageInput.value = currentMessage;
+        autoResize();
+        messageInput.focus();
+
+        if (attachmentInput) {
+            attachmentInput.value = '';
+        }
+        setAttachmentsEnabled(false);
+        updateAttachmentCount();
+        refreshSubmitButtonLabel();
     };
 
     const closeMenus = function () {
@@ -610,6 +713,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const avatarLogo = payload.avatar_logo || (fromSupport ? supportLogo : defaultClientLogo);
         const isDeleted = Boolean(payload.deleted);
         const isEdited = Boolean(payload.edited);
+        const showEditedBadge = isEdited && !isDeleted;
         const internalBadge = payload.is_internal
             ? '<div class="mb-1 flex items-center gap-2"><span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">Internal</span></div>'
             : '';
@@ -625,7 +729,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return '<a href="' + attachment.download_url + '" class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">' + escapeHtml(attachment.original_filename) + '</span></a>';
             }).join('') + '</div>'
             : '';
-        const stateRow = '<div class="js-state-row mb-1 flex items-center gap-2 ' + ((isEdited || isDeleted) ? '' : 'hidden') + '"><span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (isEdited ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (isDeleted ? '' : 'hidden') + '">Deleted</span></div>';
+        const stateRow = '<div class="js-state-row mb-1 flex items-center gap-2 ' + ((showEditedBadge || isDeleted) ? '' : 'hidden') + '"><span class="js-edited-badge chat-meta-badge ' + (showEditedBadge ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted ' + (isDeleted ? '' : 'hidden') + '">Deleted</span></div>';
         const moreActions = canManage
             ? '<div class="relative"><button type="button" class="js-more-btn inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]" aria-label="More actions"><svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg></button><div class="js-more-menu absolute ' + (fromSupport ? 'left-0' : 'right-0') + ' z-20 mt-1 hidden min-w-[110px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">' + (isDeleted ? '' : '<button type="button" class="js-edit-msg block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button><button type="button" class="js-delete-msg block w-full px-3 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50">Delete</button>') + '</div></div>'
             : '';
@@ -633,9 +737,9 @@ document.addEventListener('DOMContentLoaded', function () {
         row.innerHTML =
             '<div class="flex w-full max-w-3xl items-start gap-2 ' + (fromSupport ? 'justify-end' : '') + '">' +
                 '<div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white ' + (fromSupport ? 'order-2' : '') + '">' +
-                    '<img src="' + avatarLogo + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="h-7 w-7 object-contain">' +
+                    '<img src="' + avatarLogo + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="avatar-logo">' +
                 '</div>' +
-                '<div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white') + '" data-message="' + escapeHtml(payload.message || '') + '" data-deleted="' + (isDeleted ? '1' : '0') + '" data-edited="' + (isEdited ? '1' : '0') + '">' +
+                '<div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white') + (isDeleted ? ' chat-bubble-deleted' : '') + '" data-message="' + escapeHtml(payload.message || '') + '" data-deleted="' + (isDeleted ? '1' : '0') + '" data-edited="' + (isEdited ? '1' : '0') + '">' +
                     stateRow +
                     internalBadge +
                     replyReference +
@@ -660,8 +764,67 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    const applyReplyState = function (row, reply) {
+        const bubble = row ? row.querySelector('.js-chat-bubble') : null;
+        if (!bubble || !reply) return;
+
+        bubble.dataset.message = reply.message || '';
+        bubble.dataset.deleted = reply.deleted ? '1' : '0';
+        bubble.dataset.edited = reply.edited ? '1' : '0';
+        bubble.classList.toggle('chat-bubble-deleted', !!reply.deleted);
+        const showEditedBadge = !!reply.edited && !reply.deleted;
+
+        const messageText = row.querySelector('.js-message-text');
+        if (messageText) {
+            messageText.textContent = reply.message || '';
+            messageText.classList.toggle('italic', !!reply.deleted);
+            messageText.classList.toggle('text-slate-500', !!reply.deleted);
+            messageText.classList.toggle('text-slate-800', !reply.deleted);
+        }
+
+        const editedBadge = row.querySelector('.js-edited-badge');
+        if (editedBadge) editedBadge.classList.toggle('hidden', !showEditedBadge);
+
+        const deletedBadge = row.querySelector('.js-deleted-badge');
+        if (deletedBadge) deletedBadge.classList.toggle('hidden', !reply.deleted);
+
+        const stateRow = row.querySelector('.js-state-row');
+        if (stateRow) stateRow.classList.toggle('hidden', !(showEditedBadge || reply.deleted));
+
+        const reference = row.querySelector('.js-reply-reference');
+        if (reference) {
+            const referenceText = reference.querySelector('.js-reply-reference-text');
+            if (referenceText) {
+                referenceText.textContent = reply.reply_to_message || reply.reply_to_excerpt || '';
+            }
+            reference.classList.toggle('hidden', !(reply.reply_to_message || reply.reply_to_excerpt));
+        }
+
+        const attachmentsWrap = row.querySelector('.js-attachments-wrap');
+        if (attachmentsWrap && reply.deleted) {
+            attachmentsWrap.remove();
+        }
+
+        if (reply.deleted) {
+            row.querySelectorAll('.js-edit-msg, .js-delete-msg').forEach(function (btn) {
+                btn.remove();
+            });
+
+            if (editingReplyId && String(row.dataset.replyId) === String(editingReplyId)) {
+                clearEditingTarget({ resetInput: true });
+            }
+        }
+    };
+
     if (clearReplyTargetButton) {
         clearReplyTargetButton.addEventListener('click', clearReplyTarget);
+    }
+
+    if (cancelEditTargetButton) {
+        cancelEditTargetButton.addEventListener('click', function () {
+            clearEditingTarget({ resetInput: true });
+            if (messageInput) messageInput.focus();
+        });
     }
 
     if (thread) {
@@ -698,56 +861,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (row.dataset.canManage !== '1') {
                     return;
                 }
-
-                const bubble = row.querySelector('.js-chat-bubble');
-                const currentMessage = bubble ? (bubble.dataset.message || '') : '';
-                const editedMessage = window.prompt('Edit message', currentMessage);
-
-                if (editedMessage === null || editedMessage.trim() === '' || editedMessage === currentMessage) {
-                    return;
-                }
-
-                fetch(updateUrlTemplate.replace('__REPLY__', row.dataset.replyId), {
-                    method: 'PATCH',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({ message: editedMessage }),
-                    credentials: 'same-origin',
-                })
-                    .then(function (response) {
-                        if (!response.ok) throw new Error('Unable to edit message.');
-                        return response.json();
-                    })
-                    .then(function (data) {
-                        if (!data || !data.reply) return;
-                        const reply = data.reply;
-                        bubble.dataset.message = reply.message || '';
-                        bubble.dataset.edited = reply.edited ? '1' : '0';
-                        bubble.dataset.deleted = reply.deleted ? '1' : '0';
-
-                        const messageText = row.querySelector('.js-message-text');
-                        if (messageText) {
-                            messageText.textContent = reply.message || '';
-                            messageText.classList.toggle('italic', !!reply.deleted);
-                            messageText.classList.toggle('text-slate-500', !!reply.deleted);
-                            messageText.classList.toggle('text-slate-800', !reply.deleted);
-                        }
-
-                        const editedBadge = row.querySelector('.js-edited-badge');
-                        if (editedBadge) editedBadge.classList.toggle('hidden', !reply.edited);
-
-                        const stateRow = row.querySelector('.js-state-row');
-                        if (stateRow) stateRow.classList.toggle('hidden', !(reply.edited || reply.deleted));
-                    })
-                    .catch(function (error) {
-                        if (!replyError) return;
-                        replyError.textContent = error.message || 'Unable to edit message.';
-                        replyError.classList.remove('hidden');
-                    });
+                setEditingTarget(row);
                 return;
             }
 
@@ -780,32 +894,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     })
                     .then(function (data) {
                         if (!data || !data.reply) return;
-                        const reply = data.reply;
-                        const bubble = row.querySelector('.js-chat-bubble');
-                        if (!bubble) return;
-
-                        bubble.dataset.message = reply.message || '';
-                        bubble.dataset.edited = reply.edited ? '1' : '0';
-                        bubble.dataset.deleted = reply.deleted ? '1' : '0';
-
-                        const messageText = row.querySelector('.js-message-text');
-                        if (messageText) {
-                            messageText.textContent = reply.message || '';
-                            messageText.classList.add('italic', 'text-slate-500');
-                            messageText.classList.remove('text-slate-800');
-                        }
-
-                        const deletedBadge = row.querySelector('.js-deleted-badge');
-                        if (deletedBadge) deletedBadge.classList.remove('hidden');
-
-                        const stateRow = row.querySelector('.js-state-row');
-                        if (stateRow) stateRow.classList.remove('hidden');
-
-                        const attachmentsWrap = row.querySelector('.js-attachments-wrap');
-                        if (attachmentsWrap) attachmentsWrap.remove();
-
-                        const menu = row.querySelector('.js-more-menu');
-                        if (menu) menu.innerHTML = '';
+                        applyReplyState(row, data.reply);
                     })
                     .catch(function (error) {
                         if (!replyError) return;
@@ -817,9 +906,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (replyForm) {
-        replyForm.addEventListener('submit', function (event) {
+        replyForm.addEventListener('submit', async function (event) {
             event.preventDefault();
-            if (!messageInput || messageInput.value.trim().length === 0) return;
+            if (!messageInput) return;
+
+            const messageBody = messageInput.value.trim();
+            if (messageBody.length === 0) return;
 
             if (replyError) {
                 replyError.classList.add('hidden');
@@ -828,49 +920,76 @@ document.addEventListener('DOMContentLoaded', function () {
 
             setSendState(true);
 
-            fetch(replyForm.action, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: new FormData(replyForm),
-                credentials: 'same-origin',
-            })
-                .then(function (response) {
-                    const contentType = response.headers.get('content-type') || '';
-                    if (!contentType.includes('application/json')) {
-                        window.location.reload();
-                        return null;
+            try {
+                if (isEditingReply()) {
+                    const row = thread ? thread.querySelector('.js-chat-row[data-reply-id="' + editingReplyId + '"]') : null;
+                    if (!row) {
+                        throw new Error('Message not found for editing.');
                     }
 
-                    return response.json().then(function (data) {
-                        if (!response.ok) {
-                            const message = data.message || 'Unable to send reply.';
-                            throw new Error(message);
-                        }
-                        return data;
+                    const editResponse = await fetch(updateUrlTemplate.replace('__REPLY__', editingReplyId), {
+                        method: 'PATCH',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({ message: messageBody }),
+                        credentials: 'same-origin',
                     });
-                })
-                .then(function (data) {
-                    if (!data || !data.reply) return;
-                    appendReply(data.reply);
-                    replyForm.reset();
-                    clearReplyTarget();
-                    if (messageInput) {
-                        messageInput.style.height = 'auto';
+
+                    const editData = await editResponse.json().catch(function () { return {}; });
+                    if (!editResponse.ok) {
+                        throw new Error(editData.message || 'Unable to edit message.');
                     }
-                    updateAttachmentCount();
+
+                    if (editData.reply) {
+                        applyReplyState(row, editData.reply);
+                    }
+                    clearEditingTarget({ resetInput: true });
                     if (messageInput) messageInput.focus();
-                })
-                .catch(function (error) {
-                    if (!replyError) return;
-                    replyError.textContent = error.message || 'Unable to send reply.';
-                    replyError.classList.remove('hidden');
-                })
-                .finally(function () {
-                    setSendState(false);
+                    return;
+                }
+
+                const response = await fetch(replyForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new FormData(replyForm),
+                    credentials: 'same-origin',
                 });
+
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    window.location.reload();
+                    return;
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Unable to send reply.');
+                }
+
+                if (!data || !data.reply) return;
+                appendReply(data.reply);
+                replyForm.reset();
+                clearReplyTarget();
+                if (messageInput) {
+                    messageInput.value = '';
+                    autoResize();
+                }
+                updateAttachmentCount();
+                if (messageInput) messageInput.focus();
+            } catch (error) {
+                if (!replyError) return;
+                replyError.textContent = error.message || 'Unable to send reply.';
+                replyError.classList.remove('hidden');
+            } finally {
+                setSendState(false);
+            }
         });
     }
 
@@ -893,7 +1012,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 const replies = Array.isArray(data && data.replies) ? data.replies : [];
                 replies.forEach(function (reply) {
                     const replyId = String(reply.id || '');
-                    if (!replyId || knownReplyIds.has(replyId)) return;
+                    if (!replyId) return;
+
+                    const existingRow = thread.querySelector('.js-chat-row[data-reply-id="' + replyId + '"]');
+                    if (existingRow) {
+                        applyReplyState(existingRow, reply);
+                        return;
+                    }
+
                     appendReply(reply);
                 });
             })
@@ -904,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     };
 
-    if (replyForm && repliesUrl) {
+    if (repliesUrl) {
         window.setInterval(pollReplies, 5000);
     }
 
@@ -932,6 +1058,29 @@ document.addEventListener('DOMContentLoaded', function () {
             attachmentPreview.openFromLink(link);
         }
     });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const statusSelect = document.getElementById('status');
+    const closeReasonWrap = document.getElementById('status-close-reason-wrap');
+    const closeReasonInput = document.getElementById('status_close_reason');
+
+    if (!statusSelect || !closeReasonWrap || !closeReasonInput) {
+        return;
+    }
+
+    const syncCloseReasonVisibility = function () {
+        const isClosed = statusSelect.value === 'closed';
+        closeReasonWrap.classList.toggle('hidden', !isClosed);
+        closeReasonInput.required = isClosed;
+        if (!isClosed) {
+            closeReasonInput.value = '';
+        }
+    };
+
+    statusSelect.addEventListener('change', syncCloseReasonVisibility);
+    syncCloseReasonVisibility();
 });
 </script>
 @endsection

@@ -5,18 +5,8 @@
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) {
-            return asset('images/ione-logo.png');
-        }
-
-        $normalized = strtolower((string) $department);
-
-        return match (true) {
-            str_contains($normalized, 'deped') => asset('images/deped-logo.png'),
-            str_contains($normalized, 'dict') => asset('images/DICT-logo.png'),
-            str_contains($normalized, 'dar') => asset('images/dar-logo.png'),
-            default => asset('images/ione-logo.png'),
-        };
+        if ($isSupport) return asset('images/ione-logo.png');
+        return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(auth()->user()->department);
     $supportCompanyLogo = asset('images/ione-logo.png');
@@ -48,6 +38,22 @@
 
 #conversation-thread:hover::-webkit-scrollbar-track {
     background: transparent;
+}
+
+.theme-dark #conversation-thread:hover {
+    scrollbar-color: #38414d #12161c;
+}
+
+.theme-dark #conversation-thread {
+    background: linear-gradient(180deg, #171b21 0%, #101215 100%) !important;
+}
+
+.theme-dark #conversation-thread:hover::-webkit-scrollbar-thumb {
+    background: #38414d;
+}
+
+.theme-dark #conversation-thread:hover::-webkit-scrollbar-track {
+    background: #12161c;
 }
 </style>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -107,7 +113,7 @@
                     </div>
                 </div>
 
-                <div id="conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6">
+                <div id="conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('client.tickets.replies.feed', $ticket) }}">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
                         {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
@@ -115,7 +121,7 @@
                     <div class="js-chat-row flex justify-end" data-created-at="{{ $ticket->created_at->toIso8601String() }}">
                         <div class="flex w-full max-w-3xl items-start justify-end gap-2">
                             <div class="order-2 mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
-                                <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="h-7 w-7 object-contain">
+                                <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="avatar-logo">
                             </div>
                             <div class="order-1 max-w-[82%] rounded-2xl border border-ione-blue-200 bg-ione-blue-50 px-4 py-3 shadow-sm">
                                 <p class="js-message-text whitespace-pre-wrap text-sm leading-6 text-slate-800">{!! nl2br(e($ticket->description)) !!}</p>
@@ -157,6 +163,8 @@
                     @foreach($ticket->replies->where('is_internal', false)->sortBy('created_at') as $reply)
                         @php
                             $fromSupport = $reply->user->canAccessAdminTickets();
+                            $isDeleted = (bool) $reply->deleted_at;
+                            $showEditedBadge = (bool) $reply->edited_at && !$isDeleted;
                             $avatarLogo = $departmentLogo(data_get($reply, 'user.department'), $fromSupport);
                             $showTimestamp = $reply->created_at->diffInMinutes($lastTimestamp) >= 15;
                             $canManageReply = (int) ($reply->user_id === auth()->id());
@@ -177,17 +185,17 @@
                         >
                             <div class="flex w-full max-w-3xl items-start gap-2 {{ $fromSupport ? '' : 'justify-end' }}">
                                 <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white {{ $fromSupport ? '' : 'order-2' }}">
-                                    <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="h-7 w-7 object-contain">
+                                    <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="avatar-logo">
                                 </div>
                                 <div
-                                    class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50' }}"
+                                    class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}"
                                     data-message="{{ e($reply->message) }}"
                                     data-deleted="{{ $reply->deleted_at ? '1' : '0' }}"
                                     data-edited="{{ $reply->edited_at ? '1' : '0' }}"
                                 >
-                                    <div class="js-state-row mb-1 flex items-center gap-2 {{ $reply->edited_at || $reply->deleted_at ? '' : 'hidden' }}">
-                                        <span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 {{ $reply->edited_at ? '' : 'hidden' }}">Edited</span>
-                                        <span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 {{ $reply->deleted_at ? '' : 'hidden' }}">Deleted</span>
+                                    <div class="js-state-row mb-1 flex items-center gap-2 {{ $showEditedBadge || $isDeleted ? '' : 'hidden' }}">
+                                        <span class="js-edited-badge chat-meta-badge {{ $showEditedBadge ? '' : 'hidden' }}">Edited</span>
+                                        <span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted {{ $isDeleted ? '' : 'hidden' }}">Deleted</span>
                                     </div>
                                     <div class="js-message-actions absolute {{ $fromSupport ? '-right-10' : '-left-[4.75rem]' }} top-1.5 flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1 shadow-sm opacity-0 transition group-hover:opacity-100">
                                         @if($canManageReply && $reply->created_at->greaterThanOrEqualTo(now()->subHours(3)))
@@ -277,6 +285,10 @@
                             <div id="reply-target-banner" class="hidden items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
                                 <span id="reply-target-text" class="truncate pr-3 font-medium"></span>
                                 <button type="button" id="clear-reply-target" class="rounded-md px-2 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Cancel</button>
+                            </div>
+                            <div id="edit-target-banner" class="hidden items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+                                <span id="edit-target-text" class="truncate pr-3 font-medium"></span>
+                                <button type="button" id="cancel-edit-target" class="rounded-md px-2 py-0.5 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900">Cancel edit</button>
                             </div>
                             <div class="px-0 py-0">
                                 <textarea
@@ -583,16 +595,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const replyTargetBanner = document.getElementById('reply-target-banner');
     const replyTargetText = document.getElementById('reply-target-text');
     const clearReplyTargetButton = document.getElementById('clear-reply-target');
+    const editTargetBanner = document.getElementById('edit-target-banner');
+    const editTargetText = document.getElementById('edit-target-text');
+    const cancelEditTargetButton = document.getElementById('cancel-edit-target');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const clientLogo = replyForm ? replyForm.dataset.clientLogo : '';
     const supportLogo = replyForm ? replyForm.dataset.supportLogo : '';
-    const repliesUrl = replyForm ? replyForm.dataset.repliesUrl : '';
+    const repliesUrl = (replyForm ? replyForm.dataset.repliesUrl : '') || (thread ? thread.dataset.repliesUrl : '');
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const TIMESTAMP_BREAK_MINUTES = 15;
     const EDIT_DELETE_WINDOW_MS = 3 * 60 * 60 * 1000;
     const knownReplyIds = new Set();
     let isPollingReplies = false;
+    let editingReplyId = '';
+
+    const isEditingReply = function () {
+        return editingReplyId !== '';
+    };
 
     if (thread) {
         thread.querySelectorAll('.js-chat-row[data-reply-id]').forEach(function (row) {
@@ -609,13 +629,33 @@ document.addEventListener('DOMContentLoaded', function () {
         messageInput.style.overflowY = messageInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
     };
 
+    const setSubmitButtonLabel = function (isSending) {
+        if (!sendReplyButton) return;
+        if (isSending) {
+            sendReplyButton.textContent = isEditingReply() ? 'Saving...' : 'Sending...';
+            return;
+        }
+        sendReplyButton.textContent = isEditingReply() ? 'Save' : 'Send';
+    };
+
+    const setAttachmentsEnabled = function (enabled) {
+        if (!attachmentsInput) return;
+        attachmentsInput.disabled = !enabled;
+    };
+
     const updateAttachmentCount = function () {
         if (!attachmentsInput || !attachmentCount) return;
+        if (attachmentsInput.disabled) {
+            attachmentCount.textContent = 'Attachments disabled while editing';
+            return;
+        }
         const fileCount = attachmentsInput.files ? attachmentsInput.files.length : 0;
         attachmentCount.textContent = fileCount === 0
             ? 'No files selected'
             : fileCount + (fileCount === 1 ? ' file selected' : ' files selected');
     };
+
+    setSubmitButtonLabel(false);
 
     const createAttachmentLink = function (attachment) {
         const link = document.createElement('a');
@@ -671,7 +711,41 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
+    const clearReplyTarget = function () {
+        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
+        replyToInput.value = '';
+        replyTargetText.textContent = '';
+        replyTargetBanner.classList.remove('flex');
+        replyTargetBanner.classList.add('hidden');
+    };
+
+    const clearEditingTarget = function (options) {
+        const shouldResetInput = options && options.resetInput;
+        editingReplyId = '';
+
+        if (editTargetBanner) {
+            editTargetBanner.classList.remove('flex');
+            editTargetBanner.classList.add('hidden');
+        }
+        if (editTargetText) {
+            editTargetText.textContent = '';
+        }
+
+        if (attachmentsInput) {
+            attachmentsInput.value = '';
+        }
+        setAttachmentsEnabled(true);
+        updateAttachmentCount();
+        setSubmitButtonLabel(false);
+
+        if (shouldResetInput && messageInput) {
+            messageInput.value = '';
+            autoResize();
+        }
+    };
+
     const setReplyTarget = function (replyId, message) {
+        clearEditingTarget({ resetInput: false });
         if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
         replyToInput.value = String(replyId);
         replyTargetText.textContent = 'Replying to: ' + (message || '').slice(0, 120);
@@ -679,12 +753,32 @@ document.addEventListener('DOMContentLoaded', function () {
         replyTargetBanner.classList.add('flex');
     };
 
-    const clearReplyTarget = function () {
-        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
-        replyToInput.value = '';
-        replyTargetText.textContent = '';
-        replyTargetBanner.classList.remove('flex');
-        replyTargetBanner.classList.add('hidden');
+    const setEditingTarget = function (row) {
+        if (!row || !messageInput || !editTargetBanner || !editTargetText) return;
+
+        const replyId = row.dataset.replyId;
+        if (!replyId) return;
+
+        const bubble = row.querySelector('.js-chat-bubble');
+        const currentMessage = bubble ? (bubble.dataset.message || '') : '';
+        if (!currentMessage.trim()) return;
+
+        clearReplyTarget();
+        editingReplyId = String(replyId);
+        editTargetText.textContent = 'Editing message';
+        editTargetBanner.classList.remove('hidden');
+        editTargetBanner.classList.add('flex');
+
+        messageInput.value = currentMessage;
+        autoResize();
+        messageInput.focus();
+
+        if (attachmentsInput) {
+            attachmentsInput.value = '';
+        }
+        setAttachmentsEnabled(false);
+        updateAttachmentCount();
+        setSubmitButtonLabel(false);
     };
 
     const createTimeSeparator = function (dateValue) {
@@ -832,17 +926,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const avatar = document.createElement('div');
         avatar.className = 'mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white ' + (fromSupport ? '' : 'order-2');
-        avatar.innerHTML = '<img src="' + (reply.avatar_logo || (fromSupport ? supportLogo : clientLogo)) + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="h-7 w-7 object-contain">';
+        avatar.innerHTML = '<img src="' + (reply.avatar_logo || (fromSupport ? supportLogo : clientLogo)) + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="avatar-logo">';
 
         const bubble = document.createElement('div');
-        bubble.className = 'js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50');
+        bubble.className = 'js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50') + (reply.deleted ? ' chat-bubble-deleted' : '');
         bubble.dataset.message = reply.message || '';
         bubble.dataset.deleted = reply.deleted ? '1' : '0';
         bubble.dataset.edited = reply.edited ? '1' : '0';
+        const showEditedBadge = !!reply.edited && !reply.deleted;
 
         const meta = document.createElement('div');
-        meta.className = 'js-state-row mb-1 flex items-center gap-2 ' + ((reply.edited || reply.deleted) ? '' : 'hidden');
-        meta.innerHTML = '<span class="js-edited-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.edited ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 ' + (reply.deleted ? '' : 'hidden') + '">Deleted</span>';
+        meta.className = 'js-state-row mb-1 flex items-center gap-2 ' + ((showEditedBadge || reply.deleted) ? '' : 'hidden');
+        meta.innerHTML = '<span class="js-edited-badge chat-meta-badge ' + (showEditedBadge ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted ' + (reply.deleted ? '' : 'hidden') + '">Deleted</span>';
 
         if (!fromSupport && canManage) {
             meta.appendChild(buildOwnMessageControls(!!reply.deleted, createdAt));
@@ -887,6 +982,8 @@ document.addEventListener('DOMContentLoaded', function () {
         bubble.dataset.message = reply.message || '';
         bubble.dataset.deleted = reply.deleted ? '1' : '0';
         bubble.dataset.edited = reply.edited ? '1' : '0';
+        bubble.classList.toggle('chat-bubble-deleted', !!reply.deleted);
+        const showEditedBadge = !!reply.edited && !reply.deleted;
 
         const messageText = row.querySelector('.js-message-text');
         if (messageText) {
@@ -897,21 +994,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const editedBadge = row.querySelector('.js-edited-badge');
-        if (editedBadge) editedBadge.classList.toggle('hidden', !reply.edited);
+        if (editedBadge) editedBadge.classList.toggle('hidden', !showEditedBadge);
 
         const deletedBadge = row.querySelector('.js-deleted-badge');
         if (deletedBadge) deletedBadge.classList.toggle('hidden', !reply.deleted);
 
         const stateRow = row.querySelector('.js-state-row');
-        if (stateRow) stateRow.classList.toggle('hidden', !(reply.edited || reply.deleted));
+        if (stateRow) stateRow.classList.toggle('hidden', !(showEditedBadge || reply.deleted));
 
         const reference = row.querySelector('.js-reply-reference');
         if (reference) {
             const referenceText = reference.querySelector('.js-reply-reference-text');
             if (referenceText) {
-                referenceText.textContent = reply.reply_to_message || '';
+                referenceText.textContent = reply.reply_to_message || reply.reply_to_excerpt || '';
             }
-            reference.classList.toggle('hidden', !reply.reply_to_message);
+            reference.classList.toggle('hidden', !(reply.reply_to_message || reply.reply_to_excerpt));
         }
 
         const attachmentsWrap = row.querySelector('.js-attachments-wrap');
@@ -920,6 +1017,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (reply.deleted) {
             const menu = row.querySelector('.js-more-menu');
             if (menu) menu.innerHTML = '';
+
+            if (editingReplyId && String(row.dataset.replyId) === String(editingReplyId)) {
+                clearEditingTarget({ resetInput: true });
+            }
         }
     };
 
@@ -960,15 +1061,50 @@ document.addEventListener('DOMContentLoaded', function () {
         replyForm.addEventListener('submit', async function (event) {
             event.preventDefault();
             closeMenus();
+
+            if (!messageInput || messageInput.value.trim().length === 0) {
+                return;
+            }
+
             if (replyError) {
                 replyError.classList.add('hidden');
                 replyError.textContent = '';
             }
 
             sendReplyButton.disabled = true;
-            sendReplyButton.textContent = 'Sending...';
+            setSubmitButtonLabel(true);
 
             try {
+                if (isEditingReply()) {
+                    const row = thread ? thread.querySelector('.js-chat-row[data-reply-id="' + editingReplyId + '"]') : null;
+                    if (!row) {
+                        throw new Error('Message not found for editing.');
+                    }
+
+                    const updateResponse = await fetch(replyEndpoint(updateUrlTemplate, editingReplyId), {
+                        method: 'PATCH',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({ message: messageInput.value.trim() }),
+                    });
+
+                    const updateData = await updateResponse.json().catch(function () { return {}; });
+                    if (!updateResponse.ok) {
+                        throw new Error(updateData.message || 'Unable to edit message right now.');
+                    }
+
+                    if (updateData.reply) {
+                        applyReplyState(row, updateData.reply);
+                    }
+                    clearEditingTarget({ resetInput: true });
+                    if (messageInput) messageInput.focus();
+                    return;
+                }
+
                 const response = await fetch(replyForm.action, {
                     method: 'POST',
                     headers: {
@@ -1012,18 +1148,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } catch (error) {
                 if (replyError) {
-                    replyError.textContent = 'Network error. Please try again.';
+                    replyError.textContent = error && error.message ? error.message : 'Network error. Please try again.';
                     replyError.classList.remove('hidden');
                 }
             } finally {
                 sendReplyButton.disabled = false;
-                sendReplyButton.textContent = 'Send';
+                setSubmitButtonLabel(false);
             }
         });
     }
 
     if (clearReplyTargetButton) {
         clearReplyTargetButton.addEventListener('click', clearReplyTarget);
+    }
+
+    if (cancelEditTargetButton) {
+        cancelEditTargetButton.addEventListener('click', function () {
+            clearEditingTarget({ resetInput: true });
+            if (messageInput) messageInput.focus();
+        });
     }
 
     if (thread) {
@@ -1079,48 +1222,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 return;
             }
-            const bubble = row.querySelector('.js-chat-bubble');
-            const currentMessage = bubble ? (bubble.dataset.message || '') : '';
-            const editedMessage = window.prompt('Edit message', currentMessage);
             closeMenus();
-
-            if (editedMessage === null || editedMessage.trim() === '' || editedMessage === currentMessage) {
-                return;
-            }
-
-            try {
-                const response = await fetch(replyEndpoint(updateUrlTemplate, row.dataset.replyId), {
-                    method: 'PATCH',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    body: JSON.stringify({ message: editedMessage }),
-                });
-
-                if (!response.ok) {
-                    let errorMessage = 'Unable to edit message right now.';
-                    try {
-                        const errorPayload = await response.json();
-                        if (errorPayload && errorPayload.message) {
-                            errorMessage = errorPayload.message;
-                        }
-                    } catch (parseError) {
-                    }
-                    throw new Error(errorMessage);
-                }
-                const data = await response.json();
-                if (data.reply) {
-                    applyReplyState(row, data.reply);
-                }
-            } catch (error) {
-                if (replyError) {
-                    replyError.textContent = error && error.message ? error.message : 'Unable to edit message right now.';
-                    replyError.classList.remove('hidden');
-                }
-            }
+            setEditingTarget(row);
             return;
         }
 
@@ -1202,7 +1305,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const replies = Array.isArray(data && data.replies) ? data.replies : [];
             replies.forEach(function (reply) {
                 const replyId = String(reply.id || '');
-                if (!replyId || knownReplyIds.has(replyId)) return;
+                if (!replyId) return;
+
+                const existingRow = thread.querySelector('.js-chat-row[data-reply-id="' + replyId + '"]');
+                if (existingRow) {
+                    applyReplyState(existingRow, reply);
+                    return;
+                }
+
                 appendReplyToThread(reply);
                 incrementMessageCount();
             });
@@ -1212,7 +1322,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    if (replyForm && repliesUrl) {
+    if (repliesUrl) {
         window.setInterval(pollReplies, 5000);
     }
 

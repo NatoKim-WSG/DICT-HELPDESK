@@ -23,13 +23,13 @@ Route::post('/register', fn () => redirect('/login'));
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Account Settings (available to all authenticated users)
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/account/settings', [AuthController::class, 'accountSettings'])->name('account.settings');
     Route::put('/account/settings', [AuthController::class, 'updateAccountSettings'])->name('account.settings.update');
 });
 
 // Client Routes
-Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->group(function () {
+Route::middleware(['auth', 'active', 'role:client'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/tickets', [ClientTicketController::class, 'index'])->name('tickets.index');
@@ -85,7 +85,7 @@ Route::middleware(['auth', 'role:client'])->prefix('client')->name('client.')->g
 });
 
 // Admin Routes
-Route::middleware(['auth', 'role:super_user,super_admin,technical'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'active', 'role:super_user,super_admin,technical'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('role:super_user,super_admin,technical')
         ->name('dashboard');
@@ -221,4 +221,4 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
     }
 
     return Storage::disk('public')->download($attachment->file_path, $attachment->original_filename);
-})->middleware('auth')->name('attachments.download');
+})->middleware(['auth', 'active'])->name('attachments.download');

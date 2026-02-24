@@ -3,36 +3,9 @@
     $isTicketConsole = $user->canAccessAdminTickets();
     $canManageConsole = $user->canManageTickets();
     $isClient = !$isTicketConsole;
-    $departmentRaw = strtolower(trim((string) $user->department));
-    $departmentKey = 'dict';
-    if (str_contains($departmentRaw, 'ione')) {
-        $departmentKey = 'ione';
-    } elseif (str_contains($departmentRaw, 'deped')) {
-        $departmentKey = 'deped';
-    } elseif (str_contains($departmentRaw, 'dar')) {
-        $departmentKey = 'dar';
-    } elseif (str_contains($departmentRaw, 'dict')) {
-        $departmentKey = 'dict';
-    }
-
-    $departmentLogoMap = [
-        'ione' => 'images/ione-logo.png',
-        'dict' => 'images/DICT-logo.png',
-        'deped' => 'images/deped-logo.png',
-        'dar' => 'images/dar-logo.png',
-    ];
-    $departmentNameMap = [
-        'ione' => 'iOne',
-        'dict' => 'DICT',
-        'deped' => 'DEPED',
-        'dar' => 'DAR',
-    ];
-    $departmentLogoPath = $departmentLogoMap[$departmentKey] ?? 'images/DICT-logo.png';
-    if (!file_exists(public_path($departmentLogoPath))) {
-        $departmentLogoPath = 'images/DICT-logo.png';
-    }
-    $departmentLogo = asset($departmentLogoPath);
-    $departmentName = $departmentNameMap[$departmentKey] ?? 'DICT';
+    $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
+    $departmentLogo = $departmentBrand['logo_url'];
+    $departmentName = $departmentBrand['name'];
 
     if ($isTicketConsole) {
         $menuItems = [
@@ -82,8 +55,8 @@
     <div class="flex h-full flex-col">
         <div @class([
             'relative flex items-center border-b border-[#0d5053] px-5',
-            'h-24' => $canManageConsole,
-            'h-28' => $isClient,
+            'h-28 lg:h-32' => $canManageConsole,
+            'h-32 lg:h-36' => $isClient,
             'justify-center' => $canManageConsole,
             'justify-center' => $isClient,
         ])>
@@ -97,7 +70,7 @@
                         <img
                             src="{{ $departmentLogo }}"
                             alt="{{ $departmentName }} Logo"
-                            class="h-14 w-auto"
+                            class="h-20 w-auto lg:h-24"
                         >
                     </span>
                     <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">iOne Resources. Inc</span>

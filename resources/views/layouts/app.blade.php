@@ -4,7 +4,52 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'DICT | iOne Resources Ticketing System')</title>
+    @php
+        $tabUser = auth()->user();
+        $tabYieldedTitle = trim((string) $__env->yieldContent('title'));
+        $tabRouteName = (string) optional(request()->route())->getName();
+        $tabDepartmentBrand = $tabUser
+            ? \App\Models\User::departmentBrandAssets($tabUser->department, $tabUser->role)
+            : ['name' => 'iOne'];
+
+        $tabPageLabel = '';
+        if ($tabYieldedTitle !== '') {
+            $tabPageLabel = preg_replace('/\s*[-|]\s*DICT.*$/i', '', $tabYieldedTitle) ?? '';
+            $tabPageLabel = preg_replace('/\s*[-|]\s*iOne Resources.*$/i', '', $tabPageLabel) ?? '';
+            $tabPageLabel = trim($tabPageLabel);
+        }
+
+        if ($tabPageLabel === '') {
+            $tabPageLabel = match (true) {
+                str_starts_with($tabRouteName, 'admin.dashboard') => 'Dashboard',
+                str_starts_with($tabRouteName, 'admin.tickets.show') => isset($ticket) ? 'Ticket #' . $ticket->ticket_number : 'Ticket Details',
+                str_starts_with($tabRouteName, 'admin.tickets.') => 'Tickets',
+                str_starts_with($tabRouteName, 'admin.users.') => 'Users',
+                str_starts_with($tabRouteName, 'client.dashboard') => 'Dashboard',
+                str_starts_with($tabRouteName, 'client.tickets.create') => 'New Ticket',
+                str_starts_with($tabRouteName, 'client.tickets.show') => isset($ticket) ? 'Ticket #' . $ticket->ticket_number : 'Ticket Details',
+                str_starts_with($tabRouteName, 'client.tickets.') => 'My Tickets',
+                str_starts_with($tabRouteName, 'account.settings') => 'Account Settings',
+                default => 'Helpdesk',
+            };
+        }
+
+        $tabContextLabel = 'Helpdesk';
+        if ($tabUser) {
+            $tabContextLabel = match ($tabUser->normalizedRole()) {
+                \App\Models\User::ROLE_SUPER_ADMIN => 'Super Admin Console',
+                \App\Models\User::ROLE_SUPER_USER => 'Super User Console',
+                \App\Models\User::ROLE_TECHNICAL => 'Technical Console',
+                default => $tabDepartmentBrand['name'] . ' Client Portal',
+            };
+        }
+
+        $tabTitle = trim($tabPageLabel . ' | ' . $tabContextLabel . ' | iOne Helpdesk');
+    @endphp
+    <title>{{ $tabTitle }}</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/ione-logo.png') }}">
+    <link rel="shortcut icon" href="{{ asset('images/ione-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/ione-logo.png') }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
@@ -41,37 +86,9 @@
                     $user = auth()->user();
                     $isClient = !$user->canAccessAdminTickets();
                     $canManageConsole = $user->canManageTickets();
-                    $departmentRaw = strtolower(trim((string) $user->department));
-                    $departmentKey = 'dict';
-                    if (str_contains($departmentRaw, 'ione')) {
-                        $departmentKey = 'ione';
-                    } elseif (str_contains($departmentRaw, 'deped')) {
-                        $departmentKey = 'deped';
-                    } elseif (str_contains($departmentRaw, 'dar')) {
-                        $departmentKey = 'dar';
-                    } elseif (str_contains($departmentRaw, 'dict')) {
-                        $departmentKey = 'dict';
-                    }
-
-                    $departmentLogoMap = [
-                        'ione' => 'images/ione-logo.png',
-                        'dict' => 'images/DICT-logo.png',
-                        'deped' => 'images/deped-logo.png',
-                        'dar' => 'images/dar-logo.png',
-                    ];
-                    $departmentNameMap = [
-                        'ione' => 'iOne',
-                        'dict' => 'DICT',
-                        'deped' => 'DEPED',
-                        'dar' => 'DAR',
-                    ];
-
-                    $departmentLogoPath = $departmentLogoMap[$departmentKey] ?? 'images/DICT-logo.png';
-                    if (!file_exists(public_path($departmentLogoPath))) {
-                        $departmentLogoPath = 'images/DICT-logo.png';
-                    }
-                    $clientCompanyName = $departmentNameMap[$departmentKey] ?? 'DICT';
-                    $clientCompanyLogo = asset($departmentLogoPath);
+                    $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
+                    $clientCompanyName = $departmentBrand['name'];
+                    $clientCompanyLogo = $departmentBrand['logo_url'];
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
                     $consoleLabel = match ($user->normalizedRole()) {
@@ -81,7 +98,7 @@
                     };
                 @endphp
 
-                <div class="relative flex h-20 items-center px-4 sm:px-6 lg:px-8">
+                <div class="flex h-20 items-center gap-3 px-3 sm:px-5 lg:px-8">
                     <div class="flex min-w-0 items-center gap-3">
                         <button
                             @click="sidebarOpen = true"
@@ -108,9 +125,9 @@
                         </button>
                     </div>
 
-                    <div class="pointer-events-none absolute left-1/2 hidden w-full -translate-x-1/2 px-16 sm:block lg:px-24">
+                    <div class="hidden min-w-0 flex-1 xl:block">
                         <div @class([
-                            'pointer-events-auto relative w-full',
+                            'relative w-full',
                             'mx-auto max-w-3xl' => $isClient,
                             'mx-auto max-w-xl' => !$isClient,
                         ])>
@@ -125,15 +142,15 @@
                         </div>
                     </div>
 
-                    <div class="relative z-10 ml-auto flex items-center gap-2 sm:gap-3">
+                    <div class="relative z-10 ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
                         @if($isClient)
-                            <a href="{{ route('client.tickets.create') }}" class="inline-flex items-center rounded-2xl bg-[#033b3d] px-6 py-3 text-base font-bold text-white shadow-sm transition hover:bg-[#022a2c]">
+                            <a href="{{ route('client.tickets.create') }}" class="inline-flex items-center rounded-xl bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#022a2c] sm:px-4 sm:py-2.5">
                                 New ticket
                             </a>
                         @endif
 
                         @if($user->canAccessAdminTickets())
-                            <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 md:inline-flex">
+                            <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 xl:inline-flex">
                                 {{ $consoleLabel }}
                             </span>
                         @endif
@@ -199,10 +216,10 @@
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
                                 <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
-                                    <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="h-8 w-8 object-contain">
+                                    <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="avatar-logo">
                                 </span>
-                                <span class="hidden text-left sm:block">
-                                    <span class="block max-w-[13rem] truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
+                                <span class="hidden text-left xl:block">
+                                    <span class="block max-w-[11rem] truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
                                     <span class="block text-sm text-slate-500">{{ $clientCompanyName }}</span>
                                 </span>
                             </button>

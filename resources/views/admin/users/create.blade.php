@@ -26,7 +26,7 @@
                     <!-- Name -->
                     <div class="sm:col-span-1">
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            Full Name <span class="text-red-500">*</span>
+                            Username <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
                             <input type="text" name="name" id="name" value="{{ old('name') }}" required
@@ -113,7 +113,7 @@
                             </p>
                         @else
                             <p class="mt-2 text-sm text-gray-500">
-                                You can create client and technical users.
+                                You can create client users only.
                             </p>
                         @endif
                     </div>

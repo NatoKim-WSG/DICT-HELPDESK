@@ -62,6 +62,72 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertSame('DAR', $superUser->department);
     }
 
+    public function test_super_user_and_super_admin_see_department_dropdown_on_account_settings(): void
+    {
+        $roles = [User::ROLE_SUPER_USER, User::ROLE_SUPER_ADMIN];
+
+        foreach ($roles as $index => $role) {
+            $user = User::create([
+                'name' => 'Admin Role ' . $index,
+                'email' => "admin-role-{$index}@example.com",
+                'phone' => '09123450000',
+                'department' => 'iOne',
+                'role' => $role,
+                'password' => Hash::make('password123'),
+                'is_active' => true,
+            ]);
+
+            $response = $this->actingAs($user)->get(route('account.settings'));
+            $response->assertOk();
+            $this->assertStringContainsString('<select', $response->getContent());
+            $this->assertStringContainsString('name="department"', $response->getContent());
+        }
+    }
+
+    public function test_technical_cannot_change_department_from_account_settings(): void
+    {
+        $technical = User::create([
+            'name' => 'Technical A',
+            'email' => 'technical-a@example.com',
+            'phone' => '09122223333',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($technical)->put(route('account.settings.update'), [
+            'name' => 'Technical A Updated',
+            'email' => 'technical-a@example.com',
+            'phone' => '09122223333',
+            'department' => 'DAR',
+        ]);
+
+        $response->assertRedirect(route('account.settings'));
+
+        $technical->refresh();
+        $this->assertSame('Technical A Updated', $technical->name);
+        $this->assertSame('iOne', $technical->department);
+    }
+
+    public function test_technical_sees_department_as_read_only_on_account_settings(): void
+    {
+        $technical = User::create([
+            'name' => 'Technical View',
+            'email' => 'technical-view@example.com',
+            'phone' => '09122224444',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($technical)->get(route('account.settings'));
+        $response->assertOk();
+        $this->assertStringContainsString('name="department"', $response->getContent());
+        $this->assertStringContainsString('readonly aria-readonly=true', $response->getContent());
+    }
+
     public function test_changing_email_requires_current_password(): void
     {
         $superUser = User::create([

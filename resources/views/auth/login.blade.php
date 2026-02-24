@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login - iOne Resources Inc. Helpdesk</title>
+    <title>Sign In | iOne Helpdesk</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/ione-logo.png') }}">
+    <link rel="shortcut icon" href="{{ asset('images/ione-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/ione-logo.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
     <script>
@@ -43,7 +46,7 @@
                     @csrf
 
                     <div>
-                        <label for="login" class="form-label">Email or Full Name</label>
+                        <label for="login" class="form-label">Email or Username</label>
                         <input id="login" name="login" type="text" autocomplete="username" required
                                class="form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
                                placeholder="you@example.com or Juan Dela Cruz" value="{{ old('login') }}">

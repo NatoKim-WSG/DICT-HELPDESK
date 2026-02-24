@@ -27,7 +27,7 @@
                     <!-- Name -->
                     <div class="sm:col-span-1">
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            Full Name <span class="text-red-500">*</span>
+                            Username <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
                             <input type="text" name="name" id="name" value="{{ old('name', $user->name) }}" required
@@ -127,31 +127,39 @@
                         @enderror
                     </div>
 
-                    <!-- Password -->
-                    <div class="sm:col-span-1">
-                        <label for="password" class="block text-sm font-medium text-gray-700">
-                            New Password
-                        </label>
-                        <div class="mt-1">
-                            <input type="password" name="password" id="password"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('password') border-red-300 @enderror">
+                    @if($canEditPassword ?? false)
+                        <!-- Password -->
+                        <div class="sm:col-span-1">
+                            <label for="password" class="block text-sm font-medium text-gray-700">
+                                New Password
+                            </label>
+                            <div class="mt-1">
+                                <input type="password" name="password" id="password"
+                                    class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('password') border-red-300 @enderror">
+                            </div>
+                            <p class="mt-2 text-sm text-gray-500">Leave blank to keep current password</p>
+                            @error('password')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">Leave blank to keep current password</p>
-                        @error('password')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
 
-                    <!-- Password Confirmation -->
-                    <div class="sm:col-span-1">
-                        <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                            Confirm New Password
-                        </label>
-                        <div class="mt-1">
-                            <input type="password" name="password_confirmation" id="password_confirmation"
-                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                        <!-- Password Confirmation -->
+                        <div class="sm:col-span-1">
+                            <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
+                                Confirm New Password
+                            </label>
+                            <div class="mt-1">
+                                <input type="password" name="password_confirmation" id="password_confirmation"
+                                    class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                            </div>
                         </div>
-                    </div>
+                    @else
+                        <div class="sm:col-span-2">
+                            <p class="mt-2 text-sm text-gray-500">
+                                Password changes for client accounts are restricted to Super Admins.
+                            </p>
+                        </div>
+                    @endif
                 </div>
             </div>
 

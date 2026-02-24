@@ -128,4 +128,66 @@ class User extends Authenticatable
             default => (string) $role,
         };
     }
+
+    public static function departmentBrandKey(?string $department, ?string $role = null): string
+    {
+        $normalizedDepartment = strtolower(trim((string) $department));
+
+        if (
+            str_contains($normalizedDepartment, 'ione')
+            || str_contains($normalizedDepartment, 'i one')
+            || str_contains($normalizedDepartment, 'administration')
+            || $normalizedDepartment === 'it'
+        ) {
+            return 'ione';
+        }
+
+        if (str_contains($normalizedDepartment, 'deped')) {
+            return 'deped';
+        }
+
+        if (str_contains($normalizedDepartment, 'dar')) {
+            return 'dar';
+        }
+
+        if (str_contains($normalizedDepartment, 'dict')) {
+            return 'dict';
+        }
+
+        $normalizedRole = self::normalizeRole($role);
+        if (in_array($normalizedRole, [self::ROLE_SUPER_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true)) {
+            return 'ione';
+        }
+
+        return 'dict';
+    }
+
+    public static function departmentBrandMap(): array
+    {
+        return [
+            'ione' => ['name' => 'iOne', 'logo' => 'images/ione-logo.png'],
+            'dict' => ['name' => 'DICT', 'logo' => 'images/DICT-logo.png'],
+            'deped' => ['name' => 'DEPED', 'logo' => 'images/deped-logo.png'],
+            'dar' => ['name' => 'DAR', 'logo' => 'images/dar-logo.png'],
+        ];
+    }
+
+    public static function departmentBrandAssets(?string $department, ?string $role = null): array
+    {
+        $brandKey = self::departmentBrandKey($department, $role);
+        $brandMap = self::departmentBrandMap();
+        $brand = $brandMap[$brandKey] ?? $brandMap['ione'];
+        $logoPath = $brand['logo'] ?? 'images/ione-logo.png';
+
+        if (!file_exists(public_path($logoPath))) {
+            $logoPath = 'images/ione-logo.png';
+        }
+
+        return [
+            'key' => $brandKey,
+            'name' => $brand['name'] ?? 'iOne',
+            'logo_path' => $logoPath,
+            'logo_url' => asset($logoPath),
+        ];
+    }
 }
