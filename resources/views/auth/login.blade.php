@@ -58,6 +58,8 @@
     class="font-sans antialiased"
     x-data="{
         darkMode: false,
+        legalModalOpen: false,
+        legalModalTab: 'terms',
         init() {
             this.darkMode = document.documentElement.classList.contains('theme-dark');
         },
@@ -65,6 +67,15 @@
             this.darkMode = !this.darkMode;
             document.documentElement.classList.toggle('theme-dark', this.darkMode);
             localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+        },
+        openLegalModal(tab = 'terms') {
+            this.legalModalTab = tab;
+            this.legalModalOpen = true;
+            document.body.classList.add('overflow-hidden');
+        },
+        closeLegalModal() {
+            this.legalModalOpen = false;
+            document.body.classList.remove('overflow-hidden');
         }
     }"
 >
@@ -143,8 +154,16 @@
                 <p class="mt-6 text-center text-sm text-slate-600">
                     Account access is managed by your system administrator.
                 </p>
+                <p class="mt-3 text-center text-xs text-slate-500">
+                    By signing in, you agree to the
+                    <button type="button" @click="openLegalModal('terms')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Terms</button>,
+                    <button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Privacy Notice</button>,
+                    and
+                    <button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Ticket Consent</button>.
+                </p>
             </div>
         </div>
     </div>
+    @include('legal.modal')
 </body>
 </html>

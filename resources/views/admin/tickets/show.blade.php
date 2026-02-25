@@ -112,7 +112,7 @@
                     </div>
                 </div>
 
-                <div id="admin-conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}">
+                <div id="admin-conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-seen-url="{{ route('admin.notifications.seen', $ticket) }}">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
                         {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
@@ -257,7 +257,7 @@
                 </div>
 
                 <div class="border-t border-slate-200 px-4 pb-4 pt-2 sm:px-6">
-                    <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
+                    <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-seen-url="{{ route('admin.notifications.seen', $ticket) }}" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
                         @csrf
                         <p id="admin-reply-error" class="hidden text-xs font-medium text-rose-600"></p>
                         <input type="hidden" id="admin_reply_to_id" name="reply_to_id" value="">
@@ -480,6 +480,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const editTargetText = document.getElementById('admin-edit-target-text');
     const cancelEditTargetButton = document.getElementById('admin-cancel-edit-target');
     const repliesUrl = (replyForm ? replyForm.dataset.repliesUrl : '') || (thread ? thread.dataset.repliesUrl : '');
+    const seenUrl = (replyForm ? replyForm.dataset.seenUrl : '') || (thread ? thread.dataset.seenUrl : '');
+    const ticketId = @json((int) $ticket->id);
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -489,6 +491,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let isPollingReplies = false;
     let editingReplyId = '';
     let autoResize = function () {};
+    let isSyncingSeen = false;
+    let queuedSeenAtIso = '';
+    let latestSeenAtMs = 0;
 
     const isEditingReply = function () {
         return editingReplyId !== '';
@@ -662,6 +667,101 @@ document.addEventListener('DOMContentLoaded', function () {
         return Number.isNaN(date.getTime()) ? null : date;
     };
 
+    const parseIsoMs = function (value) {
+        const date = parseIso(value);
+        return date ? date.getTime() : 0;
+    };
+
+    const latestThreadActivityIso = function () {
+        if (!thread) return '';
+
+        let latestIso = '';
+        let latestMs = 0;
+
+        thread.querySelectorAll('.js-chat-row[data-created-at]').forEach(function (row) {
+            const rowIso = row.dataset.createdAt || '';
+            const rowMs = parseIsoMs(rowIso);
+            if (rowMs > latestMs) {
+                latestMs = rowMs;
+                latestIso = rowIso;
+            }
+        });
+
+        return latestIso;
+    };
+
+    const flushSeenSync = async function () {
+        if (!seenUrl || isSyncingSeen || !queuedSeenAtIso || document.visibilityState === 'hidden') {
+            return;
+        }
+
+        const activityAt = queuedSeenAtIso;
+        queuedSeenAtIso = '';
+        isSyncingSeen = true;
+
+        try {
+            const response = await fetch(seenUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ activity_at: activityAt }),
+                credentials: 'same-origin',
+            });
+
+            if (response.ok) {
+                const payload = await response.json().catch(function () { return {}; });
+                const acknowledgedIso = (payload && payload.seen_at) ? payload.seen_at : activityAt;
+                latestSeenAtMs = Math.max(latestSeenAtMs, parseIsoMs(acknowledgedIso));
+                window.dispatchEvent(new CustomEvent('ticket-notification-seen', {
+                    detail: {
+                        ticketId: Number(ticketId || 0),
+                        seenAt: acknowledgedIso,
+                    },
+                }));
+            } else {
+                const queuedMs = parseIsoMs(queuedSeenAtIso);
+                const activityMs = parseIsoMs(activityAt);
+                if (activityMs > queuedMs) {
+                    queuedSeenAtIso = activityAt;
+                }
+            }
+        } catch (error) {
+            const queuedMs = parseIsoMs(queuedSeenAtIso);
+            const activityMs = parseIsoMs(activityAt);
+            if (activityMs > queuedMs) {
+                queuedSeenAtIso = activityAt;
+            }
+        } finally {
+            isSyncingSeen = false;
+            if (queuedSeenAtIso) {
+                flushSeenSync();
+            }
+        }
+    };
+
+    const queueSeenSync = function (activityAtIso) {
+        if (!seenUrl || document.visibilityState === 'hidden') {
+            return;
+        }
+
+        const candidateIso = activityAtIso || latestThreadActivityIso();
+        const candidateMs = parseIsoMs(candidateIso);
+        if (!candidateMs || candidateMs <= latestSeenAtMs) {
+            return;
+        }
+
+        const queuedMs = parseIsoMs(queuedSeenAtIso);
+        if (candidateMs > queuedMs) {
+            queuedSeenAtIso = candidateIso;
+        }
+
+        flushSeenSync();
+    };
+
     const formatTimestampLabel = function (date) {
         if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
             return '';
@@ -759,6 +859,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         thread.appendChild(row);
         thread.scrollTop = thread.scrollHeight;
+        queueSeenSync(payload.created_at_iso || '');
 
         if (messageCountNode) {
             const countMatch = messageCountNode.textContent.trim().match(/^\d+/);
@@ -1028,6 +1129,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     appendReply(reply);
                 });
+                queueSeenSync();
             })
             .catch(function () {
             })
@@ -1039,6 +1141,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (repliesUrl) {
         window.setInterval(pollReplies, 5000);
     }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            queueSeenSync();
+        }
+    });
+
+    window.addEventListener('focus', function () {
+        queueSeenSync();
+    });
+
+    queueSeenSync();
 
     const attachmentPreview = window.ModalKit
         ? window.ModalKit.bindAttachmentPreview({

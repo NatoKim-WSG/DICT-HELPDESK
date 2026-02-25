@@ -100,6 +100,16 @@ class User extends Authenticatable
         return $this->hasMany(TicketUserState::class);
     }
 
+    public function legalConsents()
+    {
+        return $this->hasMany(UserLegalConsent::class);
+    }
+
+    public function hasAcceptedCurrentLegalConsent(): bool
+    {
+        return UserLegalConsent::hasCurrentConsentForUser($this);
+    }
+
     public function isAdmin()
     {
         return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);

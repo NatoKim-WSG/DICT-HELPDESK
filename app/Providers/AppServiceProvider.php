@@ -72,7 +72,7 @@ class AppServiceProvider extends ServiceProvider
             ->whereIn('ticket_id', $tickets->pluck('id'))
             ->get()
             ->keyBy('ticket_id');
-        $latestRepliesByTicket = $this->latestCounterpartRepliesForTickets($user, $tickets, $states);
+        $latestRepliesByTicket = $this->latestCounterpartRepliesForTickets($user, $tickets);
 
         return $tickets
             ->map(function (Ticket $ticket) use ($user, $states, $latestRepliesByTicket) {
@@ -80,15 +80,9 @@ class AppServiceProvider extends ServiceProvider
                 $state = $states->get($ticket->id);
                 $lastSeenAt = optional($state)->last_seen_at;
                 $latestCounterpartReply = $latestRepliesByTicket->get((int) $ticket->id);
-                $activityAt = $latestCounterpartReply
-                    ? $latestCounterpartReply->created_at
-                    : optional($ticket->updated_at);
+                $activityAt = $this->resolveNotificationActivityAt($user, $ticket, $latestCounterpartReply);
 
                 if (! $activityAt) {
-                    return null;
-                }
-
-                if ($lastSeenAt && $activityAt->lte($lastSeenAt)) {
                     return null;
                 }
 
@@ -97,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 $isTicketConsoleUser = $user->canAccessAdminTickets();
+                $isViewed = $lastSeenAt && $activityAt->lte($lastSeenAt);
                 $senderName = optional($latestCounterpartReply?->user)->name;
                 $replyPreview = Str::of((string) optional($latestCounterpartReply)->message)->squish()->toString();
                 $meta = $ticket->subject;
@@ -108,6 +103,7 @@ class AppServiceProvider extends ServiceProvider
                         .($senderName ? ' - '.$senderName : '')
                         .($replyPreview !== '' ? ': '.Str::limit($replyPreview, 70) : '');
                 } elseif ($isTicketConsoleUser) {
+                    $title = 'New ticket received';
                     $meta = $ticket->subject.' - '.optional($ticket->user)->name;
                 }
 
@@ -134,8 +130,11 @@ class AppServiceProvider extends ServiceProvider
                     'ticket_id' => $ticket->id,
                     'activity_at' => $activityAt->toIso8601String(),
                     'activity_ts' => $activityTs,
-                    'can_dismiss' => $isTicketConsoleUser,
-                    'dismiss_url' => $isTicketConsoleUser ? route('admin.notifications.dismiss') : null,
+                    'is_viewed' => (bool) $isViewed,
+                    'can_dismiss' => (bool) $isViewed,
+                    'dismiss_url' => $isTicketConsoleUser
+                        ? route('admin.notifications.dismiss')
+                        : route('client.notifications.dismiss'),
                 ];
             })
             ->filter()
@@ -144,7 +143,23 @@ class AppServiceProvider extends ServiceProvider
             ->values();
     }
 
-    private function latestCounterpartRepliesForTickets(User $user, Collection $tickets, Collection $states): Collection
+    private function resolveNotificationActivityAt(
+        User $user,
+        Ticket $ticket,
+        ?TicketReply $latestCounterpartReply
+    ): ?\Illuminate\Support\Carbon {
+        if ($latestCounterpartReply && $latestCounterpartReply->created_at) {
+            return $latestCounterpartReply->created_at;
+        }
+
+        if ($user->canAccessAdminTickets()) {
+            return $ticket->created_at;
+        }
+
+        return null;
+    }
+
+    private function latestCounterpartRepliesForTickets(User $user, Collection $tickets): Collection
     {
         if ($tickets->isEmpty()) {
             return collect();
@@ -156,9 +171,6 @@ class AppServiceProvider extends ServiceProvider
             ->values();
         $ticketUserIds = $tickets
             ->mapWithKeys(fn (Ticket $ticket) => [(int) $ticket->id => (int) $ticket->user_id])
-            ->all();
-        $ticketStateCutoff = $states
-            ->mapWithKeys(fn (TicketUserState $state) => [(int) $state->ticket_id => $state->last_seen_at])
             ->all();
 
         $query = TicketReply::query()
@@ -178,7 +190,6 @@ class AppServiceProvider extends ServiceProvider
             ->each(function (TicketReply $reply) use (
                 &$latestRepliesByTicket,
                 $ticketUserIds,
-                $ticketStateCutoff,
                 $user
             ) {
                 $ticketId = (int) $reply->ticket_id;
@@ -191,11 +202,6 @@ class AppServiceProvider extends ServiceProvider
                     if ($expectedUserId === null || (int) $reply->user_id !== $expectedUserId) {
                         return;
                     }
-                }
-
-                $lastSeenAt = $ticketStateCutoff[$ticketId] ?? null;
-                if ($lastSeenAt && $reply->created_at && $reply->created_at->lte($lastSeenAt)) {
-                    return;
                 }
 
                 $latestRepliesByTicket[$ticketId] = $reply;

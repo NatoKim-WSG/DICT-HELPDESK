@@ -70,6 +70,8 @@
         x-data="{
             sidebarOpen: false,
             darkMode: false,
+            legalModalOpen: false,
+            legalModalTab: 'terms',
             init() {
                 this.darkMode = document.documentElement.classList.contains('theme-dark');
             },
@@ -77,6 +79,15 @@
                 this.darkMode = !this.darkMode;
                 document.documentElement.classList.toggle('theme-dark', this.darkMode);
                 localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+            },
+            openLegalModal(tab = 'terms') {
+                this.legalModalTab = tab;
+                this.legalModalOpen = true;
+                document.body.classList.add('overflow-hidden');
+            },
+            closeLegalModal() {
+                this.legalModalOpen = false;
+                document.body.classList.remove('overflow-hidden');
             }
         }"
     >
@@ -105,7 +116,7 @@
                         ->except(['search', 'page'])
                         ->all();
                     $notifications = $headerNotifications ?? collect();
-                    $notificationCount = $notifications->count();
+                    $notificationCount = $notifications->where('is_viewed', false)->count();
                     $consoleLabel = match ($user->normalizedRole()) {
                         'shadow' => 'Admin Console',
                         'admin' => 'Admin Console',
@@ -193,7 +204,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-3.5-3.5A6.965 6.965 0 0012 5a6.965 6.965 0 00-7.5 8.5L1 17h5m9 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                                 </svg>
                                 @if($notificationCount > 0)
-                                    <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                                    <span class="js-header-notification-badge absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white" data-count="{{ $notificationCount }}">
                                         {{ $notificationCount > 9 ? '9+' : $notificationCount }}
                                     </span>
                                 @endif
@@ -214,14 +225,27 @@
                                 <div class="border-b border-slate-200 px-4 py-3">
                                     <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
                                 </div>
-                                @if($notificationCount > 0)
-                                    <div class="max-h-72 overflow-y-auto">
+                                @if($notifications->count() > 0)
+                                    <div class="js-header-notification-list max-h-72 overflow-y-auto">
                                         @foreach($notifications as $notification)
-                                            <div class="flex items-start gap-2 border-b border-slate-100 px-2 py-1 hover:bg-slate-50">
+                                            <div
+                                                @class([
+                                                'js-header-notification flex items-start gap-2 border-b border-slate-100 px-2 py-1 hover:bg-slate-50',
+                                                'bg-slate-50/70' => !empty($notification['is_viewed']),
+                                                ])
+                                                data-ticket-id="{{ $notification['ticket_id'] }}"
+                                                data-activity-at="{{ $notification['activity_at'] }}"
+                                                data-viewed="{{ !empty($notification['is_viewed']) ? '1' : '0' }}"
+                                            >
                                                 <a href="{{ $notification['url'] }}" class="block min-w-0 flex-1 px-2 py-2">
                                                     <p class="text-sm font-semibold text-slate-900">{{ $notification['title'] }}</p>
                                                     <p class="mt-0.5 truncate text-sm text-slate-600">{{ $notification['meta'] }}</p>
-                                                    <p class="mt-1 text-xs text-slate-400">{{ $notification['time'] }}</p>
+                                                    <p class="mt-1 text-xs text-slate-400">
+                                                        {{ $notification['time'] }}
+                                                        @if(!empty($notification['is_viewed']))
+                                                            <span class="ml-1 rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Viewed</span>
+                                                        @endif
+                                                    </p>
                                                 </a>
                                                 @if(!empty($notification['can_dismiss']) && !empty($notification['dismiss_url']) && !empty($notification['key']))
                                                     <form method="POST" action="{{ $notification['dismiss_url'] }}" class="pt-2">
@@ -238,8 +262,13 @@
                                             </div>
                                         @endforeach
                                     </div>
+                                    <div class="js-header-notification-empty hidden px-4 py-6 text-center">
+                                        <p class="text-sm font-semibold text-slate-700">No notifications</p>
+                                        <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
+                                    </div>
                                 @else
-                                    <div class="px-4 py-6 text-center">
+                                    <div class="js-header-notification-list hidden max-h-72 overflow-y-auto"></div>
+                                    <div class="js-header-notification-empty px-4 py-6 text-center">
                                         <p class="text-sm font-semibold text-slate-700">No notifications</p>
                                         <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
                                     </div>
@@ -303,9 +332,91 @@
                 @endif
 
                 @yield('content')
+
+                <div class="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-500">
+                    <span class="mr-2">Legal:</span>
+                    <button type="button" @click="openLegalModal('terms')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Terms</button>
+                    <span class="mx-1">|</span>
+                    <button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Privacy</button>
+                    <span class="mx-1">|</span>
+                    <button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Ticket Consent</button>
+                </div>
             </main>
         </div>
+        @include('legal.modal')
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const notificationList = document.querySelector('.js-header-notification-list');
+            const emptyState = document.querySelector('.js-header-notification-empty');
+            const badge = document.querySelector('.js-header-notification-badge');
+
+            if (!notificationList) {
+                return;
+            }
+
+            const parseTimestamp = function (value) {
+                const parsed = Date.parse(value || '');
+                return Number.isNaN(parsed) ? 0 : parsed;
+            };
+
+            const updateNotificationUi = function () {
+                const items = Array.from(notificationList.querySelectorAll('.js-header-notification'));
+                const unreadCount = items.filter(function (item) {
+                    return item.dataset.viewed !== '1';
+                }).length;
+
+                if (items.length === 0) {
+                    notificationList.classList.add('hidden');
+                    if (emptyState) {
+                        emptyState.classList.remove('hidden');
+                    }
+                } else {
+                    notificationList.classList.remove('hidden');
+                    if (emptyState) {
+                        emptyState.classList.add('hidden');
+                    }
+                }
+
+                if (!badge) {
+                    return;
+                }
+
+                if (unreadCount <= 0) {
+                    badge.remove();
+                    return;
+                }
+
+                badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+                badge.dataset.count = String(unreadCount);
+            };
+
+            const removeNotificationsForSeenEvent = function (ticketId, seenAt) {
+                const normalizedTicketId = Number(ticketId || 0);
+                const seenTimestamp = parseTimestamp(seenAt);
+                if (!normalizedTicketId || !seenTimestamp) {
+                    return;
+                }
+
+                notificationList.querySelectorAll('.js-header-notification').forEach(function (item) {
+                    const itemTicketId = Number(item.dataset.ticketId || 0);
+                    const itemActivityAt = parseTimestamp(item.dataset.activityAt || '');
+                    if (itemTicketId === normalizedTicketId && itemActivityAt > 0 && itemActivityAt <= seenTimestamp) {
+                        item.remove();
+                    }
+                });
+
+                updateNotificationUi();
+            };
+
+            window.addEventListener('ticket-notification-seen', function (event) {
+                const detail = event && event.detail ? event.detail : {};
+                removeNotificationsForSeenEvent(detail.ticketId, detail.seenAt);
+            });
+
+            updateNotificationUi();
+        });
+    </script>
     @stack('scripts')
 </body>
 </html>

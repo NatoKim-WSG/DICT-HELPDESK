@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
+use App\Http\Controllers\LegalController;
 use App\Models\Ticket;
 use App\Models\TicketUserState;
 use Illuminate\Http\Request;
@@ -18,6 +19,12 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+Route::prefix('legal')->name('legal.')->group(function () {
+    Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
+    Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
+    Route::get('/ticket-consent', [LegalController::class, 'ticketConsent'])->name('ticket-consent');
+});
+
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
@@ -25,14 +32,19 @@ Route::get('/register', fn () => redirect('/login'));
 Route::post('/register', fn () => redirect('/login'));
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+Route::middleware(['auth', 'active'])->prefix('legal')->name('legal.')->group(function () {
+    Route::get('/acceptance', [LegalController::class, 'showAcceptance'])->name('acceptance.show');
+    Route::post('/acceptance', [LegalController::class, 'accept'])->name('acceptance.store');
+});
+
 // Account Settings
-Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])->group(function () {
+Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,shadow,technical'])->group(function () {
     Route::get('/account/settings', [AuthController::class, 'accountSettings'])->name('account.settings');
     Route::put('/account/settings', [AuthController::class, 'updateAccountSettings'])->name('account.settings.update');
 });
 
 // Client Routes
-Route::middleware(['auth', 'active', 'role:client'])->prefix('client')->name('client.')->group(function () {
+Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/tickets', [ClientTicketController::class, 'index'])->name('tickets.index');
@@ -61,46 +73,78 @@ Route::middleware(['auth', 'active', 'role:client'])->prefix('client')->name('cl
         ->middleware('throttle:15,1')
         ->name('tickets.rate');
 
+    Route::post('/notifications/dismiss', function (Request $request) {
+        $request->validate([
+            'ticket_id' => 'required|integer|exists:tickets,id',
+            'activity_at' => 'required|date',
+        ]);
+
+        $ticket = Ticket::findOrFail($request->integer('ticket_id'));
+        if ((int) $ticket->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        $activityAt = Carbon::parse($request->string('activity_at')->toString());
+        $state = TicketUserState::query()->firstOrNew([
+            'ticket_id' => $ticket->id,
+            'user_id' => (int) auth()->id(),
+        ]);
+
+        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
+            return back()->with('error', 'You can dismiss notifications only after viewing them.');
+        }
+
+        $state->dismissed_at = $activityAt;
+        $state->save();
+
+        return back();
+    })->middleware('throttle:60,1')->name('notifications.dismiss');
+
+    Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
+        if ((int) $ticket->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
+        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
+        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
+            $state->dismissed_at = $seenAt;
+            $state->save();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'seen_at' => $seenAt->toIso8601String(),
+        ]);
+    })->middleware('throttle:120,1')->name('notifications.seen');
+
     Route::get('/notifications/open/{ticket}', function (Request $request, Ticket $ticket) {
         if ((int) $ticket->user_id !== (int) auth()->id()) {
             abort(403);
         }
 
-        $activityAt = $request->query('activity_at');
-        $seenAt = now();
-        if (is_string($activityAt) && trim($activityAt) !== '') {
-            try {
-                $seenAt = Carbon::parse($activityAt);
-            } catch (\Throwable $e) {
-                $seenAt = now();
-            }
-        } else {
-            $seenAt = $ticket->updated_at ?? now();
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
+        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
+        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
+            $state->dismissed_at = $seenAt;
+            $state->save();
         }
-
-        TicketUserState::updateOrCreate(
-            [
-                'ticket_id' => $ticket->id,
-                'user_id' => auth()->id(),
-            ],
-            [
-                'last_seen_at' => $seenAt,
-                'dismissed_at' => null,
-            ]
-        );
 
         return redirect()->route('client.tickets.show', $ticket);
     })->name('notifications.open');
 });
 
 // Admin Routes
-Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,shadow,technical'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('role:super_user,admin,shadow,technical')
         ->name('dashboard');
     Route::get('/reports', [AdminReportController::class, 'index'])
         ->middleware('role:super_user,admin,shadow')
         ->name('reports.index');
+    Route::get('/reports/monthly/pdf', [AdminReportController::class, 'monthlyPdf'])
+        ->middleware('role:super_user,admin,shadow')
+        ->name('reports.monthly.pdf');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
@@ -148,18 +192,40 @@ Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])-
             abort(403);
         }
 
-        TicketUserState::updateOrCreate(
-            [
-                'ticket_id' => $ticket->id,
-                'user_id' => auth()->id(),
-            ],
-            [
-                'dismissed_at' => Carbon::parse($request->string('activity_at')->toString()),
-            ]
-        );
+        $activityAt = Carbon::parse($request->string('activity_at')->toString());
+        $state = TicketUserState::query()->firstOrNew([
+            'ticket_id' => $ticket->id,
+            'user_id' => (int) auth()->id(),
+        ]);
+
+        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
+            return back()->with('error', 'You can dismiss notifications only after viewing them.');
+        }
+
+        $state->dismissed_at = $activityAt;
+        $state->save();
 
         return back();
     })->middleware('throttle:60,1')->name('notifications.dismiss');
+
+    Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
+        $authUser = auth()->user();
+        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
+            abort(403);
+        }
+
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
+        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
+        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
+            $state->dismissed_at = $seenAt;
+            $state->save();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'seen_at' => $seenAt->toIso8601String(),
+        ]);
+    })->middleware('throttle:120,1')->name('notifications.seen');
 
     Route::get('/notifications/open/{ticket}', function (Request $request, \App\Models\Ticket $ticket) {
         $authUser = auth()->user();
@@ -167,28 +233,12 @@ Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])-
             abort(403);
         }
 
-        $activityAt = $request->query('activity_at');
-        $seenAt = now();
-        if (is_string($activityAt) && trim($activityAt) !== '') {
-            try {
-                $seenAt = Carbon::parse($activityAt);
-            } catch (\Throwable $e) {
-                $seenAt = now();
-            }
-        } else {
-            $seenAt = $ticket->updated_at ?? now();
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
+        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
+        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
+            $state->dismissed_at = $seenAt;
+            $state->save();
         }
-
-        TicketUserState::updateOrCreate(
-            [
-                'ticket_id' => $ticket->id,
-                'user_id' => auth()->id(),
-            ],
-            [
-                'last_seen_at' => $seenAt,
-                'dismissed_at' => null,
-            ]
-        );
 
         return redirect()->route('admin.tickets.show', $ticket);
     })->name('notifications.open');
@@ -254,5 +304,5 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
     }
 
     return Storage::disk('public')->download($attachment->file_path, $attachment->original_filename);
-})->middleware(['auth', 'active'])->name('attachments.download');
+})->middleware(['auth', 'active', 'consent.accepted'])->name('attachments.download');
 

@@ -113,7 +113,7 @@
                     </div>
                 </div>
 
-                <div id="conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('client.tickets.replies.feed', $ticket) }}">
+                <div id="conversation-thread" class="h-[560px] space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50/80 to-white px-4 py-5 sm:px-6" data-replies-url="{{ route('client.tickets.replies.feed', $ticket) }}" data-seen-url="{{ route('client.notifications.seen', $ticket) }}">
                     <div class="js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" data-time="{{ $ticket->created_at->toIso8601String() }}">
                         {{ $ticket->created_at->greaterThan(now()->subDay()) ? $ticket->created_at->format('g:i A') : $ticket->created_at->format('M j, Y') }}
                     </div>
@@ -276,6 +276,7 @@
                             data-client-logo="{{ $clientCompanyLogo }}"
                             data-support-logo="{{ $supportCompanyLogo }}"
                             data-replies-url="{{ route('client.tickets.replies.feed', $ticket) }}"
+                            data-seen-url="{{ route('client.notifications.seen', $ticket) }}"
                             data-update-url-template="{{ route('client.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}"
                             data-delete-url-template="{{ route('client.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}"
                         >
@@ -602,6 +603,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const clientLogo = replyForm ? replyForm.dataset.clientLogo : '';
     const supportLogo = replyForm ? replyForm.dataset.supportLogo : '';
     const repliesUrl = (replyForm ? replyForm.dataset.repliesUrl : '') || (thread ? thread.dataset.repliesUrl : '');
+    const seenUrl = (replyForm ? replyForm.dataset.seenUrl : '') || (thread ? thread.dataset.seenUrl : '');
+    const ticketId = @json((int) $ticket->id);
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const TIMESTAMP_BREAK_MINUTES = 15;
@@ -609,6 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const knownReplyIds = new Set();
     let isPollingReplies = false;
     let editingReplyId = '';
+    let isSyncingSeen = false;
+    let queuedSeenAtIso = '';
+    let latestSeenAtMs = 0;
 
     const isEditingReply = function () {
         return editingReplyId !== '';
@@ -656,6 +662,101 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     setSubmitButtonLabel(false);
+
+    const parseIsoMs = function (value) {
+        const parsed = Date.parse(value || '');
+        return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const latestThreadActivityIso = function () {
+        if (!thread) return '';
+
+        let latestIso = '';
+        let latestMs = 0;
+
+        thread.querySelectorAll('.js-chat-row[data-created-at]').forEach(function (row) {
+            const rowIso = row.dataset.createdAt || '';
+            const rowMs = parseIsoMs(rowIso);
+            if (rowMs > latestMs) {
+                latestMs = rowMs;
+                latestIso = rowIso;
+            }
+        });
+
+        return latestIso;
+    };
+
+    const flushSeenSync = async function () {
+        if (!seenUrl || isSyncingSeen || !queuedSeenAtIso || document.visibilityState === 'hidden') {
+            return;
+        }
+
+        const activityAt = queuedSeenAtIso;
+        queuedSeenAtIso = '';
+        isSyncingSeen = true;
+
+        try {
+            const response = await fetch(seenUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ activity_at: activityAt }),
+                credentials: 'same-origin',
+            });
+
+            if (response.ok) {
+                const payload = await response.json().catch(function () { return {}; });
+                const acknowledgedIso = (payload && payload.seen_at) ? payload.seen_at : activityAt;
+                latestSeenAtMs = Math.max(latestSeenAtMs, parseIsoMs(acknowledgedIso));
+                window.dispatchEvent(new CustomEvent('ticket-notification-seen', {
+                    detail: {
+                        ticketId: Number(ticketId || 0),
+                        seenAt: acknowledgedIso,
+                    },
+                }));
+            } else {
+                const queuedMs = parseIsoMs(queuedSeenAtIso);
+                const activityMs = parseIsoMs(activityAt);
+                if (activityMs > queuedMs) {
+                    queuedSeenAtIso = activityAt;
+                }
+            }
+        } catch (error) {
+            const queuedMs = parseIsoMs(queuedSeenAtIso);
+            const activityMs = parseIsoMs(activityAt);
+            if (activityMs > queuedMs) {
+                queuedSeenAtIso = activityAt;
+            }
+        } finally {
+            isSyncingSeen = false;
+            if (queuedSeenAtIso) {
+                flushSeenSync();
+            }
+        }
+    };
+
+    const queueSeenSync = function (activityAtIso) {
+        if (!seenUrl || document.visibilityState === 'hidden') {
+            return;
+        }
+
+        const candidateIso = activityAtIso || latestThreadActivityIso();
+        const candidateMs = parseIsoMs(candidateIso);
+        if (!candidateMs || candidateMs <= latestSeenAtMs) {
+            return;
+        }
+
+        const queuedMs = parseIsoMs(queuedSeenAtIso);
+        if (candidateMs > queuedMs) {
+            queuedSeenAtIso = candidateIso;
+        }
+
+        flushSeenSync();
+    };
 
     const createAttachmentLink = function (attachment) {
         const link = document.createElement('a');
@@ -973,6 +1074,7 @@ document.addEventListener('DOMContentLoaded', function () {
         thread.appendChild(wrap);
         renderTimeSeparators();
         thread.scrollTop = thread.scrollHeight;
+        queueSeenSync(createdAt);
     };
 
     const applyReplyState = function (row, reply) {
@@ -1316,6 +1418,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 appendReplyToThread(reply);
                 incrementMessageCount();
             });
+            queueSeenSync();
         } catch (error) {
         } finally {
             isPollingReplies = false;
@@ -1325,6 +1428,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (repliesUrl) {
         window.setInterval(pollReplies, 5000);
     }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            queueSeenSync();
+        }
+    });
+
+    window.addEventListener('focus', function () {
+        queueSeenSync();
+    });
+
+    queueSeenSync();
 
     document.addEventListener('click', function (event) {
         if (!event.target.closest('.js-more-btn') && !event.target.closest('.js-more-menu')) {

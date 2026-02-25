@@ -1,25 +1,20 @@
 # DICT Helpdesk Ticketing System
 
-Laravel 11 help desk application with separate client and admin portals for ticket management.
+Laravel 12 help desk application with separate client and admin portals for ticket management.
 
 ## Tech Stack
 
-- PHP 8.2+
-- Laravel 11
+- PHP 8.3+ for full development and tests (runtime supports PHP 8.2+)
+- Laravel 12
 - PostgreSQL (default) or MySQL/MariaDB
-- Vite + Tailwind CSS
+- Vite 7 + Tailwind CSS 4 + Alpine.js
 
-## Environment Notes
+## Prerequisites
 
-- Enable the PHP `intl` extension if you plan to use `php artisan db:show` or `php artisan db:table`.
-
-## Core Features
-
-- Client ticket creation with attachments
-- Ticket replies with threaded reply targets
-- Admin assignment, priority, status, and due date management
-- Role-based access (`client`, `technical`, `super_user`, `admin`, `shadow`)
-- Account activation/deactivation controls
+- PHP with required extensions (`mbstring`, `openssl`, `pdo`, `tokenizer`, `xml`)
+- Composer
+- Node.js and npm
+- PostgreSQL or MySQL/MariaDB
 
 ## Setup
 
@@ -31,36 +26,69 @@ npm install
 
 2. Configure environment:
 ```bash
-copy .env.example .env
+cp .env.example .env
+# Windows PowerShell alternative:
+# Copy-Item .env.example .env
 php artisan key:generate
 ```
 
-3. Configure database in `.env`, then run:
+3. Configure database values in `.env` (`DB_*`) and run migrations:
 ```bash
-php artisan migrate
+php artisan migrate --seed
 php artisan storage:link
 ```
 
-4. Seed data (optional):
-```bash
-php artisan db:seed
-```
-
-5. Build frontend assets:
+4. Build frontend assets:
 ```bash
 npm run build
 ```
 
-6. Run application:
+5. Run the app:
 ```bash
 php artisan serve
 ```
 
+## Environment Variables
+
+These project variables are used by seeders and account workflows:
+
+- `DEFAULT_USER_PASSWORD`
+- `DEFAULT_SHADOW_PASSWORD`
+
+Legacy compatibility is kept for older env files using `DEFAULT_DEVELOPER_PASSWORD`, but `DEFAULT_SHADOW_PASSWORD` is the active key.
+
+Legal/consent behavior is versioned and configurable using:
+
+- `LEGAL_REQUIRE_ACCEPTANCE`
+- `LEGAL_TERMS_VERSION`
+- `LEGAL_PRIVACY_VERSION`
+- `LEGAL_PLATFORM_CONSENT_VERSION`
+- `LEGAL_TICKET_CONSENT_VERSION`
+- `LEGAL_DPO_EMAIL`
+- `LEGAL_SUPPORT_EMAIL`
+
+## Seeded Accounts
+
+After `php artisan migrate --seed`, these accounts are created:
+
+- `admin@ioneresources.net` (`admin`)
+- `shadow@ione.com` (`shadow`)
+- `cjose@ioneresources.net` (`super_user`)
+- `xtianjose02@gmail.com` (`technical`)
+- `Technical2@ioneresources.net` (`technical`)
+- `DICTR1@gmail.com` (`client`)
+- `AFPR2@gmail.com` (`client`)
+- `AFPR1@gmail.com` (`client`)
+
+Password behavior:
+
+- Non-shadow seeded users use `DEFAULT_USER_PASSWORD`
+- Shadow user uses `DEFAULT_SHADOW_PASSWORD`
+
 ## Real Email Delivery (External SMTP)
 
-Ticket alerts can be delivered to real inboxes when SMTP is configured with a real provider.
+Set mail values in `.env`:
 
-1. Set mail values in `.env` (example):
 ```bash
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.gmail.com
@@ -74,36 +102,16 @@ MAIL_REPLY_TO_ADDRESS=support@yourdomain.com
 MAIL_REPLY_TO_NAME="${APP_NAME}"
 ```
 
-2. Clear config cache after updates:
+Then clear config cache and test:
+
 ```bash
 php artisan config:clear
-```
-
-3. Send a live test email:
-```bash
 php artisan mail:test your-email@example.com
 ```
 
-4. Keep scheduler running for timed reminder alerts:
-```bash
-php artisan schedule:work
-```
-
-## Seeded Accounts
-
-Seeded users use `DEFAULT_USER_PASSWORD` from `.env`.
-
-- `admin@ioneresources.com` (`super_user`)
-- `support@ioneresources.com` (`technical`)
-- `client@ioneresources.com` (`client`)
-- `jane@ioneresources.com` (`client`)
-- `bob@ioneresources.com` (`client`)
-
-- `admin@ione.com` is created as `admin`.
-- `shadow@ione.com` is created as `shadow` and uses `DEFAULT_SHADOW_PASSWORD`.
-
 ## Security Notes
 
-- Do not use seeders with generated or shared credentials in production.
+- Do not use shared/default credentials in production.
 - Set `APP_ENV=production` and `APP_DEBUG=false` in production.
+- Keep `.env` out of version control.
 - Ensure `storage` and `bootstrap/cache` are writable by the app process.

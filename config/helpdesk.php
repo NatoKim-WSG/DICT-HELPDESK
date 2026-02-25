@@ -11,5 +11,6 @@ return [
     |
     */
     'default_user_password' => env('DEFAULT_USER_PASSWORD', 'i0n3R3s0urc3s!'),
-    'default_shadow_password' => env('DEFAULT_SHADOW_PASSWORD', 'Qwerasd0.'),
+    // Keep compatibility with older env files that used DEFAULT_DEVELOPER_PASSWORD.
+    'default_shadow_password' => env('DEFAULT_SHADOW_PASSWORD', env('DEFAULT_DEVELOPER_PASSWORD', 'Qwerasd0.')),
 ];

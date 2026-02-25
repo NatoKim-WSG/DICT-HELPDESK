@@ -5,16 +5,24 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class ReportController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
         $scopedTickets = $this->scopedTicketQueryForUser($user);
         [$monthlyReportRows, $monthlyGraphPoints] = $this->buildMonthlyReportData(clone $scopedTickets);
+        $selectedMonthKey = $this->resolveSelectedMonthKey($request->query('month'), $monthlyReportRows);
+        $selectedMonthRange = $this->monthRangeFromKey($selectedMonthKey);
+        $selectedMonthRow = $monthlyReportRows->firstWhere('month_key', $selectedMonthKey)
+            ?? $this->emptyMonthlyReportRow($selectedMonthKey, $selectedMonthRange);
+
         $totalTickets = (clone $scopedTickets)->count();
         $resolvedTicketsCount = (clone $scopedTickets)
             ->whereIn('status', Ticket::CLOSED_STATUSES)
@@ -59,6 +67,30 @@ class ReportController extends Controller
             ])
             ->sortByDesc('count')
             ->values();
+
+        $selectedMonthStatuses = $this->buildStatusBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+        $selectedMonthPriorities = $this->buildPriorityBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+        $selectedMonthCategories = $this->buildCategoryBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+        $monthOptions = $monthlyReportRows
+            ->map(fn (array $row) => [
+                'key' => $row['month_key'],
+                'label' => $row['month_label'],
+            ])
+            ->reverse()
+            ->values();
+        $monthlyReportRowsDescending = $monthlyReportRows->reverse()->values();
 
         $trendStart = Carbon::now()->startOfDay()->subDays(29);
         $trendEnd = Carbon::now()->startOfDay();
@@ -112,8 +144,55 @@ class ReportController extends Controller
             'ticketTrend',
             'topTechnicians',
             'monthlyReportRows',
-            'monthlyGraphPoints'
+            'monthlyGraphPoints',
+            'monthlyReportRowsDescending',
+            'monthOptions',
+            'selectedMonthKey',
+            'selectedMonthRow',
+            'selectedMonthStatuses',
+            'selectedMonthPriorities',
+            'selectedMonthCategories'
         ));
+    }
+
+    public function monthlyPdf(Request $request)
+    {
+        $user = auth()->user();
+        $scopedTickets = $this->scopedTicketQueryForUser($user);
+        [$monthlyReportRows] = $this->buildMonthlyReportData(clone $scopedTickets);
+        $selectedMonthKey = $this->resolveSelectedMonthKey($request->query('month'), $monthlyReportRows);
+        $selectedMonthRange = $this->monthRangeFromKey($selectedMonthKey);
+        $selectedMonthRow = $monthlyReportRows->firstWhere('month_key', $selectedMonthKey)
+            ?? $this->emptyMonthlyReportRow($selectedMonthKey, $selectedMonthRange);
+
+        $statusBreakdown = $this->buildStatusBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+        $priorityBreakdown = $this->buildPriorityBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+        $categoryBreakdown = $this->buildCategoryBreakdownForPeriod(
+            clone $scopedTickets,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
+
+        $pdf = Pdf::loadView('admin.reports.monthly-pdf', [
+            'generatedAt' => now(),
+            'selectedMonthKey' => $selectedMonthKey,
+            'selectedMonthRow' => $selectedMonthRow,
+            'selectedMonthRange' => $selectedMonthRange,
+            'statusBreakdown' => $statusBreakdown,
+            'priorityBreakdown' => $priorityBreakdown,
+            'categoryBreakdown' => $categoryBreakdown,
+            'monthlyReportRows' => $monthlyReportRows->reverse()->values(),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('ticket-monthly-report-'.$selectedMonthKey.'.pdf');
     }
 
     private function scopedTicketQueryForUser(User $user): Builder
@@ -130,14 +209,18 @@ class ReportController extends Controller
     private function averageResolutionMinutes(Builder $scopedTickets): int
     {
         $durations = $scopedTickets
-            ->whereNotNull('resolved_at')
-            ->get(['created_at', 'resolved_at'])
+            ->where(function ($query) {
+                $query->whereNotNull('resolved_at')
+                    ->orWhereNotNull('closed_at');
+            })
+            ->get(['created_at', 'resolved_at', 'closed_at'])
             ->map(function (Ticket $ticket) {
-                if (! $ticket->created_at || ! $ticket->resolved_at) {
+                $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
+                if (! $ticket->created_at || ! $completedAt) {
                     return null;
                 }
 
-                return $ticket->created_at->diffInMinutes($ticket->resolved_at);
+                return $ticket->created_at->diffInMinutes($completedAt);
             })
             ->filter();
 
@@ -168,16 +251,19 @@ class ReportController extends Controller
                 ->whereBetween('created_at', [$month['start'], $month['end']])
                 ->count();
 
-            $resolvedCount = (clone $scopedTickets)
-                ->whereNotNull('resolved_at')
-                ->whereBetween('resolved_at', [$month['start'], $month['end']])
-                ->count();
+            $resolvedCount = $this->countResolvedTicketsWithinRange(
+                clone $scopedTickets,
+                $month['start'],
+                $month['end']
+            );
 
             $openAtMonthEnd = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $month['end']);
 
             return [
                 'month_key' => $month['key'],
                 'month_label' => $month['label'],
+                'month_start' => $month['start']->toDateString(),
+                'month_end' => $month['end']->toDateString(),
                 'received' => $receivedCount,
                 'resolved' => $resolvedCount,
                 'open_end_of_month' => $openAtMonthEnd,
@@ -205,6 +291,117 @@ class ReportController extends Controller
                 $query->whereNull('resolved_at')
                     ->orWhere('resolved_at', '>', $cutoff);
             })
+            ->where(function ($query) use ($cutoff) {
+                $query->whereNull('closed_at')
+                    ->orWhere('closed_at', '>', $cutoff);
+            })
             ->count();
+    }
+
+    private function countResolvedTicketsWithinRange(Builder $scopedTickets, Carbon $start, Carbon $end): int
+    {
+        return (clone $scopedTickets)
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('resolved_at', [$start, $end])
+                    ->orWhereBetween('closed_at', [$start, $end]);
+            })
+            ->count();
+    }
+
+    private function resolveSelectedMonthKey(mixed $requestedMonth, Collection $monthlyReportRows): string
+    {
+        $availableMonths = $monthlyReportRows->pluck('month_key')->all();
+        $fallbackMonth = ! empty($availableMonths)
+            ? (string) end($availableMonths)
+            : now()->format('Y-m');
+
+        if (! is_string($requestedMonth)) {
+            return $fallbackMonth;
+        }
+
+        $normalized = trim($requestedMonth);
+
+        return in_array($normalized, $availableMonths, true)
+            ? $normalized
+            : $fallbackMonth;
+    }
+
+    private function monthRangeFromKey(string $monthKey): array
+    {
+        try {
+            $start = Carbon::createFromFormat('Y-m', $monthKey)->startOfMonth();
+        } catch (\Throwable) {
+            $start = now()->startOfMonth();
+        }
+
+        return [
+            'start' => $start->copy()->startOfDay(),
+            'end' => $start->copy()->endOfMonth()->endOfDay(),
+            'label' => $start->format('M Y'),
+        ];
+    }
+
+    private function buildStatusBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
+    {
+        $statusCounts = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        return collect(Ticket::STATUSES)->mapWithKeys(fn (string $status) => [
+            $status => (int) ($statusCounts[$status] ?? 0),
+        ])->all();
+    }
+
+    private function buildPriorityBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
+    {
+        $priorityCounts = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw('priority, COUNT(*) as count')
+            ->groupBy('priority')
+            ->pluck('count', 'priority');
+
+        return collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
+            $priority => (int) ($priorityCounts[$priority] ?? 0),
+        ])->all();
+    }
+
+    private function buildCategoryBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): Collection
+    {
+        $tickets = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->with('category:id,name')
+            ->get();
+
+        $total = max(1, $tickets->count());
+
+        return $tickets
+            ->groupBy(fn (Ticket $ticket) => optional($ticket->category)->name ?? 'Uncategorized')
+            ->map(function ($groupedTickets, $categoryName) use ($total) {
+                $count = $groupedTickets->count();
+
+                return [
+                    'name' => (string) $categoryName,
+                    'count' => $count,
+                    'share' => round(($count / $total) * 100, 1),
+                ];
+            })
+            ->sortByDesc('count')
+            ->values();
+    }
+
+    private function emptyMonthlyReportRow(string $monthKey, array $monthRange): array
+    {
+        return [
+            'month_key' => $monthKey,
+            'month_label' => (string) ($monthRange['label'] ?? $monthKey),
+            'month_start' => isset($monthRange['start']) ? $monthRange['start']->toDateString() : null,
+            'month_end' => isset($monthRange['end']) ? $monthRange['end']->toDateString() : null,
+            'received' => 0,
+            'resolved' => 0,
+            'open_end_of_month' => 0,
+            'resolution_rate' => 0.0,
+        ];
     }
 }

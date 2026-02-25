@@ -74,6 +74,7 @@ class TicketController extends Controller
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
             'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
+            'ticket_consent' => 'accepted',
             'attachments' => 'required|array|min:1',
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
@@ -82,13 +83,17 @@ class TicketController extends Controller
             'name' => $request->name,
             'contact_number' => $request->contact_number,
             'email' => $request->email,
-            'province' => $request->province,
-            'municipality' => $request->municipality,
-            'subject' => $request->subject,
+            'province' => $this->normalizeLeadingUppercase($request->string('province')->toString()),
+            'municipality' => $this->normalizeLeadingUppercase($request->string('municipality')->toString()),
+            'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
             'description' => $request->description,
             'category_id' => $request->category_id,
             'priority' => $request->priority,
             'user_id' => auth()->id(),
+            'consent_accepted_at' => now(),
+            'consent_version' => (string) config('legal.ticket_consent_version'),
+            'consent_ip_address' => $request->ip(),
+            'consent_user_agent' => $request->userAgent(),
         ];
 
         $ticket = Ticket::create($ticketData);
@@ -345,5 +350,15 @@ class TicketController extends Controller
             'open_tickets' => (clone $query)->open()->count(),
             'total_tickets' => (clone $query)->count(),
         ]));
+    }
+
+    private function normalizeLeadingUppercase(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return $trimmed;
+        }
+
+        return mb_strtoupper(mb_substr($trimmed, 0, 1)).mb_substr($trimmed, 1);
     }
 }

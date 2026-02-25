@@ -40,7 +40,7 @@
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-gray-900 mb-6">Create New Support Ticket</h3>
 
-            <form action="{{ route('client.tickets.store') }}" method="POST" enctype="multipart/form-data">
+            <form id="ticket-create-form" action="{{ route('client.tickets.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -179,6 +179,29 @@
                     </div>
                 </div>
 
+                <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <label class="inline-flex items-start gap-3 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            name="ticket_consent"
+                            value="1"
+                            required
+                            {{ old('ticket_consent') ? 'checked' : '' }}
+                            class="mt-1 h-4 w-4 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500"
+                        >
+                        <span>
+                            I confirm that I am authorized to submit this ticket and consent to support-related processing of submitted data and attachments.
+                            I have read the
+                            <button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Privacy Notice</button>
+                            and
+                            <button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Ticket Submission Consent</button>.
+                        </span>
+                    </label>
+                    @error('ticket_consent')
+                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 <div class="mt-6 flex justify-end space-x-3">
                     <a href="{{ route('client.tickets.index') }}" class="btn-secondary">
                         Cancel
@@ -213,4 +236,39 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('ticket-create-form');
+    if (!form) return;
+
+    const fields = [
+        document.getElementById('province'),
+        document.getElementById('municipality'),
+        document.getElementById('subject'),
+    ].filter(Boolean);
+
+    const normalizeLeadingUppercase = function (value) {
+        const trimmed = String(value || '').trim();
+        if (trimmed.length === 0) return '';
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    };
+
+    const normalizeField = function (field) {
+        field.value = normalizeLeadingUppercase(field.value);
+    };
+
+    fields.forEach(function (field) {
+        field.addEventListener('blur', function () {
+            normalizeField(field);
+        });
+    });
+
+    form.addEventListener('submit', function () {
+        fields.forEach(normalizeField);
+    });
+});
+</script>
+@endpush
 @endsection
