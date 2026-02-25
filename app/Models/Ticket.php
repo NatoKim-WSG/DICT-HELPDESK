@@ -11,8 +11,11 @@ class Ticket extends Model
     use HasFactory;
 
     public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+
     public const STATUSES = ['open', 'in_progress', 'pending', 'resolved', 'closed'];
+
     public const OPEN_STATUSES = ['open', 'in_progress', 'pending'];
+
     public const CLOSED_STATUSES = ['resolved', 'closed'];
 
     protected $fillable = [
@@ -52,7 +55,7 @@ class Ticket extends Model
 
         static::creating(function ($ticket) {
             if (empty($ticket->ticket_number)) {
-                $ticket->ticket_number = 'TK-' . strtoupper(Str::random(8));
+                $ticket->ticket_number = 'TK-'.strtoupper(Str::random(8));
             }
         });
     }
@@ -80,6 +83,11 @@ class Ticket extends Model
     public function attachments()
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function userStates()
+    {
+        return $this->hasMany(TicketUserState::class);
     }
 
     public function scopeOpen($query)
@@ -119,7 +127,7 @@ class Ticket extends Model
 
     public function getPriorityColorAttribute()
     {
-        return match(strtolower(trim((string) $this->priority))) {
+        return match (strtolower(trim((string) $this->priority))) {
             'urgent' => 'bg-red-100 text-red-800',
             'high' => 'bg-amber-100 text-amber-800',
             'medium' => 'bg-yellow-100 text-yellow-800',
@@ -130,7 +138,7 @@ class Ticket extends Model
 
     public function getPriorityBadgeClassAttribute(): string
     {
-        return match(strtolower(trim((string) $this->priority))) {
+        return match (strtolower(trim((string) $this->priority))) {
             'urgent' => 'bg-red-100 text-red-800',
             'high' => 'bg-amber-100 text-amber-800',
             'medium' => 'bg-yellow-100 text-yellow-800',
@@ -146,7 +154,7 @@ class Ticket extends Model
 
     public function getStatusColorAttribute()
     {
-        return match($this->status) {
+        return match ($this->status) {
             'open' => 'bg-blue-100 text-blue-800',
             'in_progress' => 'bg-purple-100 text-purple-800',
             'pending' => 'bg-yellow-100 text-yellow-800',
@@ -158,7 +166,7 @@ class Ticket extends Model
 
     public function getStatusBadgeClassAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'open' => 'bg-[#00494b] text-white',
             'pending' => 'bg-amber-400 text-white',
             'in_progress' => 'bg-sky-500 text-white',
@@ -175,7 +183,7 @@ class Ticket extends Model
 
     public function getActivityDotClassAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'bg-emerald-500',
             'in_progress' => 'bg-sky-500',
             'resolved', 'closed' => 'bg-slate-400',
@@ -185,7 +193,7 @@ class Ticket extends Model
 
     public function getActivityLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Awaiting customer response',
             'in_progress' => 'In progress',
             'resolved', 'closed' => 'Read',

@@ -24,6 +24,41 @@ class AdminTicketDestructivePermissionsTest extends TestCase
         $this->assertDatabaseHas('tickets', ['id' => $ticket->id]);
     }
 
+    public function test_super_user_cannot_delete_ticket(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User',
+            'email' => 'super-user-delete-check@example.com',
+            'phone' => '09110005555',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        [$client, $category] = $this->seedClientAndCategory();
+
+        $ticket = Ticket::create([
+            'name' => 'Requester',
+            'contact_number' => '09110006666',
+            'email' => 'requester-super-user-check@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Super user delete check',
+            'description' => 'Delete permission check',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->delete(route('admin.tickets.destroy', $ticket));
+
+        $response->assertForbidden();
+        $this->assertDatabaseHas('tickets', ['id' => $ticket->id]);
+    }
+
     public function test_technical_user_cannot_run_destructive_bulk_actions(): void
     {
         [$technical, $ticketOne] = $this->seedTechnicalAndTicket();
@@ -74,6 +109,27 @@ class AdminTicketDestructivePermissionsTest extends TestCase
             'is_active' => true,
         ]);
 
+        [$client, $category] = $this->seedClientAndCategory();
+
+        $ticket = Ticket::create([
+            'name' => 'Requester',
+            'contact_number' => '09110004444',
+            'email' => 'requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Permission test ticket',
+            'description' => 'Permission test',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        return [$technical, $ticket];
+    }
+
+    private function seedClientAndCategory(): array
+    {
         $client = User::create([
             'name' => 'Client User',
             'email' => 'client-ticket-perm@example.com',
@@ -91,20 +147,6 @@ class AdminTicketDestructivePermissionsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $ticket = Ticket::create([
-            'name' => 'Requester',
-            'contact_number' => '09110004444',
-            'email' => 'requester@example.com',
-            'province' => 'NCR',
-            'municipality' => 'Pasig',
-            'subject' => 'Permission test ticket',
-            'description' => 'Permission test',
-            'priority' => 'medium',
-            'status' => 'open',
-            'user_id' => $client->id,
-            'category_id' => $category->id,
-        ]);
-
-        return [$technical, $ticket];
+        return [$client, $category];
     }
 }

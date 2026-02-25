@@ -73,16 +73,16 @@
         <div class="lg:col-span-2 space-y-6">
             <div class="bg-white shadow sm:rounded-lg">
                 <div class="px-4 py-5 sm:px-6">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h1 class="text-2xl font-semibold text-gray-900">{{ $ticket->subject }}</h1>
-                            <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                                 <span class="font-medium">{{ $ticket->ticket_number }}</span>
-                                <span>&bull;</span>
+                                <span class="hidden text-gray-300 sm:inline">&bull;</span>
                                 <span>Created {{ $ticket->created_at->format('M j, Y \a\t g:i A') }}</span>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-3">
+                        <div class="flex flex-wrap items-center gap-2">
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->status_color }}">
                                 {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                             </span>
@@ -121,24 +121,24 @@
                             <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
                                 <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="avatar-logo">
                             </div>
-                            <div class="max-w-[82%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                            <div class="w-fit max-w-[82%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                                 <p class="js-message-text whitespace-pre-wrap text-sm leading-6 text-slate-800">{!! nl2br(e($ticket->description)) !!}</p>
 
                                 @if($ticket->attachments->count() > 0)
-                                    <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div class="mt-4 flex flex-wrap gap-2">
                                         @foreach($ticket->attachments as $attachment)
                                             @if(str_starts_with((string) $attachment->mime_type, 'image/'))
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link block overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50"
+                                                   class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50"
                                                    data-file-url="{{ $attachment->preview_url }}"
                                                    data-file-name="{{ $attachment->original_filename }}"
                                                    data-file-mime="{{ $attachment->mime_type }}">
-                                                    <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                    <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-36 w-full rounded-lg object-cover">
                                                     <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
                                                 </a>
                                             @else
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                                                   class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
                                                    data-file-url="{{ $attachment->preview_url }}"
                                                    data-file-name="{{ $attachment->original_filename }}"
                                                    data-file-mime="{{ $attachment->mime_type }}">
@@ -179,7 +179,7 @@
                                 <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white {{ $fromSupport ? 'order-2' : '' }}">
                                     <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="avatar-logo">
                                 </div>
-                                <div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}" data-message="{{ e($reply->message) }}" data-deleted="{{ $reply->deleted_at ? '1' : '0' }}" data-edited="{{ $reply->edited_at ? '1' : '0' }}">
+                                <div class="js-chat-bubble relative group w-fit max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}" data-message="{{ e($reply->message) }}" data-deleted="{{ $reply->deleted_at ? '1' : '0' }}" data-edited="{{ $reply->edited_at ? '1' : '0' }}">
                                     <div class="js-state-row mb-1 flex items-center gap-2 {{ $showEditedBadge || $isDeleted ? '' : 'hidden' }}">
                                         <span class="js-edited-badge chat-meta-badge {{ $showEditedBadge ? '' : 'hidden' }}">Edited</span>
                                         <span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted {{ $isDeleted ? '' : 'hidden' }}">Deleted</span>
@@ -203,20 +203,20 @@
                                     <p class="js-message-text whitespace-pre-wrap text-sm leading-6 {{ $reply->deleted_at ? 'italic text-slate-500' : 'text-slate-800' }}">{!! nl2br(e($reply->message)) !!}</p>
 
                                     @if($reply->attachments && $reply->attachments->count() > 0 && !$reply->deleted_at)
-                                        <div class="js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div class="js-attachments-wrap mt-4 flex flex-wrap gap-2">
                                             @foreach($reply->attachments as $attachment)
                                                 @if(str_starts_with((string) $attachment->mime_type, 'image/'))
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link block overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50"
+                                                       class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50"
                                                        data-file-url="{{ $attachment->preview_url }}"
                                                        data-file-name="{{ $attachment->original_filename }}"
                                                        data-file-mime="{{ $attachment->mime_type }}">
-                                                        <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                        <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-36 w-full rounded-lg object-cover">
                                                         <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
                                                     </a>
                                                 @else
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                                                       class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
                                                        data-file-url="{{ $attachment->preview_url }}"
                                                        data-file-name="{{ $attachment->original_filename }}"
                                                        data-file-mime="{{ $attachment->mime_type }}">
@@ -727,11 +727,11 @@ document.addEventListener('DOMContentLoaded', function () {
             ? '<div class="js-reply-reference mb-2"><p class="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500"><svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/></svg>' + (fromSupport ? 'Support replied' : 'Client replied') + '</p><div class="js-reply-reference-text rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">' + escapeHtml(replyRefText) + '</div></div>'
             : '';
         const attachmentsHtml = !isDeleted && Array.isArray(payload.attachments) && payload.attachments.length
-            ? '<div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">' + payload.attachments.map(function (attachment) {
+            ? '<div class="mt-4 flex flex-wrap gap-2">' + payload.attachments.map(function (attachment) {
                 if (attachment.is_image) {
-                    return '<a href="' + attachment.download_url + '" class="js-attachment-link block overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><img src="' + attachment.preview_url + '" alt="' + escapeHtml(attachment.original_filename) + '" class="h-40 w-full rounded-lg object-cover"><span class="mt-2 block truncate text-xs text-slate-600">' + escapeHtml(attachment.original_filename) + '</span></a>';
+                    return '<a href="' + attachment.download_url + '" class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><img src="' + attachment.preview_url + '" alt="' + escapeHtml(attachment.original_filename) + '" class="h-36 w-full rounded-lg object-cover"><span class="mt-2 block truncate text-xs text-slate-600">' + escapeHtml(attachment.original_filename) + '</span></a>';
                 }
-                return '<a href="' + attachment.download_url + '" class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">' + escapeHtml(attachment.original_filename) + '</span></a>';
+                return '<a href="' + attachment.download_url + '" class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">' + escapeHtml(attachment.original_filename) + '</span></a>';
             }).join('') + '</div>'
             : '';
         const stateRow = '<div class="js-state-row mb-1 flex items-center gap-2 ' + ((showEditedBadge || isDeleted) ? '' : 'hidden') + '"><span class="js-edited-badge chat-meta-badge ' + (showEditedBadge ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted ' + (isDeleted ? '' : 'hidden') + '">Deleted</span></div>';
@@ -744,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white ' + (fromSupport ? 'order-2' : '') + '">' +
                     '<img src="' + avatarLogo + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="avatar-logo">' +
                 '</div>' +
-                '<div class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white') + (isDeleted ? ' chat-bubble-deleted' : '') + '" data-message="' + escapeHtml(payload.message || '') + '" data-deleted="' + (isDeleted ? '1' : '0') + '" data-edited="' + (isEdited ? '1' : '0') + '">' +
+                '<div class="js-chat-bubble relative group w-fit max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'order-1 border-ione-blue-200 bg-ione-blue-50' : 'border-slate-200 bg-white') + (isDeleted ? ' chat-bubble-deleted' : '') + '" data-message="' + escapeHtml(payload.message || '') + '" data-deleted="' + (isDeleted ? '1' : '0') + '" data-edited="' + (isEdited ? '1' : '0') + '">' +
                     stateRow +
                     internalBadge +
                     replyReference +

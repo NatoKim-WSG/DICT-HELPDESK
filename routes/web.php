@@ -1,14 +1,16 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Models\Ticket;
-use Illuminate\Support\Facades\Route;
+use App\Models\TicketUserState;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
@@ -22,8 +24,8 @@ Route::get('/register', fn () => redirect('/login'));
 Route::post('/register', fn () => redirect('/login'));
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Account Settings (available to all authenticated users)
-Route::middleware(['auth', 'active'])->group(function () {
+// Account Settings
+Route::middleware(['auth', 'active', 'role:super_user,super_admin,technical'])->group(function () {
     Route::get('/account/settings', [AuthController::class, 'accountSettings'])->name('account.settings');
     Route::put('/account/settings', [AuthController::class, 'updateAccountSettings'])->name('account.settings.update');
 });
@@ -63,22 +65,28 @@ Route::middleware(['auth', 'active', 'role:client'])->prefix('client')->name('cl
             abort(403);
         }
 
-        $notificationKey = $request->query('notification_key');
-        if (is_string($notificationKey) && $notificationKey !== '') {
-            $dismissedNotifications = session('dismissed_notifications', []);
-            if (!in_array($notificationKey, $dismissedNotifications, true)) {
-                $dismissedNotifications[] = $notificationKey;
+        $activityAt = $request->query('activity_at');
+        $seenAt = now();
+        if (is_string($activityAt) && trim($activityAt) !== '') {
+            try {
+                $seenAt = Carbon::parse($activityAt);
+            } catch (\Throwable $e) {
+                $seenAt = now();
             }
-
-            if (count($dismissedNotifications) > 500) {
-                $dismissedNotifications = array_slice($dismissedNotifications, -500);
-            }
-            session(['dismissed_notifications' => $dismissedNotifications]);
+        } else {
+            $seenAt = $ticket->updated_at ?? now();
         }
 
-        $seenTicketUpdates = session('seen_ticket_updates', []);
-        $seenTicketUpdates[(string) $ticket->id] = optional($ticket->updated_at)->timestamp ?? now()->timestamp;
-        session(['seen_ticket_updates' => $seenTicketUpdates]);
+        TicketUserState::updateOrCreate(
+            [
+                'ticket_id' => $ticket->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'last_seen_at' => $seenAt,
+                'dismissed_at' => null,
+            ]
+        );
 
         return redirect()->route('client.tickets.show', $ticket);
     })->name('notifications.open');
@@ -109,7 +117,7 @@ Route::middleware(['auth', 'active', 'role:super_user,super_admin,technical'])->
         ->middleware('throttle:60,1')
         ->name('tickets.priority');
     Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
-        ->middleware(['throttle:20,1', 'role:super_user,super_admin'])
+        ->middleware(['throttle:20,1', 'role:super_admin'])
         ->name('tickets.destroy');
     Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])
         ->middleware('throttle:60,1')
@@ -126,42 +134,57 @@ Route::middleware(['auth', 'active', 'role:super_user,super_admin,technical'])->
 
     Route::post('/notifications/dismiss', function (Request $request) {
         $request->validate([
-            'notification_key' => 'required|string|max:255',
+            'ticket_id' => 'required|integer|exists:tickets,id',
+            'activity_at' => 'required|date',
         ]);
 
-        $dismissedNotifications = session('dismissed_notifications', []);
-        if (!in_array($request->notification_key, $dismissedNotifications, true)) {
-            $dismissedNotifications[] = $request->notification_key;
+        $ticket = Ticket::findOrFail($request->integer('ticket_id'));
+        $authUser = auth()->user();
+        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
+            abort(403);
         }
 
-        if (count($dismissedNotifications) > 500) {
-            $dismissedNotifications = array_slice($dismissedNotifications, -500);
-        }
-
-        session(['dismissed_notifications' => $dismissedNotifications]);
+        TicketUserState::updateOrCreate(
+            [
+                'ticket_id' => $ticket->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'dismissed_at' => Carbon::parse($request->string('activity_at')->toString()),
+            ]
+        );
 
         return back();
     })->middleware('throttle:60,1')->name('notifications.dismiss');
 
     Route::get('/notifications/open/{ticket}', function (Request $request, \App\Models\Ticket $ticket) {
-        $notificationKey = $request->query('notification_key');
-
-        if (is_string($notificationKey) && $notificationKey !== '') {
-            $dismissedNotifications = session('dismissed_notifications', []);
-            if (!in_array($notificationKey, $dismissedNotifications, true)) {
-                $dismissedNotifications[] = $notificationKey;
-            }
-
-            if (count($dismissedNotifications) > 500) {
-                $dismissedNotifications = array_slice($dismissedNotifications, -500);
-            }
-
-            session(['dismissed_notifications' => $dismissedNotifications]);
+        $authUser = auth()->user();
+        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
+            abort(403);
         }
 
-        $seenTicketUpdates = session('seen_ticket_updates', []);
-        $seenTicketUpdates[(string) $ticket->id] = optional($ticket->updated_at)->timestamp ?? now()->timestamp;
-        session(['seen_ticket_updates' => $seenTicketUpdates]);
+        $activityAt = $request->query('activity_at');
+        $seenAt = now();
+        if (is_string($activityAt) && trim($activityAt) !== '') {
+            try {
+                $seenAt = Carbon::parse($activityAt);
+            } catch (\Throwable $e) {
+                $seenAt = now();
+            }
+        } else {
+            $seenAt = $ticket->updated_at ?? now();
+        }
+
+        TicketUserState::updateOrCreate(
+            [
+                'ticket_id' => $ticket->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'last_seen_at' => $seenAt,
+                'dismissed_at' => null,
+            ]
+        );
 
         return redirect()->route('admin.tickets.show', $ticket);
     })->name('notifications.open');
@@ -197,24 +220,30 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
         if ($user->isClient() && $attachable->user_id !== $user->id) {
             abort(403);
         }
+        if ($user->isTechnician() && (int) $attachable->assigned_to !== (int) $user->id) {
+            abort(403);
+        }
     } elseif ($attachable instanceof \App\Models\TicketReply) {
         $ticket = $attachable->ticket;
         if ($user->isClient() && $ticket->user_id !== $user->id) {
+            abort(403);
+        }
+        if ($user->isTechnician() && (int) $ticket->assigned_to !== (int) $user->id) {
             abort(403);
         }
     } else {
         abort(403);
     }
 
-    if (!Storage::disk('public')->exists($attachment->file_path)) {
+    if (! Storage::disk('public')->exists($attachment->file_path)) {
         abort(404);
     }
 
     if ($request->boolean('preview')) {
         return response()->file(
-            storage_path('app/public/' . $attachment->file_path),
+            storage_path('app/public/'.$attachment->file_path),
             [
-                'Content-Disposition' => 'inline; filename="' . $attachment->original_filename . '"',
+                'Content-Disposition' => 'inline; filename="'.$attachment->original_filename.'"',
                 'Content-Type' => $attachment->mime_type,
             ]
         );

@@ -13,6 +13,78 @@ class AdminTicketFilterConsistencyTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_ticket_filter_on_tickets_tab_can_select_resolved_and_closed_statuses(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Status Filter Client', 'status-filter-client@example.com');
+
+        $resolvedTicket = Ticket::create([
+            'name' => 'Resolved Requester',
+            'contact_number' => '09110000101',
+            'email' => 'resolved-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Resolved ticket',
+            'description' => 'Resolved issue',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $closedTicket = Ticket::create([
+            'name' => 'Closed Requester',
+            'contact_number' => '09110000102',
+            'email' => 'closed-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed ticket',
+            'description' => 'Closed issue',
+            'priority' => 'high',
+            'status' => 'closed',
+            'resolved_at' => now()->subMinute(),
+            'closed_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $openTicket = Ticket::create([
+            'name' => 'Open Requester',
+            'contact_number' => '09110000103',
+            'email' => 'open-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Open ticket',
+            'description' => 'Open issue',
+            'priority' => 'low',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $resolvedResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'status' => 'resolved',
+        ]));
+
+        $resolvedResponse->assertOk();
+        $resolvedResponse->assertSee(route('admin.tickets.show', $resolvedTicket), false);
+        $resolvedResponse->assertDontSee(route('admin.tickets.show', $closedTicket), false);
+        $resolvedResponse->assertDontSee(route('admin.tickets.show', $openTicket), false);
+
+        $closedResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'status' => 'closed',
+        ]));
+
+        $closedResponse->assertOk();
+        $closedResponse->assertSee(route('admin.tickets.show', $closedTicket), false);
+        $closedResponse->assertDontSee(route('admin.tickets.show', $resolvedTicket), false);
+        $closedResponse->assertDontSee(route('admin.tickets.show', $openTicket), false);
+    }
+
     public function test_admin_ticket_filter_by_province_uses_ticket_location_fields(): void
     {
         $supportUser = $this->createSupportUser();

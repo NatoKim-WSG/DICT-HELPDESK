@@ -102,6 +102,10 @@
         @apply border-[#0f8d88];
     }
 
+    .client-ticket-row:hover {
+        background-color: rgba(248, 250, 252, 0.9);
+    }
+
     .chat-meta-badge {
         @apply rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500;
     }
@@ -264,6 +268,10 @@
     .theme-dark .ticket-checkbox:checked {
         background-color: #14b8a6 !important;
         border-color: #14b8a6 !important;
+    }
+
+    .theme-dark .client-ticket-row:hover {
+        background-color: #202833 !important;
     }
 
     .theme-dark .shadow-sm,

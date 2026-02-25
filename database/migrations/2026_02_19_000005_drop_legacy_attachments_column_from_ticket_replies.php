@@ -18,7 +18,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ticket_replies', function (Blueprint $table) {
-            if (!Schema::hasColumn('ticket_replies', 'attachments')) {
+            if (! Schema::hasColumn('ticket_replies', 'attachments')) {
                 $table->json('attachments')->nullable()->after('is_internal');
             }
         });

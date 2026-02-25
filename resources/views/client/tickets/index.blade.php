@@ -58,14 +58,14 @@
         </div>
 
         <div class="max-h-[70vh] overflow-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
                 <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
-                        <th class="px-6 py-4">Details</th>
-                        <th class="px-6 py-4">Assigned Technical</th>
-                        <th class="px-6 py-4">Priority</th>
-                        <th class="px-6 py-4">Activity Status</th>
-                        <th class="px-6 py-4 text-right">Status</th>
+                        <th class="w-[40%] px-6 py-4">Details</th>
+                        <th class="w-[18%] px-6 py-4">Assigned Technical</th>
+                        <th class="w-[12%] px-6 py-4 text-center">Priority</th>
+                        <th class="w-[20%] px-6 py-4 text-center">Activity Status</th>
+                        <th class="w-[10%] px-6 py-4 text-center">Status</th>
                     </tr>
                 </thead>
 
@@ -77,7 +77,7 @@
                                 : $ticket->created_at->format('M j, Y');
                         @endphp
 
-                        <tr class="transition hover:bg-slate-50/90">
+                        <tr class="client-ticket-row transition">
                             <td class="px-6 py-5 align-top">
                                 <a href="{{ route('client.tickets.show', $ticket) }}" class="block">
                                     <p class="truncate text-base font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
@@ -92,20 +92,20 @@
                                 {{ $ticket->assignedUser?->name ?? 'Unassigned' }}
                             </td>
 
-                            <td class="px-6 py-5 align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
                                     {{ $ticket->priority_label }}
                                 </span>
                             </td>
 
-                            <td class="px-6 py-5 align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex items-center gap-2 text-sm text-slate-600">
                                     <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
                                     {{ $ticket->activity_label }}
                                 </span>
                             </td>
 
-                            <td class="px-6 py-5 text-right align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                                     {{ $ticket->status_label }}
                                 </span>
@@ -130,4 +130,44 @@
         @endif
     </section>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const initialSnapshotToken = @json($liveSnapshotToken ?? '');
+    if (!initialSnapshotToken) return;
+
+    const routeBase = @json(route('client.tickets.index'));
+    let snapshotToken = initialSnapshotToken;
+
+    const pollTicketListSnapshot = async function () {
+        if (document.hidden) return;
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('heartbeat', '1');
+
+        try {
+            const response = await fetch(routeBase + '?' + params.toString(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            if (!payload || !payload.token) return;
+
+            if (payload.token !== snapshotToken) {
+                window.location.reload();
+                return;
+            }
+
+            snapshotToken = payload.token;
+        } catch (error) {
+        }
+    };
+
+    window.setInterval(pollTicketListSnapshot, 10000);
+});
+</script>
 @endsection

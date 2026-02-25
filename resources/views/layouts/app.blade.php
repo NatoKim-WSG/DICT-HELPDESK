@@ -44,7 +44,7 @@
             };
         }
 
-        $tabTitle = trim($tabPageLabel . ' | ' . $tabContextLabel . ' | iOne Helpdesk');
+        $tabTitle = trim($tabPageLabel . ' | ' . $tabContextLabel);
     @endphp
     <title>{{ $tabTitle }}</title>
     <link rel="icon" type="image/png" href="{{ asset('images/iOne Logo.png') }}">
@@ -85,10 +85,23 @@
                 @php
                     $user = auth()->user();
                     $isClient = !$user->canAccessAdminTickets();
-                    $canManageConsole = $user->canManageTickets();
+                    $canAccessAccountSettings = $user->canAccessAdminTickets();
                     $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
                     $clientCompanyName = $departmentBrand['name'];
                     $clientCompanyLogo = $departmentBrand['logo_url'];
+                    $activeRouteName = (string) optional(request()->route())->getName();
+                    $headerSearchRouteName = match (true) {
+                        str_starts_with($activeRouteName, 'admin.users.') => 'admin.users.index',
+                        str_starts_with($activeRouteName, 'admin.tickets.') => 'admin.tickets.index',
+                        str_starts_with($activeRouteName, 'client.tickets.') => 'client.tickets.index',
+                        default => $isClient ? 'client.tickets.index' : 'admin.tickets.index',
+                    };
+                    $headerSearchAction = route($headerSearchRouteName);
+                    $headerSearchQuery = trim((string) request('search', ''));
+                    $headerSearchPlaceholder = $isClient ? 'Search my tickets...' : 'Search tickets or users...';
+                    $headerSearchCarryParams = collect(request()->query())
+                        ->except(['search', 'page'])
+                        ->all();
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
                     $consoleLabel = match ($user->normalizedRole()) {
@@ -126,20 +139,31 @@
                     </div>
 
                     <div class="hidden min-w-0 flex-1 xl:block">
-                        <div @class([
+                        <form method="GET" action="{{ $headerSearchAction }}" @class([
                             'relative w-full',
                             'mx-auto max-w-3xl' => $isClient,
                             'mx-auto max-w-xl' => !$isClient,
                         ])>
+                            @foreach($headerSearchCarryParams as $paramKey => $paramValue)
+                                @if(is_array($paramValue))
+                                    @foreach($paramValue as $arrayValue)
+                                        <input type="hidden" name="{{ $paramKey }}[]" value="{{ $arrayValue }}">
+                                    @endforeach
+                                @else
+                                    <input type="hidden" name="{{ $paramKey }}" value="{{ $paramValue }}">
+                                @endif
+                            @endforeach
                             <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                             <input
                                 type="text"
+                                name="search"
+                                value="{{ $headerSearchQuery }}"
                                 class="h-12 w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
-                                placeholder="{{ $isClient ? 'Search' : 'Search tickets, users...' }}"
+                                placeholder="{{ $headerSearchPlaceholder }}"
                             >
-                        </div>
+                        </form>
                     </div>
 
                     <div class="relative z-10 ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
@@ -176,7 +200,7 @@
                                 x-show="notificationOpen"
                                 @click.away="notificationOpen = false"
                                 x-transition
-                                class="absolute right-0 z-40 mt-2 w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                                class="fixed left-2 right-2 top-20 z-40 max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]"
                             >
                                 <div class="border-b border-slate-200 px-4 py-3">
                                     <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
@@ -193,7 +217,8 @@
                                                 @if(!empty($notification['can_dismiss']) && !empty($notification['dismiss_url']) && !empty($notification['key']))
                                                     <form method="POST" action="{{ $notification['dismiss_url'] }}" class="pt-2">
                                                         @csrf
-                                                        <input type="hidden" name="notification_key" value="{{ $notification['key'] }}">
+                                                        <input type="hidden" name="ticket_id" value="{{ $notification['ticket_id'] }}">
+                                                        <input type="hidden" name="activity_at" value="{{ $notification['activity_at'] }}">
                                                         <button type="submit" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Dismiss notification">
                                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -230,7 +255,9 @@
                                 x-transition
                                 class="absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
                             >
-                                <a href="{{ route('account.settings') }}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Account Settings</a>
+                                @if($canAccessAccountSettings)
+                                    <a href="{{ route('account.settings') }}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Account Settings</a>
+                                @endif
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Sign out</button>

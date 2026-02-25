@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ticket_replies', function (Blueprint $table) {
-            if (!Schema::hasColumn('ticket_replies', 'reply_to_id')) {
+            if (! Schema::hasColumn('ticket_replies', 'reply_to_id')) {
                 $table->foreignId('reply_to_id')
                     ->nullable()
                     ->after('user_id')
@@ -17,11 +17,11 @@ return new class extends Migration
                     ->nullOnDelete();
             }
 
-            if (!Schema::hasColumn('ticket_replies', 'edited_at')) {
+            if (! Schema::hasColumn('ticket_replies', 'edited_at')) {
                 $table->timestamp('edited_at')->nullable()->after('is_internal');
             }
 
-            if (!Schema::hasColumn('ticket_replies', 'deleted_at')) {
+            if (! Schema::hasColumn('ticket_replies', 'deleted_at')) {
                 $table->timestamp('deleted_at')->nullable()->after('edited_at');
             }
         });

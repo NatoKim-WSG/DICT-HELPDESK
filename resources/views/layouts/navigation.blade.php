@@ -2,6 +2,7 @@
     $user = auth()->user();
     $isTicketConsole = $user->canAccessAdminTickets();
     $canManageConsole = $user->canManageTickets();
+    $canAccessAccountSettings = $isTicketConsole;
     $isClient = !$isTicketConsole;
     $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
     $departmentLogo = $departmentBrand['logo_url'];
@@ -11,8 +12,11 @@
         $menuItems = [
             ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false],
             ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
-            ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
         ];
+
+        if ($canAccessAccountSettings) {
+            $menuItems[] = ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false];
+        }
 
         if ($canManageConsole) {
             $menuItems[] = ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false];
@@ -22,7 +26,6 @@
             ['label' => 'New Ticket', 'icon' => 'plus', 'href' => route('client.tickets.create'), 'active' => request()->routeIs('client.tickets.create'), 'disabled' => false],
             ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('client.dashboard'), 'active' => request()->routeIs('client.dashboard'), 'disabled' => false],
             ['label' => 'My Tickets', 'icon' => 'ticket', 'href' => route('client.tickets.index'), 'active' => request()->routeIs('client.tickets.index') || request()->routeIs('client.tickets.show'), 'disabled' => false],
-            ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false],
         ];
     }
 
@@ -55,9 +58,9 @@
     <div class="flex h-full flex-col">
         <div @class([
             'relative flex items-center border-b border-[#0d5053] px-5',
-            'h-28 lg:h-32' => $canManageConsole,
+            'h-28 lg:h-32' => $isTicketConsole,
             'h-32 lg:h-36' => $isClient,
-            'justify-center' => $canManageConsole,
+            'justify-center' => $isTicketConsole,
             'justify-center' => $isClient,
         ])>
             <a href="{{ $isTicketConsole ? route('admin.dashboard') : route('client.dashboard') }}" @class([
@@ -79,7 +82,7 @@
 
             <button @click="sidebarOpen = false" @class([
                 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
-                'absolute right-5 top-1/2 -translate-y-1/2' => $canManageConsole,
+                'absolute right-5 top-1/2 -translate-y-1/2' => $isTicketConsole,
                 'absolute right-5 top-1/2 -translate-y-1/2' => $isClient,
             ]) aria-label="Close sidebar">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

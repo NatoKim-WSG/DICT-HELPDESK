@@ -7,7 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use App\Models\TicketUserState;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class TicketController extends Controller
@@ -29,19 +33,27 @@ class TicketController extends Controller
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = $request->string('search')->toString();
                 $builder->where(function ($q) use ($search) {
-                    $q->where('subject', 'like', '%' . $search . '%')
-                        ->orWhere('ticket_number', 'like', '%' . $search . '%');
+                    $q->where('subject', 'like', '%'.$search.'%')
+                        ->orWhere('ticket_number', 'like', '%'.$search.'%');
                 });
             });
 
+        $liveSnapshotToken = $this->buildTicketListSnapshotToken(clone $query);
+        if ($request->boolean('heartbeat')) {
+            return response()->json([
+                'token' => $liveSnapshotToken,
+            ]);
+        }
+
         $tickets = $query->latest()->paginate(10);
 
-        return view('client.tickets.index', compact('tickets'));
+        return view('client.tickets.index', compact('tickets', 'liveSnapshotToken'));
     }
 
     public function create()
     {
         $categories = Category::active()->get();
+
         return view('client.tickets.create', compact('categories'));
     }
 
@@ -56,7 +68,7 @@ class TicketController extends Controller
             'subject' => 'required|string|max:255',
             'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
-            'priority' => 'required|in:' . implode(',', Ticket::PRIORITIES),
+            'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
             'attachments' => 'required|array|min:1',
             'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
         ]);
@@ -85,6 +97,17 @@ class TicketController extends Controller
     public function show(Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
+
+        TicketUserState::updateOrCreate(
+            [
+                'ticket_id' => $ticket->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'last_seen_at' => $ticket->updated_at ?? now(),
+                'dismissed_at' => null,
+            ]
+        );
 
         $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
 
@@ -198,7 +221,7 @@ class TicketController extends Controller
             return response()->json(['message' => 'Messages can only be deleted within 3 hours.'], 422);
         }
 
-        if (!$reply->deleted_at) {
+        if (! $reply->deleted_at) {
             $reply->update([
                 'message' => 'This message was deleted.',
                 'deleted_at' => now(),
@@ -222,7 +245,7 @@ class TicketController extends Controller
         TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
-            'message' => "Client closed the ticket as unresolved.\nReason: " . $request->close_reason,
+            'message' => "Client closed the ticket as unresolved.\nReason: ".$request->close_reason,
             'is_internal' => false,
         ]);
 
@@ -285,9 +308,9 @@ class TicketController extends Controller
         }
     }
 
-    private function invalidReplyTargetResponse(Request $request, Ticket $ticket): ?JsonResponse
+    private function invalidReplyTargetResponse(Request $request, Ticket $ticket): JsonResponse|RedirectResponse|null
     {
-        if (!$request->filled('reply_to_id')) {
+        if (! $request->filled('reply_to_id')) {
             return null;
         }
 
@@ -295,8 +318,24 @@ class TicketController extends Controller
             return null;
         }
 
+        if (! $request->expectsJson()) {
+            return redirect()->back()->with('error', 'Invalid reply target.');
+        }
+
         return response()->json([
             'message' => 'Invalid reply target.',
         ], 422);
+    }
+
+    private function buildTicketListSnapshotToken(Builder|HasMany $query): string
+    {
+        $latestUpdatedAt = (clone $query)->max('updated_at');
+        $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
+
+        return sha1(json_encode([
+            'latest_updated_at' => $latestUpdatedTimestamp,
+            'open_tickets' => (clone $query)->open()->count(),
+            'total_tickets' => (clone $query)->count(),
+        ]));
     }
 }

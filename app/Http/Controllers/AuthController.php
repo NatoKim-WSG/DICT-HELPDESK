@@ -55,7 +55,7 @@ class AuthController extends Controller
         }
 
         $inactiveMatch = $matchedUsers->first(function (User $user) use ($request) {
-            return !$user->is_active && Hash::check($request->password, $user->password);
+            return ! $user->is_active && Hash::check($request->password, $user->password);
         });
 
         if ($inactiveMatch) {
@@ -82,6 +82,11 @@ class AuthController extends Controller
     public function accountSettings()
     {
         $user = Auth::user();
+        if ($user->isClient()) {
+            return redirect()->route('client.dashboard')
+                ->with('error', 'Client accounts cannot access account settings.');
+        }
+
         $departmentOptions = User::allowedDepartments();
 
         return view('account.settings', compact('user', 'departmentOptions'));
@@ -90,25 +95,27 @@ class AuthController extends Controller
     public function updateAccountSettings(Request $request)
     {
         $user = Auth::user();
-        $normalizedRole = $user->normalizedRole();
-        $isClient = $user->isClient();
-        $isTechnical = $normalizedRole === User::ROLE_TECHNICAL;
-        $isDepartmentLocked = $isClient || $isTechnical;
-        $isSuperDepartmentRole = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_SUPER_ADMIN], true);
-
-        $departmentRules = ['nullable', 'string', 'max:255'];
-        if ($isDepartmentLocked) {
-            $departmentRules = ['nullable'];
-        } elseif ($isSuperDepartmentRole) {
-            $departmentRules = ['required', Rule::in(User::allowedDepartments())];
+        if ($user->isClient()) {
+            return redirect()->route('client.dashboard')
+                ->with('error', 'Client accounts cannot access account settings.');
         }
 
-        $email = $request->string('email')->toString();
-        $requiresCurrentPassword = $email !== $user->email || $request->filled('password');
+        $normalizedRole = $user->normalizedRole();
+        $isSuperAdmin = $normalizedRole === User::ROLE_SUPER_ADMIN;
+        $isUsernameLocked = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true);
+        $departmentRules = $isSuperAdmin
+            ? ['required', Rule::in(User::allowedDepartments())]
+            : ['nullable'];
+        $email = $isSuperAdmin
+            ? $request->string('email')->toString()
+            : (string) $user->email;
+        $requiresCurrentPassword = ($isSuperAdmin && $email !== $user->email) || $request->filled('password');
 
         $rules = [
-            'name' => $isClient ? 'nullable' : 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'name' => 'required|string|max:255',
+            'email' => $isSuperAdmin
+                ? 'required|email|unique:users,email,'.$user->id
+                : 'nullable',
             'phone' => 'nullable|string|max:20',
             'department' => $departmentRules,
             'password' => 'nullable|string|min:8|confirmed',
@@ -123,20 +130,15 @@ class AuthController extends Controller
         $request->validate($rules);
 
         $updateData = [
-            'email' => $email,
+            'name' => $isUsernameLocked
+                ? (string) $user->name
+                : $request->string('name')->toString(),
+            'phone' => $request->string('phone')->toString(),
         ];
 
-        if (!$isClient) {
-            $updateData['name'] = $request->name;
-        }
-
-        // Department for clients/technical users is managed from User Management.
-        if (!$isDepartmentLocked) {
-            $updateData['department'] = $request->department;
-        }
-
-        if ($request->has('phone')) {
-            $updateData['phone'] = $request->phone;
+        if ($isSuperAdmin) {
+            $updateData['email'] = $email;
+            $updateData['department'] = $request->string('department')->toString();
         }
 
         if ($request->filled('password')) {
@@ -145,7 +147,7 @@ class AuthController extends Controller
 
         $user->fill($updateData);
 
-        if (!$user->isDirty()) {
+        if (! $user->isDirty()) {
             return redirect()->route('account.settings')
                 ->with('success', 'No changes were detected.');
         }

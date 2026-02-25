@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
-use App\Models\Category;
 use Illuminate\Database\Seeder;
 
 class TicketSeeder extends Seeder
@@ -14,16 +14,17 @@ class TicketSeeder extends Seeder
     {
         $clients = User::where('role', User::ROLE_CLIENT)->get();
         $agents = User::whereIn('role', [
-                User::ROLE_SUPER_USER,
-                User::ROLE_SUPER_ADMIN,
-                User::ROLE_TECHNICAL,
-            ])
+            User::ROLE_SUPER_USER,
+            User::ROLE_SUPER_ADMIN,
+            User::ROLE_TECHNICAL,
+        ])
             ->where('is_active', true)
             ->get();
         $categories = Category::all();
 
         if ($clients->isEmpty() || $agents->isEmpty()) {
             $this->command?->warn('Skipping TicketSeeder: missing client or support users.');
+
             return;
         }
 
@@ -96,7 +97,7 @@ class TicketSeeder extends Seeder
 
         foreach ($sampleTickets as $ticketData) {
             $category = $categories->where('name', $ticketData['category'])->first();
-            if (!$category) {
+            if (! $category) {
                 $category = Category::firstOrCreate(
                     ['name' => $ticketData['category']],
                     [

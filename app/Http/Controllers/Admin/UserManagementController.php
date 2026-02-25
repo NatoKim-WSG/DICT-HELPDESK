@@ -28,7 +28,7 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (!$currentUser->isSuperAdmin()) {
+        if (! $currentUser->isSuperAdmin()) {
             $segment = 'clients';
         }
 
@@ -144,7 +144,7 @@ class UserManagementController extends Controller
             ]);
         } catch (QueryException $exception) {
             $fallbackRole = $this->legacyFallbackRole($persistedRole);
-            if (!$fallbackRole) {
+            if (! $fallbackRole) {
                 throw $exception;
             }
 
@@ -172,12 +172,16 @@ class UserManagementController extends Controller
                 ->with('error', 'System archive users cannot be accessed from user management.');
         }
 
-        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
+        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to view this user.');
         }
 
-        return view('admin.users.show', compact('user'));
+        $statistics = $this->buildUserTicketStatistics($user);
+        $statisticsLinks = $this->buildUserStatisticsLinks($user, $statistics['show_assigned']);
+        $recentTickets = $this->recentTicketsForUser($user);
+
+        return view('admin.users.show', compact('user', 'statistics', 'statisticsLinks', 'recentTickets'));
     }
 
     public function edit(User $user)
@@ -194,7 +198,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
+        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -219,7 +223,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
+        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -240,7 +244,7 @@ class UserManagementController extends Controller
             'is_active' => 'boolean',
         ];
 
-        if (!$canEditPassword) {
+        if (! $canEditPassword) {
             $validationRules['password_confirmation'] = 'prohibited';
         }
 
@@ -265,7 +269,7 @@ class UserManagementController extends Controller
 
         $user->fill($updateData);
 
-        if (!$user->isDirty()) {
+        if (! $user->isDirty()) {
             return redirect()->route('admin.users.index')
                 ->with('success', 'No changes were detected.');
         }
@@ -274,7 +278,7 @@ class UserManagementController extends Controller
             $user->save();
         } catch (QueryException $exception) {
             $fallbackRole = $this->legacyFallbackRole($persistedRole);
-            if (!$fallbackRole) {
+            if (! $fallbackRole) {
                 throw $exception;
             }
 
@@ -308,7 +312,7 @@ class UserManagementController extends Controller
         }
 
         // Super users can only delete client accounts.
-        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
+        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
         }
@@ -351,16 +355,16 @@ class UserManagementController extends Controller
             return response()->json(['error' => 'Super admin users cannot be deactivated.'], 403);
         }
 
-        if (!$currentUser->isSuperAdmin() && !$this->isManageableByNonSuperAdmin($user)) {
+        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
             return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
         }
 
-        $user->update(['is_active' => !$user->is_active]);
+        $user->update(['is_active' => ! $user->is_active]);
 
         return response()->json([
             'success' => true,
             'is_active' => $user->is_active,
-            'message' => 'User status updated successfully.'
+            'message' => 'User status updated successfully.',
         ]);
     }
 
@@ -392,7 +396,7 @@ class UserManagementController extends Controller
             return true;
         }
 
-        return !(
+        return ! (
             $currentUser->normalizedRole() === User::ROLE_SUPER_USER
             && User::normalizeRole($targetUser->role) === User::ROLE_CLIENT
         );
@@ -400,7 +404,7 @@ class UserManagementController extends Controller
 
     private function applyVisibilityScope($query, User $currentUser): void
     {
-        if (!$currentUser->isSuperAdmin()) {
+        if (! $currentUser->isSuperAdmin()) {
             $query->where('id', '!=', $currentUser->id)
                 ->whereIn('role', $this->manageableRolesForAdmin());
         }
@@ -410,6 +414,7 @@ class UserManagementController extends Controller
     {
         if ($segment === 'clients') {
             $query->where('role', User::ROLE_CLIENT);
+
             return;
         }
 
@@ -421,6 +426,7 @@ class UserManagementController extends Controller
                 User::ROLE_TECHNICAL,
                 User::ROLE_TECHNICIAN,
             ]);
+
             return;
         }
 
@@ -460,6 +466,56 @@ class UserManagementController extends Controller
     private function normalizeRoleForPersistence(string $role): string
     {
         return User::normalizeRole($role);
+    }
+
+    private function buildUserTicketStatistics(User $user): array
+    {
+        $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
+        $baseTickets = $isClient
+            ? Ticket::query()->where('user_id', $user->id)
+            : Ticket::query()->where('assigned_to', $user->id);
+
+        return [
+            'total_tickets' => (clone $baseTickets)->count(),
+            'open_tickets' => (clone $baseTickets)->whereIn('status', Ticket::OPEN_STATUSES)->count(),
+            'closed_tickets' => (clone $baseTickets)->whereIn('status', Ticket::CLOSED_STATUSES)->count(),
+            'assigned_tickets' => $isClient ? null : (clone $baseTickets)->count(),
+            'show_assigned' => ! $isClient,
+        ];
+    }
+
+    private function buildUserStatisticsLinks(User $user, bool $showAssigned): array
+    {
+        $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
+        $primaryFilter = $isClient
+            ? ['account_id' => $user->id]
+            : ['assigned_to' => $user->id];
+
+        return [
+            'total_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets', 'include_closed' => 1])),
+            'open_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
+            'closed_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'history'])),
+            'assigned_tickets' => $showAssigned
+                ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id, 'include_closed' => 1])
+                : null,
+        ];
+    }
+
+    private function recentTicketsForUser(User $user)
+    {
+        $normalizedRole = $user->normalizedRole();
+
+        return Ticket::query()
+            ->where(function ($query) use ($user, $normalizedRole) {
+                $query->where('user_id', $user->id);
+
+                if ($normalizedRole !== User::ROLE_CLIENT) {
+                    $query->orWhere('assigned_to', $user->id);
+                }
+            })
+            ->latest()
+            ->take(5)
+            ->get();
     }
 
     private function legacyFallbackRole(string $role): ?string

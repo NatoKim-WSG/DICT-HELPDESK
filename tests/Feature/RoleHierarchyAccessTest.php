@@ -129,13 +129,9 @@ class RoleHierarchyAccessTest extends TestCase
             'priority' => 'medium',
             'status' => 'open',
             'user_id' => $client->id,
+            'assigned_to' => $technical->id,
             'category_id' => $category->id,
         ]);
-
-        $assignResponse = $this->actingAs($technical)->post(route('admin.tickets.assign', $ticket), [
-            'assigned_to' => $secondTechnical->id,
-        ]);
-        $assignResponse->assertRedirect();
 
         $statusResponse = $this->actingAs($technical)->post(route('admin.tickets.status', $ticket), [
             'status' => 'in_progress',
@@ -146,6 +142,16 @@ class RoleHierarchyAccessTest extends TestCase
             'priority' => 'high',
         ]);
         $priorityResponse->assertRedirect();
+
+        $assignResponse = $this->actingAs($technical)->post(route('admin.tickets.assign', $ticket), [
+            'assigned_to' => $secondTechnical->id,
+        ]);
+        $assignResponse->assertRedirect();
+
+        $forbiddenAfterHandoff = $this->actingAs($technical)->post(route('admin.tickets.status', $ticket), [
+            'status' => 'pending',
+        ]);
+        $forbiddenAfterHandoff->assertForbidden();
 
         $ticket->refresh();
         $this->assertSame($secondTechnical->id, $ticket->assigned_to);

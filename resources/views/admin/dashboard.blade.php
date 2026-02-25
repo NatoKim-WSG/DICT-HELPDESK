@@ -114,54 +114,103 @@
                 <div class="border-b border-slate-100 px-5 py-4">
                     <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Status</h3>
                 </div>
-                <dl class="space-y-3 px-5 py-4">
+                <div class="space-y-3 px-5 py-4">
                     @foreach(['open', 'in_progress', 'pending', 'resolved', 'closed'] as $status)
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">{{ ucfirst(str_replace('_', ' ', $status)) }}</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $ticketsByStatus->get($status, 0) }}</dd>
-                        </div>
+                        @php
+                            $statusFilter = in_array($status, ['resolved', 'closed'], true)
+                                ? ['tab' => 'history', 'status' => $status]
+                                : ['tab' => 'tickets', 'status' => $status];
+                        @endphp
+                        <a href="{{ route('admin.tickets.index', $statusFilter) }}" class="group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                            <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
+                            <span class="text-sm font-semibold text-slate-900">{{ $ticketsByStatus->get($status, 0) }}</span>
+                        </a>
                     @endforeach
-                </dl>
+                </div>
             </div>
 
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
                     <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Priority</h3>
                 </div>
-                <dl class="space-y-3 px-5 py-4">
+                <div class="space-y-3 px-5 py-4">
                     @foreach(['urgent', 'high', 'medium', 'low'] as $priority)
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">{{ ucfirst($priority) }}</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $ticketsByPriority->get($priority, 0) }}</dd>
-                        </div>
+                        <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'priority' => $priority]) }}" class="group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                            <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst($priority) }}</span>
+                            <span class="text-sm font-semibold text-slate-900">{{ $ticketsByPriority->get($priority, 0) }}</span>
+                        </a>
                     @endforeach
-                </dl>
+                </div>
             </div>
 
-            <div class="panel">
-                <div class="border-b border-slate-100 px-5 py-4">
-                    <h3 class="font-display text-lg font-semibold text-slate-900">System Snapshot</h3>
+            @if(auth()->user()->isSuperAdmin())
+                <div class="panel">
+                    <div class="border-b border-slate-100 px-5 py-4">
+                        <h3 class="font-display text-lg font-semibold text-slate-900">System Snapshot</h3>
+                    </div>
+                    <dl class="space-y-3 px-5 py-4">
+                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Assigned To Me</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['assigned_to_me'] }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Client Users</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_users'] }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Support Staff</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_staff'] }}</dd>
+                        </div>
+                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Closed Tickets</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['closed_tickets'] }}</dd>
+                        </div>
+                    </dl>
                 </div>
-                <dl class="space-y-3 px-5 py-4">
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                        <dt class="text-sm text-slate-600">Assigned To Me</dt>
-                        <dd class="text-sm font-semibold text-slate-900">{{ $stats['assigned_to_me'] }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                        <dt class="text-sm text-slate-600">Client Users</dt>
-                        <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_users'] }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                        <dt class="text-sm text-slate-600">Support Staff</dt>
-                        <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_staff'] }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                        <dt class="text-sm text-slate-600">Closed Tickets</dt>
-                        <dd class="text-sm font-semibold text-slate-900">{{ $stats['closed_tickets'] }}</dd>
-                    </div>
-                </dl>
-            </div>
+            @endif
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const initialToken = @json($liveSnapshotToken ?? '');
+    if (!initialToken) return;
+
+    const heartbeatUrl = new URL(@json(route('admin.dashboard')), window.location.origin);
+    heartbeatUrl.searchParams.set('heartbeat', '1');
+    let activeToken = initialToken;
+    let checking = false;
+
+    const pollSnapshot = async function () {
+        if (checking || document.hidden) return;
+        checking = true;
+
+        try {
+            const response = await fetch(heartbeatUrl.toString(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) return;
+            const payload = await response.json();
+            if (!payload || !payload.token) return;
+
+            if (payload.token !== activeToken) {
+                window.location.reload();
+                return;
+            }
+
+            activeToken = payload.token;
+        } catch (error) {
+        } finally {
+            checking = false;
+        }
+    };
+
+    window.setInterval(pollSnapshot, 10000);
+});
+</script>
 @endsection

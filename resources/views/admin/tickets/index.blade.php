@@ -6,7 +6,8 @@
 @php
     $tab = $activeTab ?? 'tickets';
     $isHistoryTab = $tab === 'history';
-    $viewedTicketIds = array_map('intval', session('admin_viewed_ticket_ids', []));
+    $canDeleteTickets = auth()->user()->isSuperAdmin();
+    $canRunDestructiveAction = auth()->user()->isAdminLevel();
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
@@ -37,10 +38,16 @@
                             @if($isHistoryTab)
                                 <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
                                 <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
+                            @elseif($tab === 'attention')
+                                <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
+                                <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                                <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
                             @else
                                 <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
                                 <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                                 <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                                <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
+                                <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
                             @endif
                         </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,25 +135,82 @@
                     <a href="{{ route('admin.tickets.index', ['tab' => $tab]) }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
+
+            <form id="bulk-action-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="pb-4">
+                @csrf
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
+                        <select id="bulk-action-select" name="action" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <option value="assign">Assign technical</option>
+                            <option value="status">Update status</option>
+                            <option value="priority">Update priority</option>
+                            @if($canRunDestructiveAction)
+                                <option value="merge">Merge tickets</option>
+                            @endif
+                            @if($canDeleteTickets)
+                                <option value="delete">Delete tickets</option>
+                            @endif
+                        </select>
+
+                        <div id="bulk-assign-wrap" class="hidden">
+                            <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
+                            <select id="bulk-assigned-to" name="assigned_to" class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <option value="">Choose technical</option>
+                                @foreach($agents as $agent)
+                                    <option value="{{ $agent->id }}">{{ $agent->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div id="bulk-status-wrap" class="hidden">
+                            <label for="bulk-status" class="sr-only">Status</label>
+                            <select id="bulk-status" name="status" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="pending">Pending</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+
+                        <div id="bulk-priority-wrap" class="hidden">
+                            <label for="bulk-priority" class="sr-only">Priority</label>
+                            <select id="bulk-priority" name="priority" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+
+                        <textarea id="bulk-close-reason" name="close_reason" rows="1" class="hidden h-10 min-w-[230px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Close reason (required for closed status)"></textarea>
+                        <input type="hidden" name="tab" value="{{ $tab }}">
+                        <div id="bulk-selected-ids"></div>
+                        <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" disabled>Apply</button>
+                        <button id="bulk-clear-selection" type="button" class="btn-secondary h-10 px-4">Clear selection</button>
+                    </div>
+                </div>
+            </form>
         </div>
 
         <div class="max-h-[70vh] overflow-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
                 <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
                         <th class="w-10 px-6 py-4">
                             <input id="select-all-tickets" type="checkbox" class="ticket-checkbox">
                         </th>
-                        <th class="px-6 py-4">Details</th>
-                        <th class="px-6 py-4">Assigned Technical</th>
-                        <th class="px-6 py-4">Priority</th>
+                        <th class="w-[38%] px-6 py-4">Details</th>
+                        <th class="w-[16%] px-6 py-4">Assigned Technical</th>
+                        <th class="w-[11%] px-6 py-4 text-center">Priority</th>
                         @if($isHistoryTab)
-                            <th class="px-6 py-4">Completed At</th>
+                            <th class="w-[19%] px-6 py-4 text-center">Completed At</th>
                         @else
-                            <th class="px-6 py-4">Activity Status</th>
+                            <th class="w-[19%] px-6 py-4 text-center">Activity Status</th>
                         @endif
-                        <th class="px-6 py-4 text-right">Status</th>
-                        <th class="px-6 py-4 text-right">Action</th>
+                        <th class="w-[9%] px-6 py-4 text-center">Status</th>
+                        <th class="w-[9%] px-6 py-4 text-center">Action</th>
                     </tr>
                 </thead>
 
@@ -156,7 +220,9 @@
                             $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
                                 ? $ticket->created_at->diffForHumans()
                                 : $ticket->created_at->format('M j, Y');
-                            $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay()) && !in_array($ticket->id, $viewedTicketIds, true);
+                            $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
+                            $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
+                                && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
                             $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
                         @endphp
 
@@ -172,7 +238,7 @@
                                     <p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
                                         <span>Created {{ $createdLabel }}</span>
                                         @if($isNew)
-                                            <span class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
+                                            <span data-ticket-new-badge="1" class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
                                         @endif
                                     </p>
                                 </a>
@@ -202,18 +268,18 @@
                                 @endif
                             </td>
 
-                            <td class="px-6 py-5 align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
                                     {{ $ticket->priority_label }}
                                 </span>
                             </td>
 
                             @if($isHistoryTab)
-                                <td class="px-6 py-5 align-top text-sm text-slate-700">
+                                <td class="px-6 py-5 text-center align-top text-sm text-slate-700">
                                     {{ $completedAt ? $completedAt->format('M j, Y \a\t g:i A') : '-' }}
                                 </td>
                             @else
-                                <td class="px-6 py-5 align-top">
+                                <td class="px-6 py-5 text-center align-top">
                                     <span class="inline-flex items-center gap-2 text-sm text-slate-600">
                                         <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
                                         {{ $ticket->activity_label }}
@@ -221,13 +287,13 @@
                                 </td>
                             @endif
 
-                            <td class="px-6 py-5 text-right align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                                     {{ $ticket->status_label }}
                                 </span>
                             </td>
 
-                            <td class="px-6 py-5 text-right align-top">
+                            <td class="px-6 py-5 text-center align-top">
                                 <button
                                     type="button"
                                     class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -338,12 +404,16 @@
                     </select>
                 </div>
                 <div class="flex items-center justify-between gap-3">
-                    <button type="button" id="edit-modal-delete-btn" class="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12m-1 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7m3-3h4a2 2 0 012 2v1H8V6a2 2 0 012-2z"></path>
-                        </svg>
-                        Delete Ticket
-                    </button>
+                    @if($canDeleteTickets)
+                        <button type="button" id="edit-modal-delete-btn" class="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 7h12m-1 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7m3-3h4a2 2 0 012 2v1H8V6a2 2 0 012-2z"></path>
+                            </svg>
+                            Delete Ticket
+                        </button>
+                    @else
+                        <span class="text-xs font-semibold text-slate-500">Delete is restricted to super admins.</span>
+                    @endif
                     <div class="flex gap-2">
                         <button type="button" class="btn-secondary" data-modal-close="edit">Cancel</button>
                         <button type="submit" class="btn-primary">Save</button>
@@ -354,26 +424,28 @@
     </div>
 </div>
 
-<div id="delete-ticket-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60" data-modal-overlay="delete"></div>
-    <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
-        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div class="border-b border-slate-200 px-5 py-4">
-                <h3 class="text-base font-semibold text-slate-900">Delete Ticket</h3>
-                <p id="delete-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
-            </div>
-            <form id="delete-ticket-form" method="POST" class="space-y-4 px-5 py-4">
-                @csrf
-                @method('DELETE')
-                <p class="text-sm text-slate-600">This action cannot be undone.</p>
-                <div class="flex justify-end gap-2">
-                    <button type="button" class="btn-secondary" data-modal-close="delete">Cancel</button>
-                    <button type="submit" class="btn-danger">Delete</button>
+@if($canDeleteTickets)
+    <div id="delete-ticket-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60" data-modal-overlay="delete"></div>
+        <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="border-b border-slate-200 px-5 py-4">
+                    <h3 class="text-base font-semibold text-slate-900">Delete Ticket</h3>
+                    <p id="delete-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
                 </div>
-            </form>
+                <form id="delete-ticket-form" method="POST" class="space-y-4 px-5 py-4">
+                    @csrf
+                    @method('DELETE')
+                    <p class="text-sm text-slate-600">This action cannot be undone.</p>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="btn-secondary" data-modal-close="delete">Cancel</button>
+                        <button type="submit" class="btn-danger">Delete</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
+@endif
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -381,6 +453,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectAll = document.getElementById('select-all-tickets');
     const rowCheckboxes = Array.from(document.querySelectorAll('.js-ticket-checkbox'));
     const routeBase = @json(route('admin.tickets.index'));
+    const initialSnapshotToken = @json($liveSnapshotToken ?? '');
     const assignForm = document.getElementById('assign-ticket-form');
     const assignModal = document.getElementById('assign-ticket-modal');
     const assignTicketText = document.getElementById('assign-modal-ticket');
@@ -400,6 +473,73 @@ document.addEventListener('DOMContentLoaded', function () {
     const assignRouteTemplate = @json(route('admin.tickets.assign', ['ticket' => '__TICKET__']));
     const quickUpdateRouteTemplate = @json(route('admin.tickets.quick-update', ['ticket' => '__TICKET__']));
     const deleteRouteTemplate = @json(route('admin.tickets.destroy', ['ticket' => '__TICKET__']));
+    const bulkActionForm = document.getElementById('bulk-action-form');
+    const bulkActionSelect = document.getElementById('bulk-action-select');
+    const bulkAssignWrap = document.getElementById('bulk-assign-wrap');
+    const bulkAssignedTo = document.getElementById('bulk-assigned-to');
+    const bulkStatusWrap = document.getElementById('bulk-status-wrap');
+    const bulkStatus = document.getElementById('bulk-status');
+    const bulkPriorityWrap = document.getElementById('bulk-priority-wrap');
+    const bulkPriority = document.getElementById('bulk-priority');
+    const bulkCloseReason = document.getElementById('bulk-close-reason');
+    const bulkSelectedIds = document.getElementById('bulk-selected-ids');
+    const bulkSummary = document.getElementById('bulk-selection-summary');
+    const bulkSubmitButton = document.getElementById('bulk-action-submit');
+    const bulkClearButton = document.getElementById('bulk-clear-selection');
+    let snapshotToken = initialSnapshotToken;
+
+    const selectedTicketIds = function () {
+        return rowCheckboxes
+            .filter(function (checkbox) { return checkbox.checked; })
+            .map(function (checkbox) { return checkbox.value; });
+    };
+
+    const syncBulkSelection = function () {
+        const selectedCount = selectedTicketIds().length;
+        if (bulkSummary) {
+            bulkSummary.textContent = selectedCount + ' selected';
+        }
+        if (bulkSubmitButton) {
+            bulkSubmitButton.disabled = selectedCount === 0;
+        }
+    };
+
+    const resetBulkFieldRequirements = function () {
+        if (bulkAssignedTo) bulkAssignedTo.required = false;
+        if (bulkStatus) bulkStatus.required = false;
+        if (bulkPriority) bulkPriority.required = false;
+        if (bulkCloseReason) bulkCloseReason.required = false;
+    };
+
+    const syncBulkActionFields = function () {
+        if (!bulkActionSelect) return;
+
+        const action = bulkActionSelect.value || '';
+        if (bulkAssignWrap) bulkAssignWrap.classList.toggle('hidden', action !== 'assign');
+        if (bulkStatusWrap) bulkStatusWrap.classList.toggle('hidden', action !== 'status');
+        if (bulkPriorityWrap) bulkPriorityWrap.classList.toggle('hidden', action !== 'priority');
+
+        resetBulkFieldRequirements();
+
+        if (action === 'assign' && bulkAssignedTo) {
+            bulkAssignedTo.required = true;
+        }
+        if (action === 'status' && bulkStatus) {
+            bulkStatus.required = true;
+        }
+        if (action === 'priority' && bulkPriority) {
+            bulkPriority.required = true;
+        }
+
+        const requiresCloseReason = action === 'status' && bulkStatus && bulkStatus.value === 'closed';
+        if (bulkCloseReason) {
+            bulkCloseReason.classList.toggle('hidden', !requiresCloseReason);
+            bulkCloseReason.required = requiresCloseReason;
+            if (!requiresCloseReason) {
+                bulkCloseReason.value = '';
+            }
+        }
+    };
 
     if (statusView) {
         statusView.addEventListener('change', function () {
@@ -415,6 +555,7 @@ document.addEventListener('DOMContentLoaded', function () {
             rowCheckboxes.forEach(function (checkbox) {
                 checkbox.checked = selectAll.checked;
             });
+            syncBulkSelection();
         });
     }
 
@@ -422,12 +563,13 @@ document.addEventListener('DOMContentLoaded', function () {
         checkbox.addEventListener('change', function () {
             if (!selectAll) return;
             selectAll.checked = rowCheckboxes.length > 0 && rowCheckboxes.every(function (item) { return item.checked; });
+            syncBulkSelection();
         });
     });
 
     const assignModalController = window.ModalKit ? window.ModalKit.bind(assignModal) : null;
     const editModalController = window.ModalKit ? window.ModalKit.bind(editModal) : null;
-    const deleteModalController = window.ModalKit ? window.ModalKit.bind(deleteModal) : null;
+    const deleteModalController = window.ModalKit && deleteModal ? window.ModalKit.bind(deleteModal) : null;
 
     const syncEditCloseReasonVisibility = function () {
         if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
@@ -495,7 +637,105 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (bulkActionSelect) {
+        bulkActionSelect.addEventListener('change', syncBulkActionFields);
+    }
+
+    if (bulkStatus) {
+        bulkStatus.addEventListener('change', syncBulkActionFields);
+    }
+
+    if (bulkClearButton) {
+        bulkClearButton.addEventListener('click', function () {
+            if (selectAll) {
+                selectAll.checked = false;
+            }
+            rowCheckboxes.forEach(function (checkbox) {
+                checkbox.checked = false;
+            });
+            syncBulkSelection();
+        });
+    }
+
+    if (bulkActionForm) {
+        bulkActionForm.addEventListener('submit', function (event) {
+            const selectedIds = selectedTicketIds();
+            if (selectedIds.length === 0) {
+                event.preventDefault();
+                window.alert('Select at least one ticket before applying a bulk action.');
+                return;
+            }
+
+            if (bulkSelectedIds) {
+                bulkSelectedIds.innerHTML = '';
+                selectedIds.forEach(function (id) {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'selected_ids[]';
+                    hiddenInput.value = id;
+                    bulkSelectedIds.appendChild(hiddenInput);
+                });
+            }
+
+            const action = bulkActionSelect ? bulkActionSelect.value : '';
+            if (action === 'delete') {
+                if (!window.confirm('Delete selected tickets? This action cannot be undone.')) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+
+            if (action === 'merge') {
+                if (!window.confirm('Merge selected tickets into the oldest selected ticket?')) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+        });
+    }
+
+    const hasOpenModal = function () {
+        return [assignModal, editModal, deleteModal].some(function (modal) {
+            return modal && !modal.classList.contains('hidden');
+        });
+    };
+
+    const pollTicketListSnapshot = async function () {
+        if (!snapshotToken || document.hidden || hasOpenModal()) return;
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('heartbeat', '1');
+
+        try {
+            const response = await fetch(routeBase + '?' + params.toString(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            if (!payload || !payload.token) return;
+
+            if (payload.token !== snapshotToken) {
+                window.location.reload();
+                return;
+            }
+
+            snapshotToken = payload.token;
+        } catch (error) {
+        }
+    };
+
+    if (snapshotToken) {
+        window.setInterval(pollTicketListSnapshot, 10000);
+    }
+
     syncEditCloseReasonVisibility();
+    syncBulkActionFields();
+    syncBulkSelection();
 });
 </script>
 @endsection

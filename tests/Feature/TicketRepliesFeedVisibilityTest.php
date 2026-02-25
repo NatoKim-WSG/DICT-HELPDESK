@@ -44,7 +44,7 @@ class TicketRepliesFeedVisibilityTest extends TestCase
 
         $replies = $response->json('replies');
         $this->assertCount(2, $replies);
-        $this->assertTrue(collect($replies)->every(fn (array $reply) => !$reply['is_internal']));
+        $this->assertTrue(collect($replies)->every(fn (array $reply) => ! $reply['is_internal']));
         $this->assertTrue(collect($replies)->contains(fn (array $reply) => $reply['from_support'] === true));
     }
 

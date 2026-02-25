@@ -12,6 +12,7 @@ return new class extends Migration
 
         if ($driver === 'sqlite') {
             $this->rebuildSqliteUsersTableForNewRoles();
+
             return;
         }
 
@@ -21,6 +22,7 @@ return new class extends Migration
             DB::table('users')->where('role', 'technician')->update(['role' => 'technical']);
             DB::table('users')->where('role', 'agent')->update(['role' => 'super_user']);
             DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'super_user', 'technical', 'super_admin') NOT NULL DEFAULT 'client'");
+
             return;
         }
 
@@ -39,6 +41,7 @@ return new class extends Migration
 
         if ($driver === 'sqlite') {
             $this->rebuildSqliteUsersTableForOldRoles();
+
             return;
         }
 
@@ -47,6 +50,7 @@ return new class extends Migration
             DB::table('users')->where('role', 'super_user')->update(['role' => 'admin']);
             DB::table('users')->where('role', 'technical')->update(['role' => 'technician']);
             DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'admin', 'technician', 'super_admin') NOT NULL DEFAULT 'client'");
+
             return;
         }
 

@@ -114,4 +114,3 @@ class AdminTicketInternalReplyInheritanceTest extends TestCase
         return [$client, $staff, $ticket];
     }
 }
-

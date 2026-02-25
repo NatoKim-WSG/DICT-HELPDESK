@@ -95,7 +95,7 @@
                 </div>
                 <div class="border-t border-gray-200">
                     <ul class="divide-y divide-gray-200">
-                        @forelse($user->tickets()->latest()->take(5)->get() as $ticket)
+                        @forelse($recentTickets as $ticket)
                             <li class="px-4 py-4">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center min-w-0">
@@ -153,22 +153,30 @@
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                     <dl class="space-y-4">
-                        <div class="flex justify-between">
-                            <dt class="text-sm font-medium text-gray-500">Total Tickets</dt>
-                            <dd class="text-sm text-gray-900">{{ $user->tickets()->count() }}</dd>
+                        <div>
+                            <a href="{{ $statisticsLinks['total_tickets'] }}" class="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-slate-50">
+                                <dt class="text-sm font-medium text-gray-500">Total Tickets</dt>
+                                <dd class="text-sm text-gray-900">{{ $statistics['total_tickets'] }}</dd>
+                            </a>
                         </div>
-                        <div class="flex justify-between">
-                            <dt class="text-sm font-medium text-gray-500">Open Tickets</dt>
-                            <dd class="text-sm text-gray-900">{{ $user->tickets()->whereIn('status', ['open', 'in_progress', 'pending'])->count() }}</dd>
+                        <div>
+                            <a href="{{ $statisticsLinks['open_tickets'] }}" class="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-slate-50">
+                                <dt class="text-sm font-medium text-gray-500">Open Tickets</dt>
+                                <dd class="text-sm text-gray-900">{{ $statistics['open_tickets'] }}</dd>
+                            </a>
                         </div>
-                        <div class="flex justify-between">
-                            <dt class="text-sm font-medium text-gray-500">Closed Tickets</dt>
-                            <dd class="text-sm text-gray-900">{{ $user->tickets()->whereIn('status', ['resolved', 'closed'])->count() }}</dd>
+                        <div>
+                            <a href="{{ $statisticsLinks['closed_tickets'] }}" class="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-slate-50">
+                                <dt class="text-sm font-medium text-gray-500">Closed Tickets</dt>
+                                <dd class="text-sm text-gray-900">{{ $statistics['closed_tickets'] }}</dd>
+                            </a>
                         </div>
-                        @if($user->canManageTickets())
-                            <div class="flex justify-between">
-                                <dt class="text-sm font-medium text-gray-500">Assigned Tickets</dt>
-                                <dd class="text-sm text-gray-900">{{ $user->assignedTickets()->count() }}</dd>
+                        @if($statistics['show_assigned'])
+                            <div>
+                                <a href="{{ $statisticsLinks['assigned_tickets'] }}" class="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-slate-50">
+                                    <dt class="text-sm font-medium text-gray-500">Assigned Tickets</dt>
+                                    <dd class="text-sm text-gray-900">{{ $statistics['assigned_tickets'] }}</dd>
+                                </a>
                             </div>
                         @endif
                     </dl>

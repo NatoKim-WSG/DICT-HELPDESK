@@ -12,7 +12,7 @@ trait InteractsWithTicketReplies
 {
     protected function persistAttachmentsFromRequest(Request $request, Ticket|TicketReply $attachable): void
     {
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return;
         }
 
@@ -64,7 +64,7 @@ trait InteractsWithTicketReplies
 
     protected function replyTargetExistsForTicket(Ticket $ticket, ?int $replyToId): bool
     {
-        if (!$replyToId) {
+        if (! $replyToId) {
             return true;
         }
 

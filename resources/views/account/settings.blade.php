@@ -4,10 +4,11 @@
 
 @section('content')
 @php
-    $isClient = !$user->canAccessAdminTickets();
-    $isTechnical = $user->normalizedRole() === \App\Models\User::ROLE_TECHNICAL;
-    $isDepartmentLocked = $isClient || $isTechnical;
-    $isSuperDepartmentRole = in_array($user->normalizedRole(), [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_SUPER_ADMIN], true);
+    $normalizedRole = $user->normalizedRole();
+    $isSuperAdmin = $normalizedRole === \App\Models\User::ROLE_SUPER_ADMIN;
+    $isDepartmentLocked = !$isSuperAdmin;
+    $isEmailLocked = !$isSuperAdmin;
+    $isUsernameLocked = in_array($normalizedRole, [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_TECHNICAL], true);
     $backRoute = $user->canAccessAdminTickets()
         ? route('admin.dashboard')
         : route('client.dashboard');
@@ -65,18 +66,20 @@
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
             <div class="sm:col-span-1">
                 <label for="name" class="form-label">
-                    Username @if(!$isClient)<span class="text-rose-500">*</span>@endif
+                    Username <span class="text-rose-500">*</span>
                 </label>
                 <input
                     type="text"
                     name="name"
                     id="name"
-                    value="{{ $isClient ? $user->name : old('name', $user->name) }}"
-                    required
-                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isClient ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    value="{{ old('name', $user->name) }}"
+                    {{ $isUsernameLocked ? 'readonly aria-readonly=true' : 'required' }}
+                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isUsernameLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="Enter username"
-                    {{ $isClient ? 'readonly aria-readonly=true' : '' }}
                 >
+                @if($isUsernameLocked)
+                    <p class="mt-1 px-3.5 text-xs text-slate-500">Username updates are disabled for your account role.</p>
+                @endif
                 @error('name')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
@@ -89,12 +92,12 @@
                     name="email"
                     id="email"
                     value="{{ old('email', $user->email) }}"
-                    required
-                    class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    {{ $isEmailLocked ? 'readonly aria-readonly=true' : 'required' }}
+                    class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isEmailLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="you@example.com"
                 >
-                @if($isClient)
-                    <p class="mt-1 px-3.5 text-xs text-slate-500">Use the primary email of your account admin/leader.</p>
+                @if($isEmailLocked)
+                    <p class="mt-1 px-3.5 text-xs text-slate-500">Only super admins can change account email addresses.</p>
                 @endif
                 @error('email')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
@@ -102,8 +105,8 @@
             </div>
 
             <div class="sm:col-span-1">
-                <label for="department" class="form-label">{{ $isClient ? 'Department / Unit' : 'Department' }}</label>
-                @if($isSuperDepartmentRole)
+                <label for="department" class="form-label">Department</label>
+                @if($isSuperAdmin)
                     <select
                         name="department"
                         id="department"
@@ -126,30 +129,28 @@
                         {{ $isDepartmentLocked ? 'readonly aria-readonly=true' : '' }}
                     >
                 @endif
-                @if($isDepartmentLocked && !$isClient)
-                    <p class="mt-1 text-xs text-slate-500">Only super users can change your department assignment.</p>
+                @if($isDepartmentLocked)
+                    <p class="mt-1 text-xs text-slate-500">Only super admins can change your department assignment.</p>
                 @endif
                 @error('department')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
             </div>
 
-            @if(!$isClient)
-                <div class="sm:col-span-1">
-                    <label for="phone" class="form-label">Phone Number</label>
-                    <input
-                        type="text"
-                        name="phone"
-                        id="phone"
-                        value="{{ old('phone', $user->phone) }}"
-                        class="form-input @error('phone') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
-                        placeholder="Optional"
-                    >
-                    @error('phone')
-                        <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
-                    @enderror
-                </div>
-            @endif
+            <div class="sm:col-span-1">
+                <label for="phone" class="form-label">Phone Number</label>
+                <input
+                    type="text"
+                    name="phone"
+                    id="phone"
+                    value="{{ old('phone', $user->phone) }}"
+                    class="form-input @error('phone') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
+                    placeholder="Optional"
+                >
+                @error('phone')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
         </div>
 
         <div class="border-y border-slate-200 px-5 py-4">
@@ -166,7 +167,7 @@
                     id="current_password"
                     class="form-input @error('current_password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                 >
-                <p class="mt-1 text-xs text-slate-500">Required when changing your email address or password.</p>
+                <p class="mt-1 text-xs text-slate-500">Required when changing your password.</p>
                 @error('current_password')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror

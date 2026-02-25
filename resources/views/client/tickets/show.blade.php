@@ -70,20 +70,20 @@
         <div class="lg:col-span-2 space-y-6">
         <div class="bg-white shadow sm:rounded-lg">
             <div class="px-4 py-5 sm:px-6">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h1 class="text-2xl font-semibold text-gray-900">{{ $ticket->subject }}</h1>
-                        <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                        <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                             <span class="font-medium">{{ $ticket->ticket_number }}</span>
-                            <span>&bull;</span>
+                            <span class="hidden text-gray-300 sm:inline">&bull;</span>
                             <span>Created {{ $ticket->created_at->format('M j, Y \a\t g:i A') }}</span>
                             @if($ticket->assignedUser)
-                                <span>&bull;</span>
+                                <span class="hidden text-gray-300 sm:inline">&bull;</span>
                                 <span>Assigned to {{ $ticket->assignedUser->name }}</span>
                             @endif
                         </div>
                     </div>
-                    <div class="flex items-center space-x-3">
+                    <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->status_color }}">
                             {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                         </span>
@@ -123,24 +123,24 @@
                             <div class="order-2 mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
                                 <img src="{{ $clientCompanyLogo }}" alt="Client company logo" class="avatar-logo">
                             </div>
-                            <div class="order-1 max-w-[82%] rounded-2xl border border-ione-blue-200 bg-ione-blue-50 px-4 py-3 shadow-sm">
+                            <div class="order-1 w-fit max-w-[82%] rounded-2xl border border-ione-blue-200 bg-ione-blue-50 px-4 py-3 shadow-sm">
                                 <p class="js-message-text whitespace-pre-wrap text-sm leading-6 text-slate-800">{!! nl2br(e($ticket->description)) !!}</p>
 
                                 @if($ticket->attachments->count() > 0)
-                                    <div class="js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div class="js-attachments-wrap mt-4 flex flex-wrap gap-2">
                                         @foreach($ticket->attachments as $attachment)
                                             @if(str_starts_with((string) $attachment->mime_type, 'image/'))
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link block overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50"
+                                                   class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50"
                                                    data-file-url="{{ $attachment->preview_url }}"
                                                    data-file-name="{{ $attachment->original_filename }}"
                                                    data-file-mime="{{ $attachment->mime_type }}">
-                                                    <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                    <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-36 w-full rounded-lg object-cover">
                                                     <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
                                                 </a>
                                             @else
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                   class="js-attachment-link flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
                                                    data-file-url="{{ $attachment->preview_url }}"
                                                    data-file-name="{{ $attachment->original_filename }}"
                                                    data-file-mime="{{ $attachment->mime_type }}">
@@ -188,7 +188,7 @@
                                     <img src="{{ $avatarLogo }}" alt="{{ $fromSupport ? 'Support' : 'Client' }} company logo" class="avatar-logo">
                                 </div>
                                 <div
-                                    class="js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}"
+                                    class="js-chat-bubble relative group w-fit max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm {{ $fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50' }} {{ $isDeleted ? 'chat-bubble-deleted' : '' }}"
                                     data-message="{{ e($reply->message) }}"
                                     data-deleted="{{ $reply->deleted_at ? '1' : '0' }}"
                                     data-edited="{{ $reply->edited_at ? '1' : '0' }}"
@@ -233,20 +233,20 @@
                                     <p class="js-message-text whitespace-pre-wrap text-sm leading-6 {{ $reply->deleted_at ? 'italic text-slate-500' : 'text-slate-800' }}">{!! nl2br(e($reply->message)) !!}</p>
 
                                     @if($reply->attachments && $reply->attachments->count() > 0 && !$reply->deleted_at)
-                                        <div class="js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <div class="js-attachments-wrap mt-4 flex flex-wrap gap-2">
                                             @foreach($reply->attachments as $attachment)
                                                 @if(str_starts_with((string) $attachment->mime_type, 'image/'))
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link block overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm transition hover:bg-slate-50"
+                                                       class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm transition hover:bg-slate-50"
                                                        data-file-url="{{ $attachment->preview_url }}"
                                                        data-file-name="{{ $attachment->original_filename }}"
                                                        data-file-mime="{{ $attachment->mime_type }}">
-                                                        <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-40 w-full rounded-lg object-cover">
+                                                        <img src="{{ $attachment->preview_url }}" alt="{{ $attachment->original_filename }}" class="h-36 w-full rounded-lg object-cover">
                                                         <span class="mt-2 block truncate text-xs text-slate-600">{{ $attachment->original_filename }}</span>
                                                     </a>
                                                 @else
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                       class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
                                                        data-file-url="{{ $attachment->preview_url }}"
                                                        data-file-name="{{ $attachment->original_filename }}"
                                                        data-file-mime="{{ $attachment->mime_type }}">
@@ -665,12 +665,12 @@ document.addEventListener('DOMContentLoaded', function () {
         link.dataset.fileMime = attachment.mime_type;
 
         if (attachment.is_image) {
-            link.className = 'js-attachment-link block overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50';
+            link.className = 'js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50';
 
             const image = document.createElement('img');
             image.src = attachment.preview_url;
             image.alt = attachment.original_filename || 'Attachment image';
-            image.className = 'h-40 w-full rounded-lg object-cover';
+            image.className = 'h-36 w-full rounded-lg object-cover';
 
             const caption = document.createElement('span');
             caption.className = 'mt-2 block truncate text-xs text-slate-600';
@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return link;
         }
 
-        link.className = 'js-attachment-link flex items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
+        link.className = 'js-attachment-link flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
 
         const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         icon.setAttribute('class', 'mr-2 h-4 w-4 text-slate-500');
@@ -929,7 +929,7 @@ document.addEventListener('DOMContentLoaded', function () {
         avatar.innerHTML = '<img src="' + (reply.avatar_logo || (fromSupport ? supportLogo : clientLogo)) + '" alt="' + (fromSupport ? 'Support' : 'Client') + ' company logo" class="avatar-logo">';
 
         const bubble = document.createElement('div');
-        bubble.className = 'js-chat-bubble relative group max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50') + (reply.deleted ? ' chat-bubble-deleted' : '');
+        bubble.className = 'js-chat-bubble relative group w-fit max-w-[82%] rounded-2xl border px-4 py-3 shadow-sm ' + (fromSupport ? 'border-slate-200 bg-white' : 'order-1 border-ione-blue-200 bg-ione-blue-50') + (reply.deleted ? ' chat-bubble-deleted' : '');
         bubble.dataset.message = reply.message || '';
         bubble.dataset.deleted = reply.deleted ? '1' : '0';
         bubble.dataset.edited = reply.edited ? '1' : '0';
@@ -960,7 +960,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!reply.deleted && reply.attachments && reply.attachments.length > 0) {
             const attachmentGrid = document.createElement('div');
-            attachmentGrid.className = 'js-attachments-wrap mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2';
+            attachmentGrid.className = 'js-attachments-wrap mt-4 flex flex-wrap gap-2';
             reply.attachments.forEach(function (attachment) {
                 attachmentGrid.appendChild(createAttachmentLink(attachment));
             });

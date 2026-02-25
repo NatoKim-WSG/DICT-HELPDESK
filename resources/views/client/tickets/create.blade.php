@@ -78,6 +78,11 @@
                             @enderror
                         </div>
                     </div>
+                    <div class="xl:col-span-2">
+                        <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            Your email and phone number will only be visible to iOne Technicals for communication related to this ticket.
+                        </p>
+                    </div>
 
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:col-span-2">
                         <div>

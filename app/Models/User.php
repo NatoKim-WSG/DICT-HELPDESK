@@ -11,10 +11,15 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const ROLE_CLIENT = 'client';
+
     public const ROLE_ADMIN = 'admin';
+
     public const ROLE_TECHNICIAN = 'technician';
+
     public const ROLE_TECHNICAL = 'technical';
+
     public const ROLE_SUPER_USER = 'super_user';
+
     public const ROLE_SUPER_ADMIN = 'super_admin';
 
     public const TICKET_CONSOLE_ROLES = [
@@ -83,6 +88,11 @@ class User extends Authenticatable
     public function ticketReplies()
     {
         return $this->hasMany(TicketReply::class);
+    }
+
+    public function ticketStates()
+    {
+        return $this->hasMany(TicketUserState::class);
     }
 
     public function isAdmin()
@@ -194,7 +204,7 @@ class User extends Authenticatable
         $defaultLogoPath = $brandMap['ione']['logo'] ?? 'images/iOne Logo.png';
         $logoPath = $brand['logo'] ?? $defaultLogoPath;
 
-        if (!file_exists(public_path($logoPath))) {
+        if (! file_exists(public_path($logoPath))) {
             $logoPath = $defaultLogoPath;
         }
 

@@ -8,6 +8,7 @@ use App\Models\Attachment;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -21,37 +22,37 @@ class TicketController extends Controller
 
     public function index(Request $request)
     {
-        $provinceOptions = $this->distinctTicketColumnOptions('province');
-        $municipalityOptions = $this->distinctTicketColumnOptions('municipality');
-
-        $accountOptions = User::where('role', User::ROLE_CLIENT)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->values();
-
         $activeTab = $request->string('tab')->toString();
         if ($activeTab === 'scheduled') {
             $activeTab = 'attention';
         }
-        if (!in_array($activeTab, ['tickets', 'attention', 'history'], true)) {
+        if (! in_array($activeTab, ['tickets', 'attention', 'history'], true)) {
             $activeTab = 'tickets';
         }
+        $selectedStatus = trim($request->string('status')->toString());
+        if ($selectedStatus === '') {
+            $selectedStatus = 'all';
+        }
+        if (! in_array($selectedStatus, array_merge(['all'], Ticket::STATUSES), true)) {
+            $selectedStatus = 'all';
+        }
+        $includeClosed = $request->boolean('include_closed');
 
-        $query = Ticket::with(['user', 'category', 'assignedUser']);
+        $query = $this->scopedTicketQueryForCurrentUser()
+            ->with(['user', 'category', 'assignedUser']);
 
         if ($activeTab === 'history') {
             $query->whereIn('status', Ticket::CLOSED_STATUSES);
         } elseif ($activeTab === 'attention') {
             $query->whereNotIn('status', Ticket::CLOSED_STATUSES)
                 ->where('created_at', '<=', now()->subHours(16));
-        } else {
+        } elseif ($selectedStatus === 'all' && ! $includeClosed) {
             $query->whereNotIn('status', Ticket::CLOSED_STATUSES);
         }
 
         $query
-            ->when($request->filled('status') && $request->status !== 'all', function ($builder) use ($request) {
-                $builder->where('status', $request->string('status')->toString());
+            ->when($selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
+                $builder->where('status', $selectedStatus);
             })
             ->when($request->filled('priority') && $request->priority !== 'all', function ($builder) use ($request) {
                 $builder->where('priority', $request->string('priority')->toString());
@@ -72,37 +73,95 @@ class TicketController extends Controller
             $query->where('user_id', $request->integer('account_id'));
         }
 
+        if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
+            $query->where('assigned_to', $request->integer('assigned_to'));
+        }
+
         $query->when($request->filled('search'), function ($builder) use ($request) {
             $search = $request->string('search')->toString();
             $builder->where(function ($q) use ($search) {
-                $q->where('subject', 'like', '%' . $search . '%')
-                    ->orWhere('ticket_number', 'like', '%' . $search . '%')
+                $q->where('subject', 'like', '%'.$search.'%')
+                    ->orWhere('ticket_number', 'like', '%'.$search.'%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
+                        $userQuery->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('email', 'like', '%'.$search.'%');
                     });
             });
         });
 
+        $liveSnapshotToken = $this->buildTicketListSnapshotToken(clone $query);
+        if ($request->boolean('heartbeat')) {
+            return response()->json([
+                'token' => $liveSnapshotToken,
+            ]);
+        }
+
+        $scopedTickets = $this->scopedTicketQueryForCurrentUser();
+        $provinceOptions = $this->distinctTicketColumnOptions('province', clone $scopedTickets);
+        $municipalityOptions = $this->distinctTicketColumnOptions('municipality', clone $scopedTickets);
+
+        $accountOptionsQuery = User::where('role', User::ROLE_CLIENT)
+            ->where('is_active', true);
+
+        $currentUser = auth()->user();
+        if ($currentUser && $currentUser->isTechnician()) {
+            $visibleClientIds = (clone $scopedTickets)
+                ->whereNotNull('user_id')
+                ->select('user_id')
+                ->distinct()
+                ->pluck('user_id');
+
+            $accountOptionsQuery->whereIn('id', $visibleClientIds);
+        }
+
+        $accountOptions = $accountOptionsQuery
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->values();
+
         $tickets = $query->latest()->paginate(15);
+        $ticketSeenTimestamps = TicketUserState::where('user_id', auth()->id())
+            ->whereIn('ticket_id', $tickets->pluck('id'))
+            ->get()
+            ->mapWithKeys(function (TicketUserState $state) {
+                return [
+                    (int) $state->ticket_id => optional($state->last_seen_at)->timestamp,
+                ];
+            })
+            ->all();
 
         $categories = Category::active()->get();
         $agents = User::whereIn('role', User::TICKET_CONSOLE_ROLES)
             ->where('is_active', true)
             ->get();
 
-        return view('admin.tickets.index', compact('tickets', 'categories', 'agents', 'provinceOptions', 'municipalityOptions', 'accountOptions', 'activeTab'));
+        return view('admin.tickets.index', compact(
+            'tickets',
+            'categories',
+            'agents',
+            'provinceOptions',
+            'municipalityOptions',
+            'accountOptions',
+            'activeTab',
+            'liveSnapshotToken',
+            'ticketSeenTimestamps'
+        ));
     }
 
     public function show(Ticket $ticket)
     {
-        $viewedTicketIds = collect(session('admin_viewed_ticket_ids', []))
-            ->map(fn ($id) => (int) $id)
-            ->push((int) $ticket->id)
-            ->unique()
-            ->values()
-            ->all();
-        session(['admin_viewed_ticket_ids' => $viewedTicketIds]);
+        $this->authorizeTicketAccess($ticket);
+
+        TicketUserState::updateOrCreate(
+            [
+                'ticket_id' => $ticket->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'last_seen_at' => $ticket->updated_at ?? now(),
+                'dismissed_at' => null,
+            ]
+        );
 
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
         $agents = User::whereIn('role', User::TICKET_CONSOLE_ROLES)
@@ -114,6 +173,8 @@ class TicketController extends Controller
 
     public function replies(Ticket $ticket): JsonResponse
     {
+        $this->authorizeTicketAccess($ticket);
+
         $replies = $ticket->replies()
             ->with(['user', 'attachments', 'replyTo'])
             ->orderBy('created_at')
@@ -128,6 +189,8 @@ class TicketController extends Controller
 
     public function assign(Request $request, Ticket $ticket)
     {
+        $this->authorizeTicketAccess($ticket);
+
         $request->validate([
             'assigned_to' => [
                 'nullable',
@@ -153,8 +216,10 @@ class TicketController extends Controller
 
     public function updateStatus(Request $request, Ticket $ticket)
     {
+        $this->authorizeTicketAccess($ticket);
+
         $request->validate([
-            'status' => 'required|in:' . implode(',', Ticket::STATUSES),
+            'status' => 'required|in:'.implode(',', Ticket::STATUSES),
             'close_reason' => [
                 Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
                 'nullable',
@@ -181,7 +246,9 @@ class TicketController extends Controller
 
     public function updatePriority(Request $request, Ticket $ticket)
     {
-        $request->validate(['priority' => 'required|in:' . implode(',', Ticket::PRIORITIES)]);
+        $this->authorizeTicketAccess($ticket);
+
+        $request->validate(['priority' => 'required|in:'.implode(',', Ticket::PRIORITIES)]);
 
         if ($ticket->priority === $request->priority) {
             return redirect()->back()->with('success', 'No changes were detected.');
@@ -194,6 +261,8 @@ class TicketController extends Controller
 
     public function reply(Request $request, Ticket $ticket)
     {
+        $this->authorizeTicketAccess($ticket);
+
         $request->validate([
             'message' => 'required|string',
             'is_internal' => 'boolean',
@@ -203,7 +272,7 @@ class TicketController extends Controller
 
         $replyToId = $request->integer('reply_to_id') ?: null;
 
-        if (!$this->replyTargetExistsForTicket($ticket, $replyToId)) {
+        if (! $this->replyTargetExistsForTicket($ticket, $replyToId)) {
             return redirect()->back()->with('error', 'Invalid reply target.');
         }
 
@@ -227,7 +296,7 @@ class TicketController extends Controller
 
         $this->persistAttachmentsFromRequest($request, $reply);
 
-        if ($ticket->status === 'open' && !$isInternal) {
+        if ($ticket->status === 'open' && ! $isInternal) {
             $ticket->update(['status' => 'in_progress']);
         }
 
@@ -245,6 +314,8 @@ class TicketController extends Controller
 
     public function updateReply(Request $request, Ticket $ticket, TicketReply $reply): JsonResponse
     {
+        $this->authorizeTicketAccess($ticket);
+
         if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
             abort(403);
         }
@@ -270,11 +341,13 @@ class TicketController extends Controller
 
     public function deleteReply(Ticket $ticket, TicketReply $reply): JsonResponse
     {
+        $this->authorizeTicketAccess($ticket);
+
         if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
             abort(403);
         }
 
-        if (!$reply->deleted_at) {
+        if (! $reply->deleted_at) {
             $reply->update([
                 'message' => 'This message was deleted.',
                 'deleted_at' => now(),
@@ -289,6 +362,8 @@ class TicketController extends Controller
 
     public function setDueDate(Request $request, Ticket $ticket)
     {
+        $this->authorizeTicketAccess($ticket);
+
         $request->validate([
             'due_date' => 'required|date|after:now',
         ]);
@@ -306,13 +381,15 @@ class TicketController extends Controller
 
     public function quickUpdate(Request $request, Ticket $ticket)
     {
+        $this->authorizeTicketAccess($ticket);
+
         $request->validate([
             'assigned_to' => [
                 'nullable',
                 $this->assignableAgentRule(),
             ],
-            'status' => 'required|in:' . implode(',', Ticket::STATUSES),
-            'priority' => 'required|in:' . implode(',', Ticket::PRIORITIES),
+            'status' => 'required|in:'.implode(',', Ticket::STATUSES),
+            'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
             'close_reason' => [
                 Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
                 'nullable',
@@ -352,8 +429,10 @@ class TicketController extends Controller
 
     public function destroy(Ticket $ticket)
     {
-        if (!$this->canRunDestructiveAction()) {
-            abort(403, 'Only super users or super admins can delete tickets.');
+        $this->authorizeTicketAccess($ticket);
+
+        if (! $this->canDeleteTickets()) {
+            abort(403, 'Only super admins can delete tickets.');
         }
 
         DB::transaction(function () use ($ticket) {
@@ -378,8 +457,8 @@ class TicketController extends Controller
                 'nullable',
                 $this->assignableAgentRule(),
             ],
-            'status' => 'nullable|in:' . implode(',', Ticket::STATUSES),
-            'priority' => 'nullable|in:' . implode(',', Ticket::PRIORITIES),
+            'status' => 'nullable|in:'.implode(',', Ticket::STATUSES),
+            'priority' => 'nullable|in:'.implode(',', Ticket::PRIORITIES),
         ]);
 
         $selectedIds = collect($request->input('selected_ids', []))
@@ -392,14 +471,24 @@ class TicketController extends Controller
         }
 
         $action = $request->string('action')->toString();
-        $tickets = Ticket::whereIn('id', $selectedIds)->get();
+        $tickets = $this->scopedTicketQueryForCurrentUser()
+            ->whereIn('id', $selectedIds)
+            ->get();
 
         if ($tickets->isEmpty()) {
             return redirect()->back()->with('error', 'Selected tickets were not found.');
         }
 
-        if ($this->isDestructiveBulkAction($action) && !$this->canRunDestructiveAction()) {
-            return redirect()->back()->with('error', 'Only super users or super admins can run delete/merge actions.');
+        if ($tickets->count() !== $selectedIds->count()) {
+            return redirect()->back()->with('error', 'One or more selected tickets are not accessible to your account.');
+        }
+
+        if ($action === 'delete' && ! $this->canDeleteTickets()) {
+            return redirect()->back()->with('error', 'Only super admins can run delete actions.');
+        }
+
+        if ($action === 'merge' && ! $this->canRunDestructiveAction()) {
+            return redirect()->back()->with('error', 'Only super users or super admins can run merge actions.');
         }
 
         if ($action === 'delete') {
@@ -418,7 +507,7 @@ class TicketController extends Controller
         }
 
         if ($action === 'assign') {
-            if (!$request->filled('assigned_to')) {
+            if (! $request->filled('assigned_to')) {
                 return redirect()->back()->with('error', 'Please choose a technical user.');
             }
 
@@ -428,11 +517,12 @@ class TicketController extends Controller
                 $ticket->update(['assigned_to' => $newAssignedTo]);
                 $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
             });
+
             return redirect()->back()->with('success', 'Selected tickets assigned successfully.');
         }
 
         if ($action === 'status') {
-            if (!$request->filled('status')) {
+            if (! $request->filled('status')) {
                 return redirect()->back()->with('error', 'Please choose a status.');
             }
 
@@ -461,11 +551,12 @@ class TicketController extends Controller
         }
 
         if ($action === 'priority') {
-            if (!$request->filled('priority')) {
+            if (! $request->filled('priority')) {
                 return redirect()->back()->with('error', 'Please choose a priority.');
             }
 
             Ticket::whereIn('id', $selectedIds)->update(['priority' => $request->string('priority')->toString()]);
+
             return redirect()->back()->with('success', 'Selected ticket priorities updated.');
         }
 
@@ -520,10 +611,11 @@ class TicketController extends Controller
         if (in_array($status, ['open', 'in_progress', 'pending'], true)) {
             $updateData['resolved_at'] = null;
             $updateData['closed_at'] = null;
+
             return;
         }
 
-        if ($status === 'resolved' && (!$ticket || !$ticket->resolved_at)) {
+        if ($status === 'resolved' && (! $ticket || ! $ticket->resolved_at)) {
             $updateData['resolved_at'] = now();
         }
 
@@ -531,11 +623,11 @@ class TicketController extends Controller
             $updateData['closed_at'] = null;
         }
 
-        if ($status === 'closed' && (!$ticket || !$ticket->closed_at)) {
+        if ($status === 'closed' && (! $ticket || ! $ticket->closed_at)) {
             $updateData['closed_at'] = now();
         }
 
-        if ($status === 'closed' && (!$ticket || !$ticket->resolved_at)) {
+        if ($status === 'closed' && (! $ticket || ! $ticket->resolved_at)) {
             $updateData['resolved_at'] = now();
         }
     }
@@ -547,9 +639,11 @@ class TicketController extends Controller
         return $user && $user->isAdminLevel();
     }
 
-    private function isDestructiveBulkAction(string $action): bool
+    private function canDeleteTickets(): bool
     {
-        return in_array($action, ['delete', 'merge'], true);
+        $user = auth()->user();
+
+        return $user && $user->isSuperAdmin();
     }
 
     private function recordAssignmentHandoff(Ticket $ticket, ?int $previousAssignedTo, ?int $newAssignedTo): void
@@ -569,14 +663,14 @@ class TicketController extends Controller
             default => null,
         };
 
-        if (!$message) {
+        if (! $message) {
             return;
         }
 
         TicketReply::create([
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
-            'message' => $message . ' Previous conversation remains available for continuity.',
+            'message' => $message.' Previous conversation remains available for continuity.',
             'is_internal' => true,
         ]);
     }
@@ -602,11 +696,13 @@ class TicketController extends Controller
         ]);
     }
 
-    private function distinctTicketColumnOptions(string $column): \Illuminate\Support\Collection
+    private function distinctTicketColumnOptions(string $column, ?Builder $scopedBaseQuery = null): \Illuminate\Support\Collection
     {
         $this->assertSupportedLocationColumn($column);
 
-        return Ticket::query()
+        $query = $scopedBaseQuery ? clone $scopedBaseQuery : Ticket::query();
+
+        return $query
             ->whereNotNull($column)
             ->where($column, '!=', '')
             ->select($column)
@@ -626,8 +722,41 @@ class TicketController extends Controller
 
     private function assertSupportedLocationColumn(string $column): void
     {
-        if (!in_array($column, ['province', 'municipality'], true)) {
+        if (! in_array($column, ['province', 'municipality'], true)) {
             throw new \InvalidArgumentException('Unsupported ticket location column.');
         }
+    }
+
+    private function authorizeTicketAccess(Ticket $ticket): void
+    {
+        $user = auth()->user();
+
+        if ($user && $user->isTechnician() && (int) $ticket->assigned_to !== (int) $user->id) {
+            abort(403, 'Technical users can only access tickets assigned to them.');
+        }
+    }
+
+    private function scopedTicketQueryForCurrentUser(): Builder
+    {
+        $query = Ticket::query();
+        $user = auth()->user();
+
+        if ($user && $user->isTechnician()) {
+            $query->where('assigned_to', $user->id);
+        }
+
+        return $query;
+    }
+
+    private function buildTicketListSnapshotToken(Builder $query): string
+    {
+        $latestUpdatedAt = (clone $query)->max('updated_at');
+        $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
+        $totalTickets = (clone $query)->count();
+
+        return sha1(json_encode([
+            'latest_updated_at' => $latestUpdatedTimestamp,
+            'total_tickets' => $totalTickets,
+        ]));
     }
 }

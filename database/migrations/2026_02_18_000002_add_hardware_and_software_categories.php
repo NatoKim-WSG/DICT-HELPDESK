@@ -7,7 +7,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!DB::table('categories')->where('name', 'Hardware')->exists()) {
+        if (! DB::table('categories')->where('name', 'Hardware')->exists()) {
             DB::table('categories')->insert([
                 'name' => 'Hardware',
                 'description' => 'Problems with computer hardware, peripherals, and equipment',
@@ -18,7 +18,7 @@ return new class extends Migration
             ]);
         }
 
-        if (!DB::table('categories')->where('name', 'Software')->exists()) {
+        if (! DB::table('categories')->where('name', 'Software')->exists()) {
             DB::table('categories')->insert([
                 'name' => 'Software',
                 'description' => 'Software installation, updates, and application problems',
