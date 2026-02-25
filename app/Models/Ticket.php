@@ -31,21 +31,33 @@ class Ticket extends Model
         'status',
         'user_id',
         'assigned_to',
+        'assigned_at',
         'category_id',
         'due_date',
         'resolved_at',
         'closed_at',
         'satisfaction_rating',
         'satisfaction_comment',
+        'super_users_notified_new_at',
+        'technical_user_notified_assignment_at',
+        'super_users_notified_unchecked_at',
+        'super_users_notified_unassigned_sla_at',
+        'technical_user_notified_sla_at',
     ];
 
     protected function casts(): array
     {
         return [
             'due_date' => 'datetime',
+            'assigned_at' => 'datetime',
             'resolved_at' => 'datetime',
             'closed_at' => 'datetime',
             'satisfaction_rating' => 'integer',
+            'super_users_notified_new_at' => 'datetime',
+            'technical_user_notified_assignment_at' => 'datetime',
+            'super_users_notified_unchecked_at' => 'datetime',
+            'super_users_notified_unassigned_sla_at' => 'datetime',
+            'technical_user_notified_sla_at' => 'datetime',
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,10 @@ use Illuminate\Validation\Rule;
 class TicketController extends Controller
 {
     use InteractsWithTicketReplies;
+
+    public function __construct(
+        private TicketEmailAlertService $ticketEmailAlerts,
+    ) {}
 
     public function index(Request $request)
     {
@@ -207,9 +212,14 @@ class TicketController extends Controller
 
         $ticket->update([
             'assigned_to' => $newAssignedTo,
+            ...$this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo),
         ]);
 
         $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+
+        if ($newAssignedTo !== null) {
+            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
+        }
 
         return redirect()->back()->with('success', 'Ticket assignment updated successfully!');
     }
@@ -419,10 +429,15 @@ class TicketController extends Controller
         }
 
         $this->applyLifecycleTimestamps($ticket, $updateData);
+        $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo));
 
         $ticket->update($updateData);
         $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
+
+        if ($previousAssignedTo !== $newAssignedTo && $newAssignedTo !== null) {
+            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
+        }
 
         return redirect()->back()->with('success', 'Ticket updated successfully.');
     }
@@ -514,8 +529,15 @@ class TicketController extends Controller
             $newAssignedTo = $request->integer('assigned_to');
             Ticket::whereIn('id', $selectedIds)->get()->each(function (Ticket $ticket) use ($newAssignedTo) {
                 $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
-                $ticket->update(['assigned_to' => $newAssignedTo]);
+                $ticket->update([
+                    'assigned_to' => $newAssignedTo,
+                    ...$this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo),
+                ]);
                 $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+
+                if ($newAssignedTo !== null) {
+                    $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
+                }
             });
 
             return redirect()->back()->with('success', 'Selected tickets assigned successfully.');
@@ -611,6 +633,8 @@ class TicketController extends Controller
         if (in_array($status, ['open', 'in_progress', 'pending'], true)) {
             $updateData['resolved_at'] = null;
             $updateData['closed_at'] = null;
+            $updateData['super_users_notified_unassigned_sla_at'] = null;
+            $updateData['technical_user_notified_sla_at'] = null;
 
             return;
         }
@@ -644,6 +668,20 @@ class TicketController extends Controller
         $user = auth()->user();
 
         return $user && $user->isSuperAdmin();
+    }
+
+    private function assignmentMetadataForChange(?int $previousAssignedTo, ?int $newAssignedTo): array
+    {
+        if ($previousAssignedTo === $newAssignedTo) {
+            return [];
+        }
+
+        return [
+            'assigned_at' => $newAssignedTo !== null ? now() : null,
+            'technical_user_notified_assignment_at' => null,
+            'technical_user_notified_sla_at' => null,
+            'super_users_notified_unassigned_sla_at' => null,
+        ];
     }
 
     private function recordAssignmentHandoff(Ticket $ticket, ?int $previousAssignedTo, ?int $newAssignedTo): void

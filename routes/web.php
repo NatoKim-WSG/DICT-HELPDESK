@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AuthController;
@@ -97,6 +98,9 @@ Route::middleware(['auth', 'active', 'role:super_user,super_admin,technical'])->
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('role:super_user,super_admin,technical')
         ->name('dashboard');
+    Route::get('/reports', [AdminReportController::class, 'index'])
+        ->middleware('role:super_user,super_admin')
+        ->name('reports.index');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');

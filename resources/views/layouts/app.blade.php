@@ -24,6 +24,7 @@
                 str_starts_with($tabRouteName, 'admin.dashboard') => 'Dashboard',
                 str_starts_with($tabRouteName, 'admin.tickets.show') => isset($ticket) ? 'Ticket #' . $ticket->ticket_number : 'Ticket Details',
                 str_starts_with($tabRouteName, 'admin.tickets.') => 'Tickets',
+                str_starts_with($tabRouteName, 'admin.reports.') => 'Reports',
                 str_starts_with($tabRouteName, 'admin.users.') => 'Users',
                 str_starts_with($tabRouteName, 'client.dashboard') => 'Dashboard',
                 str_starts_with($tabRouteName, 'client.tickets.create') => 'New Ticket',
@@ -129,10 +130,10 @@
                             :aria-pressed="darkMode.toString()"
                             aria-label="Toggle dark mode"
                         >
-                            <svg x-show="!darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg x-cloak x-show="!darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-10h-1M4.34 12h-1m14.02 6.36-.7-.7M7.02 7.02l-.7-.7m12.02 0-.7.7M7.02 16.98l-.7.7M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
                             </svg>
-                            <svg x-show="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;">
+                            <svg x-cloak x-show="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"></path>
                             </svg>
                         </button>
@@ -197,9 +198,15 @@
                             </button>
 
                             <div
+                                x-cloak
                                 x-show="notificationOpen"
                                 @click.away="notificationOpen = false"
-                                x-transition
+                                x-transition:enter="transition duration-220 ease-out"
+                                x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave="transition duration-160 ease-in"
+                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
                                 class="fixed left-2 right-2 top-20 z-40 max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]"
                             >
                                 <div class="border-b border-slate-200 px-4 py-3">
@@ -250,9 +257,15 @@
                             </button>
 
                             <div
+                                x-cloak
                                 x-show="open"
                                 @click.away="open = false"
-                                x-transition
+                                x-transition:enter="transition duration-220 ease-out"
+                                x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave="transition duration-150 ease-in"
+                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
                                 class="absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
                             >
                                 @if($canAccessAccountSettings)

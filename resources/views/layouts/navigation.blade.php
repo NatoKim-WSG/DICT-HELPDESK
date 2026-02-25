@@ -14,6 +14,10 @@
             ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
         ];
 
+        if ($canManageConsole) {
+            $menuItems[] = ['label' => 'Reports', 'icon' => 'chart', 'href' => route('admin.reports.index'), 'active' => request()->routeIs('admin.reports.*'), 'disabled' => false];
+        }
+
         if ($canAccessAccountSettings) {
             $menuItems[] = ['label' => 'Account Settings', 'icon' => 'user', 'href' => route('account.settings'), 'active' => request()->routeIs('account.settings'), 'disabled' => false];
         }
@@ -44,15 +48,20 @@
 @endphp
 
 <div
+    x-cloak
     x-show="sidebarOpen"
-    x-transition.opacity
+    x-transition:enter="transition-opacity duration-250 ease-out"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition-opacity duration-200 ease-in"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
     @click="sidebarOpen = false"
     class="fixed inset-0 z-40 bg-slate-900/45 lg:hidden"
-    style="display: none;"
 ></div>
 
 <aside
-    class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r border-[#0b5658] bg-[#033b3d] text-slate-100 transition-transform duration-200 lg:translate-x-0"
+    class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r border-[#0b5658] bg-[#033b3d] text-slate-100 transition-transform duration-300 ease-out lg:translate-x-0"
     :class="{ 'translate-x-0': sidebarOpen }"
 >
     <div class="flex h-full flex-col">

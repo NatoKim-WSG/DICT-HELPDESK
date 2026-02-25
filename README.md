@@ -56,6 +56,39 @@ npm run build
 php artisan serve
 ```
 
+## Real Email Delivery (External SMTP)
+
+Ticket alerts can be delivered to real inboxes when SMTP is configured with a real provider.
+
+1. Set mail values in `.env` (example):
+```bash
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your_smtp_username
+MAIL_PASSWORD=your_smtp_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=helpdesk@yourdomain.com
+MAIL_FROM_NAME="${APP_NAME}"
+MAIL_REPLY_TO_ADDRESS=support@yourdomain.com
+MAIL_REPLY_TO_NAME="${APP_NAME}"
+```
+
+2. Clear config cache after updates:
+```bash
+php artisan config:clear
+```
+
+3. Send a live test email:
+```bash
+php artisan mail:test your-email@example.com
+```
+
+4. Keep scheduler running for timed reminder alerts:
+```bash
+php artisan schedule:work
+```
+
 ## Seeded Accounts
 
 Seeded users use `SEED_DEFAULT_USER_PASSWORD` from `.env`.

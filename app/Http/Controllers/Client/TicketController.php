@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
+use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,10 @@ use Illuminate\Http\Request;
 class TicketController extends Controller
 {
     use InteractsWithTicketReplies;
+
+    public function __construct(
+        private TicketEmailAlertService $ticketEmailAlerts,
+    ) {}
 
     public function index(Request $request)
     {
@@ -89,6 +94,7 @@ class TicketController extends Controller
         $ticket = Ticket::create($ticketData);
 
         $this->persistAttachmentsFromRequest($request, $ticket);
+        $this->ticketEmailAlerts->notifySuperUsersAboutNewTicket($ticket);
 
         return redirect()->route('client.tickets.show', $ticket)
             ->with('success', 'Ticket created successfully!');
@@ -160,6 +166,8 @@ class TicketController extends Controller
                 'status' => 'open',
                 'resolved_at' => null,
                 'closed_at' => null,
+                'super_users_notified_unassigned_sla_at' => null,
+                'technical_user_notified_sla_at' => null,
             ]);
         }
 

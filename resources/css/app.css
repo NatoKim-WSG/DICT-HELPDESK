@@ -29,6 +29,10 @@
     ::selection {
         @apply bg-ione-blue-200 text-ione-blue-900;
     }
+
+    [x-cloak] {
+        display: none !important;
+    }
 }
 
 @layer components {

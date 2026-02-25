@@ -11,6 +11,9 @@
             <a href="{{ route('admin.tickets.index', ['tab' => 'attention']) }}" class="btn-warning">Needs Attention</a>
             <a href="{{ route('admin.tickets.index', ['priority' => 'urgent']) }}" class="btn-danger">Urgent Tickets</a>
             @if(!$isTechnical)
+                <a href="{{ route('admin.reports.index') }}" class="btn-secondary">Reports</a>
+            @endif
+            @if(!$isTechnical)
                 <a href="{{ route('admin.users.index') }}" class="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Manage Users</a>
             @endif
         </div>
