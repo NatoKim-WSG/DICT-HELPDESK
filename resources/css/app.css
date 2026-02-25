@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
 
 @layer base {
     :root {
@@ -41,23 +40,23 @@
     }
 
     .btn-primary {
-        @apply btn bg-[#033b3d] text-white hover:brightness-95;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold text-white transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent hover:brightness-95 bg-[#033b3d];
     }
 
     .btn-secondary {
-        @apply btn border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent hover:bg-slate-50;
     }
 
     .btn-danger {
-        @apply btn bg-rose-500 text-white hover:brightness-95;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent hover:brightness-95;
     }
 
     .btn-warning {
-        @apply btn bg-amber-400 text-amber-950 hover:bg-amber-300;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-amber-400 px-4 py-2.5 text-sm font-semibold text-amber-950 transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent hover:bg-amber-300;
     }
 
     .btn-success {
-        @apply btn bg-emerald-600 text-white hover:brightness-95;
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/30 focus:ring-offset-2 focus:ring-offset-transparent hover:brightness-95;
     }
 
     .panel {
@@ -65,7 +64,7 @@
     }
 
     .card {
-        @apply panel overflow-hidden;
+        @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm;
     }
 
     .card-header {
@@ -89,7 +88,7 @@
     }
 
     .stat-card {
-        @apply panel p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md;
+        @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md;
     }
 
     .avatar-logo {
