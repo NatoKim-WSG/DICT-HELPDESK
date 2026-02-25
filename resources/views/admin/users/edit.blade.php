@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const syncDepartmentByRole = function () {
         const role = roleSelect.value;
-        const isInternal = role === 'developer' || role === 'admin' || role === 'super_user' || role === 'technical';
+        const isInternal = role === 'shadow' || role === 'admin' || role === 'super_user' || role === 'technical';
 
         if (isInternal) {
             departmentSelect.value = 'iOne';
@@ -206,3 +206,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+

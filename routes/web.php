@@ -26,7 +26,7 @@ Route::post('/register', fn () => redirect('/login'));
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Account Settings
-Route::middleware(['auth', 'active', 'role:super_user,admin,developer,technical'])->group(function () {
+Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])->group(function () {
     Route::get('/account/settings', [AuthController::class, 'accountSettings'])->name('account.settings');
     Route::put('/account/settings', [AuthController::class, 'updateAccountSettings'])->name('account.settings.update');
 });
@@ -94,12 +94,12 @@ Route::middleware(['auth', 'active', 'role:client'])->prefix('client')->name('cl
 });
 
 // Admin Routes
-Route::middleware(['auth', 'active', 'role:super_user,admin,developer,technical'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'active', 'role:super_user,admin,shadow,technical'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
-        ->middleware('role:super_user,admin,developer,technical')
+        ->middleware('role:super_user,admin,shadow,technical')
         ->name('dashboard');
     Route::get('/reports', [AdminReportController::class, 'index'])
-        ->middleware('role:super_user,admin,developer')
+        ->middleware('role:super_user,admin,shadow')
         ->name('reports.index');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
@@ -121,7 +121,7 @@ Route::middleware(['auth', 'active', 'role:super_user,admin,developer,technical'
         ->middleware('throttle:60,1')
         ->name('tickets.priority');
     Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
-        ->middleware(['throttle:20,1', 'role:admin,developer'])
+        ->middleware(['throttle:20,1', 'role:admin,shadow'])
         ->name('tickets.destroy');
     Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])
         ->middleware('throttle:60,1')
@@ -194,7 +194,7 @@ Route::middleware(['auth', 'active', 'role:super_user,admin,developer,technical'
     })->name('notifications.open');
 
     // User Management Routes
-    Route::middleware('role:super_user,admin,developer')->group(function () {
+    Route::middleware('role:super_user,admin,shadow')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/clients', [UserManagementController::class, 'clients'])->name('users.clients');
         Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
@@ -255,3 +255,4 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
 
     return Storage::disk('public')->download($attachment->file_path, $attachment->original_filename);
 })->middleware(['auth', 'active'])->name('attachments.download');
+

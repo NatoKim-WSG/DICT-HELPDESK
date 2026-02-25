@@ -12,7 +12,7 @@ class User extends Authenticatable
 
     public const ROLE_CLIENT = 'client';
 
-    public const ROLE_DEVELOPER = 'developer';
+    public const ROLE_SHADOW = 'shadow';
 
     public const ROLE_ADMIN = 'admin';
 
@@ -28,7 +28,7 @@ class User extends Authenticatable
     public const LEGACY_ROLE_SUPER_ADMIN = 'super_admin';
 
     public const TICKET_CONSOLE_ROLES = [
-        self::ROLE_DEVELOPER,
+        self::ROLE_SHADOW,
         self::ROLE_ADMIN,
         self::ROLE_TECHNICIAN,
         self::ROLE_SUPER_USER,
@@ -36,7 +36,7 @@ class User extends Authenticatable
     ];
 
     public const ADMIN_LEVEL_ROLES = [
-        self::ROLE_DEVELOPER,
+        self::ROLE_SHADOW,
         self::ROLE_ADMIN,
         self::ROLE_SUPER_USER,
     ];
@@ -107,12 +107,12 @@ class User extends Authenticatable
 
     public function isSuperAdmin()
     {
-        return in_array($this->normalizedRole(), [self::ROLE_ADMIN, self::ROLE_DEVELOPER], true);
+        return in_array($this->normalizedRole(), [self::ROLE_ADMIN, self::ROLE_SHADOW], true);
     }
 
-    public function isDeveloper(): bool
+    public function isShadow(): bool
     {
-        return $this->normalizedRole() === self::ROLE_DEVELOPER;
+        return $this->normalizedRole() === self::ROLE_SHADOW;
     }
 
     public function isClient()
@@ -142,7 +142,7 @@ class User extends Authenticatable
 
     public function canCreateAdmins()
     {
-        return $this->normalizedRole() === self::ROLE_DEVELOPER;
+        return $this->normalizedRole() === self::ROLE_SHADOW;
     }
 
     public function isAdminLevel()
@@ -173,7 +173,7 @@ class User extends Authenticatable
     {
         $normalizedRole = self::normalizeRole($role);
 
-        return $normalizedRole === self::ROLE_DEVELOPER
+        return $normalizedRole === self::ROLE_SHADOW
             ? self::ROLE_ADMIN
             : $normalizedRole;
     }
@@ -202,7 +202,7 @@ class User extends Authenticatable
             in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
             $departmentToken === 'dict' => 'dict',
             $departmentToken === 'others' => 'others',
-            in_array($normalizedRole, [self::ROLE_DEVELOPER, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
+            in_array($normalizedRole, [self::ROLE_SHADOW, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
             default => 'dict',
         };
     }
@@ -253,3 +253,4 @@ class User extends Authenticatable
         return $departments;
     }
 }
+

@@ -10,15 +10,15 @@ Your ticketing system is now successfully installed and running!
 
 Seeded users use:
 - `DEFAULT_USER_PASSWORD` for default seeded accounts
-- `DEFAULT_DEVELOPER_PASSWORD` for `developer@ione.com`
+- `DEFAULT_SHADOW_PASSWORD` for `shadow@ione.com`
 
 ### Admin Account
 - **Email:** admin@ione.com
 - **Password:** value of `DEFAULT_USER_PASSWORD`
 
-### Developer Account
-- **Email:** developer@ione.com
-- **Password:** value of `DEFAULT_DEVELOPER_PASSWORD`
+### Shadow Account
+- **Email:** shadow@ione.com
+- **Password:** value of `DEFAULT_SHADOW_PASSWORD`
 
 ### Super User Account
 - **Email:** admin@ioneresources.com
@@ -46,7 +46,7 @@ Seeded users use:
 
 ### ✅ Authentication
 - ✅ Login/Register system working
-- ✅ Role-based access (Developer/Admin/Super User/Technical/Client)
+- ✅ Role-based access (Shadow/Admin/Super User/Technical/Client)
 - ✅ Session management configured
 
 ### ✅ Features Available
@@ -112,7 +112,7 @@ Your iOne Resources Ticketing System is fully operational. The system includes:
 
 - ✅ **8 Sample Tickets** with different statuses and priorities
 - ✅ **10 Categories** for organizing support requests
-- ✅ **Sample Users** across developer, admin, super user, technical, and client roles
+- ✅ **Sample Users** across shadow, admin, super user, technical, and client roles
 - ✅ **Modern UI** with responsive design
 - ✅ **File Upload System** with attachment support
 - ✅ **Role-Based Access** for security
@@ -128,4 +128,5 @@ Your iOne Resources Ticketing System is fully operational. The system includes:
 ---
 **iOne Resources Inc. Ticketing System**
 Built with Laravel 11 + Tailwind CSS
+
 

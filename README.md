@@ -18,7 +18,7 @@ Laravel 11 help desk application with separate client and admin portals for tick
 - Client ticket creation with attachments
 - Ticket replies with threaded reply targets
 - Admin assignment, priority, status, and due date management
-- Role-based access (`client`, `technical`, `super_user`, `admin`, `developer`)
+- Role-based access (`client`, `technical`, `super_user`, `admin`, `shadow`)
 - Account activation/deactivation controls
 
 ## Setup
@@ -100,7 +100,7 @@ Seeded users use `DEFAULT_USER_PASSWORD` from `.env`.
 - `bob@ioneresources.com` (`client`)
 
 - `admin@ione.com` is created as `admin`.
-- `developer@ione.com` is created as `developer` and uses `DEFAULT_DEVELOPER_PASSWORD`.
+- `shadow@ione.com` is created as `shadow` and uses `DEFAULT_SHADOW_PASSWORD`.
 
 ## Security Notes
 

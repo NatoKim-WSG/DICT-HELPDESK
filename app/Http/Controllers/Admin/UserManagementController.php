@@ -45,7 +45,7 @@ class UserManagementController extends Controller
 
             if ($requestedRole === User::ROLE_ADMIN) {
                 $query->whereIn('role', [
-                    User::ROLE_DEVELOPER,
+                    User::ROLE_SHADOW,
                     User::ROLE_ADMIN,
                     User::LEGACY_ROLE_SUPER_ADMIN,
                 ]);
@@ -81,7 +81,7 @@ class UserManagementController extends Controller
         $users = $query
             ->orderByRaw("
                 CASE role
-                    WHEN 'developer' THEN 1
+                    WHEN 'shadow' THEN 1
                     WHEN 'admin' THEN 2
                     WHEN 'super_user' THEN 3
                     WHEN 'technical' THEN 4
@@ -324,8 +324,8 @@ class UserManagementController extends Controller
                 ->with('error', 'You cannot delete your own account.');
         }
 
-        if ($user->isDeveloper()) {
-            if (! $currentUser->isDeveloper()) {
+        if ($user->isShadow()) {
+            if (! $currentUser->isShadow()) {
                 return redirect()->route('admin.users.index')
                     ->with('error', 'You do not have permission to delete this user.');
             }
@@ -334,8 +334,8 @@ class UserManagementController extends Controller
                 ->with('error', 'This account cannot be deleted.');
         }
 
-        // Admin users can only be deleted by developers.
-        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isDeveloper()) {
+        // Admin users can only be deleted by shadows.
+        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isShadow()) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'Admin users cannot be deleted.');
         }
@@ -380,15 +380,15 @@ class UserManagementController extends Controller
             return response()->json(['error' => 'You cannot deactivate your own account.'], 403);
         }
 
-        if ($user->isDeveloper()) {
-            if (! $currentUser->isDeveloper()) {
+        if ($user->isShadow()) {
+            if (! $currentUser->isShadow()) {
                 return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
             }
 
             return response()->json(['error' => 'This account cannot be deactivated.'], 403);
         }
 
-        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isDeveloper()) {
+        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isShadow()) {
             return response()->json(['error' => 'Admin users cannot be deactivated.'], 403);
         }
 
@@ -409,7 +409,7 @@ class UserManagementController extends Controller
     {
         $roles = [User::ROLE_CLIENT];
 
-        if ($currentUser->isDeveloper()) {
+        if ($currentUser->isShadow()) {
             $roles[] = User::ROLE_ADMIN;
             $roles[] = User::ROLE_TECHNICAL;
             $roles[] = User::ROLE_SUPER_USER;
@@ -437,12 +437,12 @@ class UserManagementController extends Controller
 
     private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
     {
-        if ($currentUser->isDeveloper()) {
+        if ($currentUser->isShadow()) {
             return true;
         }
 
         if ($currentUser->isSuperAdmin()) {
-            return ! $targetUser->isDeveloper();
+            return ! $targetUser->isShadow();
         }
 
         return ! (
@@ -453,12 +453,12 @@ class UserManagementController extends Controller
 
     private function applyVisibilityScope($query, User $currentUser): void
     {
-        if ($currentUser->isDeveloper()) {
+        if ($currentUser->isShadow()) {
             return;
         }
 
         if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-            $query->where('role', '!=', User::ROLE_DEVELOPER);
+            $query->where('role', '!=', User::ROLE_SHADOW);
 
             return;
         }
@@ -479,7 +479,7 @@ class UserManagementController extends Controller
 
         if ($this->canManageStaffAccounts($currentUser)) {
             $query->whereIn('role', [
-                User::ROLE_DEVELOPER,
+                User::ROLE_SHADOW,
                 User::ROLE_ADMIN,
                 User::LEGACY_ROLE_SUPER_ADMIN,
                 User::ROLE_SUPER_USER,
@@ -488,7 +488,7 @@ class UserManagementController extends Controller
             ]);
 
             if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-                $query->where('role', '!=', User::ROLE_DEVELOPER);
+                $query->where('role', '!=', User::ROLE_SHADOW);
             }
 
             return;
@@ -518,7 +518,7 @@ class UserManagementController extends Controller
     {
         $normalizedRole = User::normalizeRole($role);
 
-        if (in_array($normalizedRole, [User::ROLE_DEVELOPER, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
+        if (in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
             return 'iOne';
         }
 
@@ -583,7 +583,6 @@ class UserManagementController extends Controller
     private function legacyFallbackRole(string $role): ?string
     {
         return match (User::normalizeRole($role)) {
-            User::ROLE_DEVELOPER => User::ROLE_ADMIN,
             User::ROLE_ADMIN => User::LEGACY_ROLE_SUPER_ADMIN,
             User::ROLE_TECHNICAL => User::ROLE_TECHNICIAN,
             default => null,
@@ -599,7 +598,7 @@ class UserManagementController extends Controller
     {
         $normalizedRole = $deletedUser->normalizedRole();
         $isSupportAccount = in_array($normalizedRole, [
-            User::ROLE_DEVELOPER,
+            User::ROLE_SHADOW,
             User::ROLE_ADMIN,
             User::ROLE_SUPER_USER,
             User::ROLE_TECHNICAL,
@@ -636,16 +635,16 @@ class UserManagementController extends Controller
 
     private function canManageStaffAccounts(User $currentUser): bool
     {
-        return in_array($currentUser->normalizedRole(), [User::ROLE_DEVELOPER, User::ROLE_ADMIN], true);
+        return in_array($currentUser->normalizedRole(), [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
     }
 
     private function cannotManageTarget(User $currentUser, User $targetUser): bool
     {
-        if ($currentUser->isDeveloper()) {
+        if ($currentUser->isShadow()) {
             return false;
         }
 
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN && $targetUser->isDeveloper()) {
+        if ($currentUser->normalizedRole() === User::ROLE_ADMIN && $targetUser->isShadow()) {
             return true;
         }
 
@@ -656,3 +655,5 @@ class UserManagementController extends Controller
         return ! $this->isManageableByNonSuperAdmin($targetUser);
     }
 }
+
+

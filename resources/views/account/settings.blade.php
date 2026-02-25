@@ -6,7 +6,7 @@
 @php
     $normalizedRole = $user->normalizedRole();
     $displayRole = $user->publicRole();
-    $isSuperAdmin = in_array($normalizedRole, [\App\Models\User::ROLE_DEVELOPER, \App\Models\User::ROLE_ADMIN], true);
+    $isSuperAdmin = in_array($normalizedRole, [\App\Models\User::ROLE_SHADOW, \App\Models\User::ROLE_ADMIN], true);
     $isDepartmentLocked = !$isSuperAdmin;
     $isEmailLocked = !$isSuperAdmin;
     $isUsernameLocked = in_array($normalizedRole, [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_TECHNICAL], true);
@@ -238,3 +238,4 @@
     </script>
 </div>
 @endsection
+

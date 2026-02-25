@@ -14,7 +14,7 @@ class TicketSeeder extends Seeder
     {
         $clients = User::where('role', User::ROLE_CLIENT)->get();
         $supportUsers = User::whereIn('role', [
-            User::ROLE_DEVELOPER,
+            User::ROLE_SHADOW,
             User::ROLE_ADMIN,
             User::ROLE_SUPER_USER,
             User::ROLE_TECHNICAL,
@@ -176,3 +176,4 @@ class TicketSeeder extends Seeder
         }
     }
 }
+

@@ -11,5 +11,5 @@ return [
     |
     */
     'default_user_password' => env('DEFAULT_USER_PASSWORD', 'i0n3R3s0urc3s!'),
-    'default_developer_password' => env('DEFAULT_DEVELOPER_PASSWORD', 'Qwerasd0.'),
+    'default_shadow_password' => env('DEFAULT_SHADOW_PASSWORD', 'Qwerasd0.'),
 ];

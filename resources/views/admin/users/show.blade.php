@@ -191,9 +191,9 @@
                 @php
                     $currentViewer = auth()->user();
                     $targetRole = $user->normalizedRole();
-                    $canModifyProtectedRole = $currentViewer->isDeveloper() || $targetRole !== \App\Models\User::ROLE_ADMIN;
-                    $canToggleAccount = $targetRole !== \App\Models\User::ROLE_DEVELOPER && $canModifyProtectedRole;
-                    $canDeleteAccount = $targetRole !== \App\Models\User::ROLE_DEVELOPER && $canModifyProtectedRole;
+                    $canModifyProtectedRole = $currentViewer->isShadow() || $targetRole !== \App\Models\User::ROLE_ADMIN;
+                    $canToggleAccount = $targetRole !== \App\Models\User::ROLE_SHADOW && $canModifyProtectedRole;
+                    $canDeleteAccount = $targetRole !== \App\Models\User::ROLE_SHADOW && $canModifyProtectedRole;
                 @endphp
                 <div class="bg-white shadow sm:rounded-lg">
                     <div class="px-4 py-5 sm:px-6">
@@ -502,3 +502,5 @@ function toggleUserStatus(userId, newStatus, userName = 'this user') {
 }
 </script>
 @endsection
+
+

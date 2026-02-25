@@ -119,19 +119,19 @@
                             $normalizedTargetRole = \App\Models\User::normalizeRole($user->role);
                             $displayRole = \App\Models\User::publicRoleValue($user->role);
                             $currentRole = $currentUser->normalizedRole();
-                            $isCurrentDeveloper = $currentRole === \App\Models\User::ROLE_DEVELOPER;
-                            $isTargetDeveloper = $normalizedTargetRole === \App\Models\User::ROLE_DEVELOPER;
+                            $isCurrentShadow = $currentRole === \App\Models\User::ROLE_SHADOW;
+                            $isTargetShadow = $normalizedTargetRole === \App\Models\User::ROLE_SHADOW;
                             $isTargetAdmin = $normalizedTargetRole === \App\Models\User::ROLE_ADMIN;
                             $canEdit = $user->id !== $currentUser->id
                                 && (
-                                    $isCurrentDeveloper
-                                    || ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetDeveloper)
-                                    || (! in_array($currentRole, [\App\Models\User::ROLE_DEVELOPER, \App\Models\User::ROLE_ADMIN], true) && $user->isClient())
+                                    $isCurrentShadow
+                                    || ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetShadow)
+                                    || (! in_array($currentRole, [\App\Models\User::ROLE_SHADOW, \App\Models\User::ROLE_ADMIN], true) && $user->isClient())
                                 );
                             $canDelete = false;
 
-                            if ($user->id !== $currentUser->id && ! $isTargetDeveloper) {
-                                if ($isCurrentDeveloper) {
+                            if ($user->id !== $currentUser->id && ! $isTargetShadow) {
+                                if ($isCurrentShadow) {
                                     $canDelete = true;
                                 } elseif ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetAdmin) {
                                     $canDelete = true;
@@ -219,7 +219,7 @@
                                                 title="Delete {{ $user->name }}">
                                             Delete
                                         </button>
-                                    @elseif($isTargetDeveloper && $user->id !== $currentUser->id)
+                                    @elseif($isTargetShadow && $user->id !== $currentUser->id)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
@@ -227,7 +227,7 @@
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             You
                                         </span>
-                                    @elseif($isTargetAdmin && ! $isCurrentDeveloper)
+                                    @elseif($isTargetAdmin && ! $isCurrentShadow)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
@@ -646,3 +646,4 @@ function toggleUserStatus(userId, newStatus, userName = 'this user') {
 }
 </script>
 @endsection
+

@@ -101,7 +101,7 @@ class AuthController extends Controller
         }
 
         $normalizedRole = $user->normalizedRole();
-        $isSuperAdmin = in_array($normalizedRole, [User::ROLE_DEVELOPER, User::ROLE_ADMIN], true);
+        $isSuperAdmin = in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
         $isUsernameLocked = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true);
         $departmentRules = $isSuperAdmin
             ? ['required', Rule::in(User::allowedDepartments())]
@@ -167,3 +167,4 @@ class AuthController extends Controller
         return '/client/dashboard';
     }
 }
+
