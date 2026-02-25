@@ -16,21 +16,16 @@ class User extends Authenticatable
 
     public const ROLE_ADMIN = 'admin';
 
-    public const ROLE_TECHNICIAN = 'technician';
-
     public const ROLE_TECHNICAL = 'technical';
 
     public const ROLE_SUPER_USER = 'super_user';
 
-    // Legacy alias kept for backwards compatibility in existing references/tests.
+    // Compatibility alias used by tests and existing naming conventions.
     public const ROLE_SUPER_ADMIN = self::ROLE_ADMIN;
-
-    public const LEGACY_ROLE_SUPER_ADMIN = 'super_admin';
 
     public const TICKET_CONSOLE_ROLES = [
         self::ROLE_SHADOW,
         self::ROLE_ADMIN,
-        self::ROLE_TECHNICIAN,
         self::ROLE_SUPER_USER,
         self::ROLE_TECHNICAL,
     ];
@@ -172,11 +167,7 @@ class User extends Authenticatable
 
     public static function normalizeRole(?string $role): string
     {
-        return match ($role) {
-            self::LEGACY_ROLE_SUPER_ADMIN => self::ROLE_ADMIN,
-            self::ROLE_TECHNICIAN => self::ROLE_TECHNICAL,
-            default => (string) $role,
-        };
+        return strtolower(trim((string) $role));
     }
 
     public static function publicRoleValue(?string $role): string

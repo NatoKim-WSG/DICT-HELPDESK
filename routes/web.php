@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AuthController;
@@ -243,6 +244,17 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         return redirect()->route('admin.tickets.show', $ticket);
     })->name('notifications.open');
 
+    Route::middleware('role:shadow')->prefix('system-logs')->name('system-logs.')->group(function () {
+        Route::get('/unlock', [SystemLogController::class, 'showUnlockForm'])->name('unlock.show');
+        Route::post('/unlock', [SystemLogController::class, 'unlock'])
+            ->middleware('throttle:10,1')
+            ->name('unlock.store');
+        Route::post('/lock', [SystemLogController::class, 'lock'])->name('lock');
+        Route::get('/', [SystemLogController::class, 'index'])
+            ->middleware('system_logs.unlocked')
+            ->name('index');
+    });
+
     // User Management Routes
     Route::middleware('role:super_user,admin,shadow')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
@@ -289,20 +301,29 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
         abort(403);
     }
 
-    if (! Storage::disk('public')->exists($attachment->file_path)) {
+    $storageDisk = $attachment->resolvedDisk();
+    if (! Storage::disk($storageDisk)->exists($attachment->file_path)) {
         abort(404);
     }
 
     if ($request->boolean('preview')) {
-        return response()->file(
-            storage_path('app/public/'.$attachment->file_path),
-            [
-                'Content-Disposition' => 'inline; filename="'.$attachment->original_filename.'"',
-                'Content-Type' => $attachment->mime_type,
-            ]
-        );
+        $stream = Storage::disk($storageDisk)->readStream($attachment->file_path);
+        if (! is_resource($stream)) {
+            abort(404);
+        }
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }, 200, [
+            'Content-Disposition' => 'inline; filename="'.$attachment->original_filename.'"',
+            'Content-Type' => $attachment->mime_type,
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
-    return Storage::disk('public')->download($attachment->file_path, $attachment->original_filename);
+    return Storage::disk($storageDisk)->download($attachment->file_path, $attachment->original_filename);
 })->middleware(['auth', 'active', 'consent.accepted'])->name('attachments.download');
 

@@ -52,10 +52,21 @@ class Attachment extends Model
 
     public function delete()
     {
-        if (Storage::disk('public')->exists($this->file_path)) {
-            Storage::disk('public')->delete($this->file_path);
+        $disk = $this->resolvedDisk();
+        if (Storage::disk($disk)->exists($this->file_path)) {
+            Storage::disk($disk)->delete($this->file_path);
         }
 
         return parent::delete();
+    }
+
+    public function resolvedDisk(): string
+    {
+        $primaryDisk = (string) config('helpdesk.attachments_disk', 'local');
+        if (Storage::disk($primaryDisk)->exists($this->file_path)) {
+            return $primaryDisk;
+        }
+
+        return 'public';
     }
 }

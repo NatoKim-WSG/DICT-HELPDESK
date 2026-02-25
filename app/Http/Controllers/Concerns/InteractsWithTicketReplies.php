@@ -17,7 +17,7 @@ trait InteractsWithTicketReplies
         }
 
         foreach ($request->file('attachments') as $file) {
-            $path = $file->store('attachments', 'public');
+            $path = $file->store('attachments', (string) config('helpdesk.attachments_disk', 'local'));
 
             $attachable->attachments()->create([
                 'filename' => basename($path),

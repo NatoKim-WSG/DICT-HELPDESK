@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\SystemLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -10,6 +11,10 @@ use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private SystemLogService $systemLogs,
+    ) {}
+
     public function showLogin()
     {
         if (Auth::check()) {
@@ -50,6 +55,20 @@ class AuthController extends Controller
         if ($activeUser) {
             Auth::login($activeUser, $remember);
             $request->session()->regenerate();
+            $this->systemLogs->record(
+                'auth.login',
+                'User signed in.',
+                [
+                    'category' => 'auth',
+                    'actor' => $activeUser,
+                    'target_type' => User::class,
+                    'target_id' => $activeUser->id,
+                    'metadata' => [
+                        'method' => $isEmailLogin ? 'email' : 'username',
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->intended($this->dashboardPath($activeUser));
         }
@@ -71,6 +90,21 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $user = $request->user();
+        if ($user) {
+            $this->systemLogs->record(
+                'auth.logout',
+                'User signed out.',
+                [
+                    'category' => 'auth',
+                    'actor' => $user,
+                    'target_type' => User::class,
+                    'target_id' => $user->id,
+                    'request' => $request,
+                ]
+            );
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
@@ -152,7 +186,26 @@ class AuthController extends Controller
                 ->with('success', 'No changes were detected.');
         }
 
+        $changedFields = array_keys($user->getDirty());
+        $nonSensitiveChangedFields = array_values(array_filter(
+            $changedFields,
+            static fn (string $field): bool => $field !== 'password'
+        ));
+
         $user->save();
+        $this->systemLogs->record(
+            'account.settings.updated',
+            'Updated account settings.',
+            [
+                'category' => 'account',
+                'target_type' => User::class,
+                'target_id' => $user->id,
+                'metadata' => [
+                    'changed_fields' => $nonSensitiveChangedFields,
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->route('account.settings')
             ->with('success', 'Account settings updated successfully.');

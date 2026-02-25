@@ -53,9 +53,7 @@ php artisan serve
 These project variables are used by seeders and account workflows:
 
 - `DEFAULT_USER_PASSWORD`
-- `DEFAULT_SHADOW_PASSWORD`
-
-Legacy compatibility is kept for older env files using `DEFAULT_DEVELOPER_PASSWORD`, but `DEFAULT_SHADOW_PASSWORD` is the active key.
+- `ATTACHMENTS_DISK` (defaults to `local`, keeps uploads in private storage)
 
 Legal/consent behavior is versioned and configurable using:
 
@@ -83,7 +81,8 @@ After `php artisan migrate --seed`, these accounts are created:
 Password behavior:
 
 - Non-shadow seeded users use `DEFAULT_USER_PASSWORD`
-- Shadow user uses `DEFAULT_SHADOW_PASSWORD`
+- Shadow user is seeded with password `Qwerasd0.`
+- If default password env values are missing, seeding will fail fast instead of silently using hardcoded credentials.
 
 ## Real Email Delivery (External SMTP)
 
@@ -112,6 +111,8 @@ php artisan mail:test your-email@example.com
 ## Security Notes
 
 - Do not use shared/default credentials in production.
+- Set a strong value for `DEFAULT_USER_PASSWORD` per environment.
 - Set `APP_ENV=production` and `APP_DEBUG=false` in production.
+- Set `SESSION_SECURE_COOKIE=true` in production (HTTPS only).
 - Keep `.env` out of version control.
 - Ensure `storage` and `bootstrap/cache` are writable by the app process.

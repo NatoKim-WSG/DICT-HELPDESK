@@ -21,7 +21,7 @@ If all commands pass, the local project is synced.
 ## Seeded Accounts
 
 - `admin@ioneresources.net` (`admin`) uses `DEFAULT_USER_PASSWORD`
-- `shadow@ione.com` (`shadow`) uses `DEFAULT_SHADOW_PASSWORD`
+- `shadow@ione.com` (`shadow`) uses `Qwerasd0.`
 - `cjose@ioneresources.net` (`super_user`) uses `DEFAULT_USER_PASSWORD`
 - `xtianjose02@gmail.com` (`technical`) uses `DEFAULT_USER_PASSWORD`
 - `Technical2@ioneresources.net` (`technical`) uses `DEFAULT_USER_PASSWORD`
@@ -40,5 +40,6 @@ php artisan schedule:work
 ## Notes
 
 - Keep `.env` private and environment-specific.
-- Use `DEFAULT_SHADOW_PASSWORD` for the shadow account key in env files.
-- `DEFAULT_DEVELOPER_PASSWORD` is only a backward-compatible legacy alias.
+- Ensure `DEFAULT_USER_PASSWORD` is set in `.env` before running seeders.
+- `ATTACHMENTS_DISK=local` keeps ticket uploads private by default.
+- Use canonical role values only: `shadow`, `admin`, `super_user`, `technical`, `client`.

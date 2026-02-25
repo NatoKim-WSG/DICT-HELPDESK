@@ -257,7 +257,6 @@ class TicketEmailAlertService
         return [
             User::ROLE_SHADOW,
             User::ROLE_ADMIN,
-            User::LEGACY_ROLE_SUPER_ADMIN,
             User::ROLE_SUPER_USER,
         ];
     }

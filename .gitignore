@@ -9,6 +9,8 @@
 /storage/logs/*
 /storage/app/public/attachments/*
 !/storage/app/public/attachments/.gitignore
+/storage/app/private/attachments/*
+!/storage/app/private/attachments/.gitignore
 /bootstrap/cache/*.php
 /vendor
 .env

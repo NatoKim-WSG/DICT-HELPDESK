@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
+use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +22,7 @@ class TicketController extends Controller
 
     public function __construct(
         private TicketEmailAlertService $ticketEmailAlerts,
+        private SystemLogService $systemLogs,
     ) {}
 
     public function index(Request $request)
@@ -100,6 +102,22 @@ class TicketController extends Controller
 
         $this->persistAttachmentsFromRequest($request, $ticket);
         $this->ticketEmailAlerts->notifySuperUsersAboutNewTicket($ticket);
+        $this->systemLogs->record(
+            'ticket.created',
+            'Created a support ticket.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'priority' => $ticket->priority,
+                    'status' => $ticket->status,
+                    'category_id' => (int) $ticket->category_id,
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->route('client.tickets.show', $ticket)
             ->with('success', 'Ticket created successfully!');
@@ -262,11 +280,27 @@ class TicketController extends Controller
             'is_internal' => false,
         ]);
 
+        $previousStatus = $ticket->status;
         $ticket->update([
             'status' => 'closed',
             'resolved_at' => null,
             'closed_at' => now(),
         ]);
+        $this->systemLogs->record(
+            'ticket.closed_by_client',
+            'Client closed a ticket.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_status' => $previousStatus,
+                    'new_status' => 'closed',
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->back()->with('success', 'Ticket closed successfully with your reason.');
     }
@@ -280,6 +314,7 @@ class TicketController extends Controller
         }
 
         if ($ticket->status !== 'resolved') {
+            $previousStatus = $ticket->status;
             TicketReply::create([
                 'ticket_id' => $ticket->id,
                 'user_id' => auth()->id(),
@@ -292,6 +327,21 @@ class TicketController extends Controller
                 'resolved_at' => now(),
                 'closed_at' => null,
             ]);
+            $this->systemLogs->record(
+                'ticket.resolved_by_client',
+                'Client marked a ticket as resolved.',
+                [
+                    'category' => 'ticket',
+                    'target_type' => Ticket::class,
+                    'target_id' => $ticket->id,
+                    'metadata' => [
+                        'ticket_number' => $ticket->ticket_number,
+                        'previous_status' => $previousStatus,
+                        'new_status' => 'resolved',
+                    ],
+                    'request' => request(),
+                ]
+            );
         }
 
         return redirect()->back()->with('success', 'Ticket marked as resolved.');
@@ -310,6 +360,20 @@ class TicketController extends Controller
             'satisfaction_rating' => $request->rating,
             'satisfaction_comment' => $request->comment,
         ]);
+        $this->systemLogs->record(
+            'ticket.rating.submitted',
+            'Submitted ticket satisfaction rating.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'rating' => (int) $request->integer('rating'),
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->back()->with('success', 'Rating submitted successfully!');
     }

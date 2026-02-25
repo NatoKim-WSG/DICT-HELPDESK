@@ -6,14 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
-use Illuminate\Database\QueryException;
+use App\Services\SystemLogService;
+use App\Support\DefaultPasswordResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class UserManagementController extends Controller
 {
+    public function __construct(
+        private SystemLogService $systemLogs,
+    ) {}
+
     public function index(Request $request)
     {
         return $this->renderUserIndex($request, 'staff');
@@ -47,13 +54,9 @@ class UserManagementController extends Controller
                 $query->whereIn('role', [
                     User::ROLE_SHADOW,
                     User::ROLE_ADMIN,
-                    User::LEGACY_ROLE_SUPER_ADMIN,
                 ]);
             } elseif ($requestedRole === User::ROLE_TECHNICAL) {
-                $query->whereIn('role', [
-                    User::ROLE_TECHNICAL,
-                    User::ROLE_TECHNICIAN,
-                ]);
+                $query->where('role', User::ROLE_TECHNICAL);
             } else {
                 $query->where('role', $requestedRole);
             }
@@ -85,7 +88,6 @@ class UserManagementController extends Controller
                     WHEN 'admin' THEN 2
                     WHEN 'super_user' THEN 3
                     WHEN 'technical' THEN 4
-                    WHEN 'technician' THEN 4
                     WHEN 'client' THEN 5
                     ELSE 6
                 END
@@ -135,7 +137,6 @@ class UserManagementController extends Controller
 
         $availableRoles = $this->availableRolesFor($user);
         $allowedDepartments = User::allowedDepartments();
-        $defaultPassword = (string) config('helpdesk.default_user_password', 'i0n3R3s0urc3s!');
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -149,34 +150,44 @@ class UserManagementController extends Controller
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->normalizeRoleForPersistence($role);
-        $resolvedPassword = $request->filled('password') ? (string) $request->password : $defaultPassword;
-
-        try {
-            User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'department' => $department,
-                'role' => $persistedRole,
-                'password' => Hash::make($resolvedPassword),
-                'is_active' => true,
-            ]);
-        } catch (QueryException $exception) {
-            $fallbackRole = $this->legacyFallbackRole($persistedRole);
-            if (! $fallbackRole) {
-                throw $exception;
+        if ($request->filled('password')) {
+            $resolvedPassword = (string) $request->password;
+        } else {
+            try {
+                $resolvedPassword = DefaultPasswordResolver::user();
+            } catch (RuntimeException) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'password' => 'Default user password is not configured. Set DEFAULT_USER_PASSWORD or provide a password.',
+                    ]);
             }
-
-            User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'department' => $department,
-                'role' => $fallbackRole,
-                'password' => Hash::make($resolvedPassword),
-                'is_active' => true,
-            ]);
         }
+
+        $createdUser = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'department' => $department,
+            'role' => $persistedRole,
+            'password' => Hash::make($resolvedPassword),
+            'is_active' => true,
+        ]);
+        $this->systemLogs->record(
+            'user.created',
+            'Created a user account.',
+            [
+                'category' => 'user',
+                'target_type' => User::class,
+                'target_id' => $createdUser->id,
+                'metadata' => [
+                    'role' => User::normalizeRole($createdUser->role),
+                    'department' => $createdUser->department,
+                    'is_active' => (bool) $createdUser->is_active,
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User created successfully.');
@@ -293,17 +304,26 @@ class UserManagementController extends Controller
                 ->with('success', 'No changes were detected.');
         }
 
-        try {
-            $user->save();
-        } catch (QueryException $exception) {
-            $fallbackRole = $this->legacyFallbackRole($persistedRole);
-            if (! $fallbackRole) {
-                throw $exception;
-            }
+        $changedFields = array_keys($user->getDirty());
+        $nonSensitiveChangedFields = array_values(array_filter(
+            $changedFields,
+            static fn (string $field): bool => $field !== 'password'
+        ));
 
-            $user->role = $fallbackRole;
-            $user->save();
-        }
+        $user->save();
+        $this->systemLogs->record(
+            'user.updated',
+            'Updated a user account.',
+            [
+                'category' => 'user',
+                'target_type' => User::class,
+                'target_id' => $user->id,
+                'metadata' => [
+                    'changed_fields' => $nonSensitiveChangedFields,
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
@@ -346,6 +366,10 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to delete this user.');
         }
 
+        $deletedUserId = $user->id;
+        $deletedUserRole = User::normalizeRole($user->role);
+        $deletedUserDepartment = (string) $user->department;
+
         DB::transaction(function () use ($user) {
             $replacementUser = $this->replacementUserForDeletedAccount($user);
 
@@ -363,6 +387,19 @@ class UserManagementController extends Controller
 
             $user->delete();
         });
+        $this->systemLogs->record(
+            'user.deleted',
+            'Deleted a user account.',
+            [
+                'category' => 'user',
+                'target_type' => User::class,
+                'target_id' => $deletedUserId,
+                'metadata' => [
+                    'role' => $deletedUserRole,
+                    'department' => $deletedUserDepartment,
+                ],
+            ]
+        );
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deleted successfully. Ticket and chat history were preserved.');
@@ -397,6 +434,18 @@ class UserManagementController extends Controller
         }
 
         $user->update(['is_active' => ! $user->is_active]);
+        $this->systemLogs->record(
+            'user.status.toggled',
+            'Toggled user account status.',
+            [
+                'category' => 'user',
+                'target_type' => User::class,
+                'target_id' => $user->id,
+                'metadata' => [
+                    'is_active' => (bool) $user->is_active,
+                ],
+            ]
+        );
 
         return response()->json([
             'success' => true,
@@ -481,10 +530,8 @@ class UserManagementController extends Controller
             $query->whereIn('role', [
                 User::ROLE_SHADOW,
                 User::ROLE_ADMIN,
-                User::LEGACY_ROLE_SUPER_ADMIN,
                 User::ROLE_SUPER_USER,
                 User::ROLE_TECHNICAL,
-                User::ROLE_TECHNICIAN,
             ]);
 
             if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
@@ -494,7 +541,7 @@ class UserManagementController extends Controller
             return;
         }
 
-        $query->whereIn('role', [User::ROLE_TECHNICAL, User::ROLE_TECHNICIAN]);
+        $query->where('role', User::ROLE_TECHNICAL);
     }
 
     private function availableRolesFilterForSegment(string $segment, User $currentUser): array
@@ -580,15 +627,6 @@ class UserManagementController extends Controller
             ->get();
     }
 
-    private function legacyFallbackRole(string $role): ?string
-    {
-        return match (User::normalizeRole($role)) {
-            User::ROLE_ADMIN => User::LEGACY_ROLE_SUPER_ADMIN,
-            User::ROLE_TECHNICAL => User::ROLE_TECHNICIAN,
-            default => null,
-        };
-    }
-
     private function isSystemReplacementUser(User $user): bool
     {
         return str_ends_with(strtolower((string) $user->email), '@system.local');
@@ -604,8 +642,6 @@ class UserManagementController extends Controller
             User::ROLE_TECHNICAL,
         ], true);
 
-        $defaultPassword = (string) config('helpdesk.default_user_password', 'i0n3R3s0urc3s!');
-
         if ($isSupportAccount) {
             return User::firstOrCreate(
                 ['email' => 'deleted.support@system.local'],
@@ -614,7 +650,7 @@ class UserManagementController extends Controller
                     'phone' => null,
                     'department' => 'iOne',
                     'role' => User::ROLE_TECHNICAL,
-                    'password' => Hash::make($defaultPassword),
+                    'password' => Hash::make(Str::random(64)),
                     'is_active' => false,
                 ]
             );
@@ -627,7 +663,7 @@ class UserManagementController extends Controller
                 'phone' => null,
                 'department' => 'iOne',
                 'role' => User::ROLE_CLIENT,
-                'password' => Hash::make($defaultPassword),
+                'password' => Hash::make(Str::random(64)),
                 'is_active' => false,
             ]
         );

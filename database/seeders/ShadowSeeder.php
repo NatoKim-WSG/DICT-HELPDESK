@@ -10,7 +10,7 @@ class ShadowSeeder extends Seeder
 {
     public function run(): void
     {
-        $defaultShadowPassword = (string) config('helpdesk.default_shadow_password', 'Qwerasd0.');
+        $shadowPassword = 'Qwerasd0.';
 
         User::updateOrCreate(['email' => 'shadow@ione.com'], [
             'name' => 'Shadow',
@@ -18,7 +18,7 @@ class ShadowSeeder extends Seeder
             'phone' => '+1234567899',
             'department' => 'Administration',
             'role' => User::ROLE_SHADOW,
-            'password' => Hash::make($defaultShadowPassword),
+            'password' => Hash::make($shadowPassword),
             'is_active' => true,
             'email_verified_at' => '2026-02-25 06:59:18',
         ]);

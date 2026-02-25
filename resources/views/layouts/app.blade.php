@@ -26,6 +26,7 @@
                 str_starts_with($tabRouteName, 'admin.tickets.') => 'Tickets',
                 str_starts_with($tabRouteName, 'admin.reports.') => 'Reports',
                 str_starts_with($tabRouteName, 'admin.users.') => 'Users',
+                str_starts_with($tabRouteName, 'admin.system-logs.') => 'System Logs',
                 str_starts_with($tabRouteName, 'client.dashboard') => 'Dashboard',
                 str_starts_with($tabRouteName, 'client.tickets.create') => 'New Ticket',
                 str_starts_with($tabRouteName, 'client.tickets.show') => isset($ticket) ? 'Ticket #' . $ticket->ticket_number : 'Ticket Details',

@@ -10,6 +10,7 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,7 @@ class TicketController extends Controller
 
     public function __construct(
         private TicketEmailAlertService $ticketEmailAlerts,
+        private SystemLogService $systemLogs,
     ) {}
 
     public function index(Request $request)
@@ -214,6 +216,21 @@ class TicketController extends Controller
             'assigned_to' => $newAssignedTo,
             ...$this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo),
         ]);
+        $this->systemLogs->record(
+            'ticket.assignment.updated',
+            'Updated ticket assignment.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_assigned_to' => $previousAssignedTo,
+                    'assigned_to' => $newAssignedTo,
+                ],
+                'request' => $request,
+            ]
+        );
 
         $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
 
@@ -250,6 +267,21 @@ class TicketController extends Controller
 
         $ticket->update($updateData);
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
+        $this->systemLogs->record(
+            'ticket.status.updated',
+            'Updated ticket status.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_status' => $previousStatus,
+                    'new_status' => $nextStatus,
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->back()->with('success', 'Ticket status updated successfully!');
     }
@@ -264,7 +296,23 @@ class TicketController extends Controller
             return redirect()->back()->with('success', 'No changes were detected.');
         }
 
+        $previousPriority = $ticket->priority;
         $ticket->update(['priority' => $request->priority]);
+        $this->systemLogs->record(
+            'ticket.priority.updated',
+            'Updated ticket priority.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_priority' => $previousPriority,
+                    'new_priority' => $request->string('priority')->toString(),
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->back()->with('success', 'Ticket priority updated successfully!');
     }
@@ -384,7 +432,23 @@ class TicketController extends Controller
             return redirect()->back()->with('success', 'No changes were detected.');
         }
 
+        $previousDueDate = optional($ticket->due_date)->toDateTimeString();
         $ticket->update(['due_date' => $request->due_date]);
+        $this->systemLogs->record(
+            'ticket.due_date.updated',
+            'Updated ticket due date.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_due_date' => $previousDueDate,
+                    'new_due_date' => optional($ticket->fresh()->due_date)->toDateTimeString(),
+                ],
+                'request' => $request,
+            ]
+        );
 
         return redirect()->back()->with('success', 'Due date set successfully!');
     }
@@ -434,6 +498,25 @@ class TicketController extends Controller
         $ticket->update($updateData);
         $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
+        $this->systemLogs->record(
+            'ticket.quick_update',
+            'Applied quick ticket update.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_assigned_to' => $previousAssignedTo,
+                    'assigned_to' => $newAssignedTo,
+                    'previous_status' => $previousStatus,
+                    'new_status' => $nextStatus,
+                    'previous_priority' => $previousPriority,
+                    'new_priority' => $nextPriority,
+                ],
+                'request' => $request,
+            ]
+        );
 
         if ($previousAssignedTo !== $newAssignedTo && $newAssignedTo !== null) {
             $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
@@ -450,6 +533,9 @@ class TicketController extends Controller
             abort(403, 'Only admins can delete tickets.');
         }
 
+        $ticketNumber = $ticket->ticket_number;
+        $ticketId = $ticket->id;
+
         DB::transaction(function () use ($ticket) {
             $ticket->attachments()->get()->each->delete();
             $ticket->replies()->with('attachments')->get()->each(function ($reply) {
@@ -458,6 +544,18 @@ class TicketController extends Controller
             });
             $ticket->delete();
         });
+        $this->systemLogs->record(
+            'ticket.deleted',
+            'Deleted a ticket.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticketId,
+                'metadata' => [
+                    'ticket_number' => $ticketNumber,
+                ],
+            ]
+        );
 
         return redirect()->route('admin.tickets.index')->with('success', 'Ticket deleted successfully.');
     }
@@ -507,6 +605,7 @@ class TicketController extends Controller
         }
 
         if ($action === 'delete') {
+            $ticketNumbers = $tickets->pluck('ticket_number')->values()->all();
             DB::transaction(function () use ($tickets) {
                 $tickets->each(function ($ticket) {
                     $ticket->attachments()->get()->each->delete();
@@ -517,6 +616,18 @@ class TicketController extends Controller
                     $ticket->delete();
                 });
             });
+            $this->systemLogs->record(
+                'ticket.bulk.delete',
+                'Deleted tickets in bulk.',
+                [
+                    'category' => 'ticket',
+                    'metadata' => [
+                        'ticket_ids' => $selectedIds->all(),
+                        'ticket_numbers' => $ticketNumbers,
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->back()->with('success', 'Selected tickets deleted successfully.');
         }
@@ -539,6 +650,18 @@ class TicketController extends Controller
                     $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
                 }
             });
+            $this->systemLogs->record(
+                'ticket.bulk.assign',
+                'Assigned tickets in bulk.',
+                [
+                    'category' => 'ticket',
+                    'metadata' => [
+                        'ticket_ids' => $selectedIds->all(),
+                        'assigned_to' => $newAssignedTo,
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->back()->with('success', 'Selected tickets assigned successfully.');
         }
@@ -568,6 +691,18 @@ class TicketController extends Controller
                     $this->recordStatusClosureReason($ticket, $ticket->status, 'closed', $closeReason);
                 });
             }
+            $this->systemLogs->record(
+                'ticket.bulk.status',
+                'Updated ticket statuses in bulk.',
+                [
+                    'category' => 'ticket',
+                    'metadata' => [
+                        'ticket_ids' => $selectedIds->all(),
+                        'status' => $newStatus,
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->back()->with('success', 'Selected ticket statuses updated.');
         }
@@ -578,6 +713,18 @@ class TicketController extends Controller
             }
 
             Ticket::whereIn('id', $selectedIds)->update(['priority' => $request->string('priority')->toString()]);
+            $this->systemLogs->record(
+                'ticket.bulk.priority',
+                'Updated ticket priorities in bulk.',
+                [
+                    'category' => 'ticket',
+                    'metadata' => [
+                        'ticket_ids' => $selectedIds->all(),
+                        'priority' => $request->string('priority')->toString(),
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->back()->with('success', 'Selected ticket priorities updated.');
         }
@@ -611,6 +758,22 @@ class TicketController extends Controller
                     ]);
                 }
             });
+            $this->systemLogs->record(
+                'ticket.bulk.merge',
+                'Merged tickets.',
+                [
+                    'category' => 'ticket',
+                    'target_type' => Ticket::class,
+                    'target_id' => $primary->id,
+                    'metadata' => [
+                        'primary_ticket_id' => $primary->id,
+                        'primary_ticket_number' => $primary->ticket_number,
+                        'merged_ticket_ids' => $others->pluck('id')->values()->all(),
+                        'merged_ticket_numbers' => $others->pluck('ticket_number')->values()->all(),
+                    ],
+                    'request' => $request,
+                ]
+            );
 
             return redirect()->route('admin.tickets.show', $primary)->with('success', 'Tickets merged successfully.');
         }

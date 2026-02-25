@@ -25,6 +25,10 @@
         if ($canManageConsole) {
             $menuItems[] = ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false];
         }
+
+        if ($user->isShadow()) {
+            $menuItems[] = ['label' => 'System Logs', 'icon' => 'book', 'href' => route('admin.system-logs.index'), 'active' => request()->routeIs('admin.system-logs.*'), 'disabled' => false];
+        }
     } else {
         $menuItems = [
             ['label' => 'New Ticket', 'icon' => 'plus', 'href' => route('client.tickets.create'), 'active' => request()->routeIs('client.tickets.create'), 'disabled' => false],

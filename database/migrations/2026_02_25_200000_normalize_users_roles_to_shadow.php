@@ -11,25 +11,27 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'sqlite') {
-            $this->rebuildSqliteUsersTableForUp();
+            $this->rebuildSqliteUsersTableForCanonicalRoles();
 
             return;
         }
 
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'admin', 'super_user', 'technical', 'technician', 'super_admin') NOT NULL DEFAULT 'client'");
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'shadow', 'admin', 'super_user', 'technical', 'technician', 'super_admin') NOT NULL DEFAULT 'client'");
+            DB::table('users')->where('role', 'developer')->update(['role' => 'shadow']);
             DB::table('users')->where('role', 'super_admin')->update(['role' => 'admin']);
             DB::table('users')->where('role', 'technician')->update(['role' => 'technical']);
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'admin', 'super_user', 'technical') NOT NULL DEFAULT 'client'");
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'shadow', 'admin', 'super_user', 'technical') NOT NULL DEFAULT 'client'");
 
             return;
         }
 
         if ($driver === 'pgsql') {
             DB::statement('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
+            DB::table('users')->where('role', 'developer')->update(['role' => 'shadow']);
             DB::table('users')->where('role', 'super_admin')->update(['role' => 'admin']);
             DB::table('users')->where('role', 'technician')->update(['role' => 'technical']);
-            DB::statement("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role::text = ANY (ARRAY['client'::text, 'developer'::text, 'admin'::text, 'super_user'::text, 'technical'::text]))");
+            DB::statement("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role::text = ANY (ARRAY['client'::text, 'shadow'::text, 'admin'::text, 'super_user'::text, 'technical'::text]))");
         }
     }
 
@@ -38,31 +40,27 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'sqlite') {
-            $this->rebuildSqliteUsersTableForDown();
+            $this->rebuildSqliteUsersTableForPreShadowRoles();
 
             return;
         }
 
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'admin', 'super_user', 'technical', 'technician', 'super_admin') NOT NULL DEFAULT 'client'");
-            DB::table('users')->where('role', 'developer')->update(['role' => 'super_admin']);
-            DB::table('users')->where('role', 'admin')->update(['role' => 'super_admin']);
-            DB::table('users')->where('role', 'technician')->update(['role' => 'technical']);
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'super_user', 'technical', 'super_admin') NOT NULL DEFAULT 'client'");
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'shadow', 'admin', 'super_user', 'technical', 'technician', 'super_admin') NOT NULL DEFAULT 'client'");
+            DB::table('users')->where('role', 'shadow')->update(['role' => 'developer']);
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('client', 'developer', 'admin', 'super_user', 'technical') NOT NULL DEFAULT 'client'");
 
             return;
         }
 
         if ($driver === 'pgsql') {
             DB::statement('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
-            DB::table('users')->where('role', 'developer')->update(['role' => 'super_admin']);
-            DB::table('users')->where('role', 'admin')->update(['role' => 'super_admin']);
-            DB::table('users')->where('role', 'technician')->update(['role' => 'technical']);
-            DB::statement("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role::text = ANY (ARRAY['client'::text, 'super_user'::text, 'technical'::text, 'super_admin'::text]))");
+            DB::table('users')->where('role', 'shadow')->update(['role' => 'developer']);
+            DB::statement("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role::text = ANY (ARRAY['client'::text, 'developer'::text, 'admin'::text, 'super_user'::text, 'technical'::text]))");
         }
     }
 
-    private function rebuildSqliteUsersTableForUp(): void
+    private function rebuildSqliteUsersTableForCanonicalRoles(): void
     {
         DB::statement('PRAGMA foreign_keys = OFF');
 
@@ -80,11 +78,11 @@ return new class extends Migration
                     remember_token VARCHAR NULL,
                     created_at DATETIME NULL,
                     updated_at DATETIME NULL,
-                    role VARCHAR NOT NULL DEFAULT "client" CHECK (role IN ("client", "developer", "admin", "super_user", "technical"))
+                    role VARCHAR NOT NULL DEFAULT "client" CHECK (role IN ("client", "shadow", "admin", "super_user", "technical"))
                 )
             ');
 
-            DB::statement("
+            DB::statement('
                 INSERT INTO users_new (
                     id, name, email, phone, department, email_verified_at, password,
                     is_active, remember_token, created_at, updated_at, role
@@ -102,13 +100,14 @@ return new class extends Migration
                     created_at,
                     updated_at,
                     CASE
-                        WHEN role = 'super_admin' THEN 'admin'
-                        WHEN role = 'technician' THEN 'technical'
-                        WHEN role IN ('client', 'developer', 'admin', 'super_user', 'technical') THEN role
-                        ELSE 'client'
+                        WHEN role = "developer" THEN "shadow"
+                        WHEN role = "super_admin" THEN "admin"
+                        WHEN role = "technician" THEN "technical"
+                        WHEN role IN ("client", "shadow", "admin", "super_user", "technical") THEN role
+                        ELSE "client"
                     END
                 FROM users
-            ");
+            ');
 
             DB::statement('DROP TABLE users');
             DB::statement('ALTER TABLE users_new RENAME TO users');
@@ -117,7 +116,7 @@ return new class extends Migration
         DB::statement('PRAGMA foreign_keys = ON');
     }
 
-    private function rebuildSqliteUsersTableForDown(): void
+    private function rebuildSqliteUsersTableForPreShadowRoles(): void
     {
         DB::statement('PRAGMA foreign_keys = OFF');
 
@@ -135,7 +134,7 @@ return new class extends Migration
                     remember_token VARCHAR NULL,
                     created_at DATETIME NULL,
                     updated_at DATETIME NULL,
-                    role VARCHAR NOT NULL DEFAULT "client" CHECK (role IN ("client", "super_user", "technical", "super_admin"))
+                    role VARCHAR NOT NULL DEFAULT "client" CHECK (role IN ("client", "developer", "admin", "super_user", "technical"))
                 )
             ');
 
@@ -157,9 +156,8 @@ return new class extends Migration
                     created_at,
                     updated_at,
                     CASE
-                        WHEN role IN ("developer", "admin") THEN "super_admin"
-                        WHEN role = "technician" THEN "technical"
-                        WHEN role IN ("client", "super_user", "technical", "super_admin") THEN role
+                        WHEN role = "shadow" THEN "developer"
+                        WHEN role IN ("client", "developer", "admin", "super_user", "technical") THEN role
                         ELSE "client"
                     END
                 FROM users
