@@ -109,7 +109,7 @@
                         @enderror
                         @if(auth()->user()->isSuperAdmin())
                             <p class="mt-2 text-sm text-gray-500">
-                                As a super admin, you can create super user and technical users.
+                                As an admin, you can create admin, super user, technical, and client users.
                             </p>
                         @else
                             <p class="mt-2 text-sm text-gray-500">
@@ -121,12 +121,13 @@
                     <!-- Password -->
                     <div class="sm:col-span-1">
                         <label for="password" class="block text-sm font-medium text-gray-700">
-                            Password <span class="text-red-500">*</span>
+                            Password
                         </label>
                         <div class="mt-1">
-                            <input type="password" name="password" id="password" required
+                            <input type="password" name="password" id="password"
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('password') border-red-300 @enderror">
                         </div>
+                        <p class="mt-2 text-sm text-gray-500">Leave blank to use the default account password.</p>
                         @error('password')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -135,10 +136,10 @@
                     <!-- Password Confirmation -->
                     <div class="sm:col-span-1">
                         <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                            Confirm Password <span class="text-red-500">*</span>
+                            Confirm Password
                         </label>
                         <div class="mt-1">
-                            <input type="password" name="password_confirmation" id="password_confirmation" required
+                            <input type="password" name="password_confirmation" id="password_confirmation"
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
                         </div>
                     </div>
@@ -166,14 +167,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const syncDepartmentByRole = function () {
         const role = roleSelect.value;
-        const isInternal = role === 'super_user' || role === 'technical' || role === 'super_admin';
+        const isInternal = role === 'developer' || role === 'admin' || role === 'super_user' || role === 'technical';
 
         if (isInternal) {
             departmentSelect.value = 'iOne';
             departmentSelect.disabled = true;
             departmentHidden.value = 'iOne';
             departmentHidden.disabled = false;
-            hint.textContent = 'Internal users (Super User/Technical) are automatically assigned to iOne.';
+            hint.textContent = 'Internal users are automatically assigned to iOne.';
             return;
         }
 

@@ -99,7 +99,7 @@
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('role') border-red-300 @enderror">
                                 <option value="">Select a role</option>
                                 @foreach($availableRoles as $role)
-                                    <option value="{{ $role }}" {{ old('role', $user->role) === $role ? 'selected' : '' }}>
+                                    <option value="{{ $role }}" {{ old('role', $user->normalizedRole()) === $role ? 'selected' : '' }}>
                                         {{ ucfirst(str_replace('_', ' ', $role)) }}
                                     </option>
                                 @endforeach
@@ -156,7 +156,7 @@
                     @else
                         <div class="sm:col-span-2">
                             <p class="mt-2 text-sm text-gray-500">
-                                Password changes for client accounts are restricted to Super Admins.
+                                Password changes for client accounts are restricted to admins.
                             </p>
                         </div>
                     @endif
@@ -184,14 +184,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const syncDepartmentByRole = function () {
         const role = roleSelect.value;
-        const isInternal = role === 'super_user' || role === 'technical' || role === 'super_admin';
+        const isInternal = role === 'developer' || role === 'admin' || role === 'super_user' || role === 'technical';
 
         if (isInternal) {
             departmentSelect.value = 'iOne';
             departmentSelect.disabled = true;
             departmentHidden.value = 'iOne';
             departmentHidden.disabled = false;
-            hint.textContent = 'Internal users (Super User/Technical) are automatically assigned to iOne.';
+            hint.textContent = 'Internal users are automatically assigned to iOne.';
             return;
         }
 

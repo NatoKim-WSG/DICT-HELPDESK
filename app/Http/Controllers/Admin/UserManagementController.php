@@ -28,7 +28,7 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (! $currentUser->isSuperAdmin()) {
+        if (! $this->canManageStaffAccounts($currentUser)) {
             $segment = 'clients';
         }
 
@@ -41,7 +41,22 @@ class UserManagementController extends Controller
         $this->applySegmentScope($departmentsQuery, $segment, $currentUser);
 
         if ($request->filled('role') && $request->role !== 'all') {
-            $query->where('role', $request->role);
+            $requestedRole = User::normalizeRole($request->string('role')->toString());
+
+            if ($requestedRole === User::ROLE_ADMIN) {
+                $query->whereIn('role', [
+                    User::ROLE_DEVELOPER,
+                    User::ROLE_ADMIN,
+                    User::LEGACY_ROLE_SUPER_ADMIN,
+                ]);
+            } elseif ($requestedRole === User::ROLE_TECHNICAL) {
+                $query->whereIn('role', [
+                    User::ROLE_TECHNICAL,
+                    User::ROLE_TECHNICIAN,
+                ]);
+            } else {
+                $query->where('role', $requestedRole);
+            }
         }
 
         if ($request->filled('search')) {
@@ -66,12 +81,12 @@ class UserManagementController extends Controller
         $users = $query
             ->orderByRaw("
                 CASE role
-                    WHEN 'super_admin' THEN 1
-                    WHEN 'super_user' THEN 2
+                    WHEN 'developer' THEN 1
                     WHEN 'admin' THEN 2
-                    WHEN 'technical' THEN 3
-                    WHEN 'technician' THEN 3
-                    WHEN 'client' THEN 4
+                    WHEN 'super_user' THEN 3
+                    WHEN 'technical' THEN 4
+                    WHEN 'technician' THEN 4
+                    WHEN 'client' THEN 5
                     ELSE 6
                 END
             ")
@@ -93,7 +108,9 @@ class UserManagementController extends Controller
         $segmentTitle = $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts';
         $segmentDescription = $segment === 'clients'
             ? 'Manage client accounts separately from internal staff.'
-            : 'Manage internal super user and technical accounts.';
+            : ($currentUser->normalizedRole() === User::ROLE_ADMIN
+                ? 'Manage internal admin, super user, and technical accounts.'
+                : 'Manage internal admin, super user, and technical accounts.');
 
         return view('admin.users.index', compact(
             'users',
@@ -118,6 +135,7 @@ class UserManagementController extends Controller
 
         $availableRoles = $this->availableRolesFor($user);
         $allowedDepartments = User::allowedDepartments();
+        $defaultPassword = (string) config('helpdesk.default_user_password', 'i0n3R3s0urc3s!');
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -125,12 +143,13 @@ class UserManagementController extends Controller
             'phone' => 'required|string|max:20',
             'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'nullable|string|min:8|confirmed',
         ]);
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->normalizeRoleForPersistence($role);
+        $resolvedPassword = $request->filled('password') ? (string) $request->password : $defaultPassword;
 
         try {
             User::create([
@@ -139,7 +158,7 @@ class UserManagementController extends Controller
                 'phone' => $request->phone,
                 'department' => $department,
                 'role' => $persistedRole,
-                'password' => Hash::make($request->password),
+                'password' => Hash::make($resolvedPassword),
                 'is_active' => true,
             ]);
         } catch (QueryException $exception) {
@@ -154,7 +173,7 @@ class UserManagementController extends Controller
                 'phone' => $request->phone,
                 'department' => $department,
                 'role' => $fallbackRole,
-                'password' => Hash::make($request->password),
+                'password' => Hash::make($resolvedPassword),
                 'is_active' => true,
             ]);
         }
@@ -172,7 +191,7 @@ class UserManagementController extends Controller
                 ->with('error', 'System archive users cannot be accessed from user management.');
         }
 
-        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
+        if ($this->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to view this user.');
         }
@@ -198,7 +217,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
+        if ($this->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -223,7 +242,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
+        if ($this->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -305,14 +324,24 @@ class UserManagementController extends Controller
                 ->with('error', 'You cannot delete your own account.');
         }
 
-        // Super admin users cannot be deleted by anyone
-        if ($user->isSuperAdmin()) {
+        if ($user->isDeveloper()) {
+            if (! $currentUser->isDeveloper()) {
+                return redirect()->route('admin.users.index')
+                    ->with('error', 'You do not have permission to delete this user.');
+            }
+
             return redirect()->route('admin.users.index')
-                ->with('error', 'Super admin users cannot be deleted.');
+                ->with('error', 'This account cannot be deleted.');
+        }
+
+        // Admin users can only be deleted by developers.
+        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isDeveloper()) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Admin users cannot be deleted.');
         }
 
         // Super users can only delete client accounts.
-        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
+        if ($this->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
         }
@@ -351,11 +380,19 @@ class UserManagementController extends Controller
             return response()->json(['error' => 'You cannot deactivate your own account.'], 403);
         }
 
-        if ($user->isSuperAdmin()) {
-            return response()->json(['error' => 'Super admin users cannot be deactivated.'], 403);
+        if ($user->isDeveloper()) {
+            if (! $currentUser->isDeveloper()) {
+                return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
+            }
+
+            return response()->json(['error' => 'This account cannot be deactivated.'], 403);
         }
 
-        if (! $currentUser->isSuperAdmin() && ! $this->isManageableByNonSuperAdmin($user)) {
+        if ($user->normalizedRole() === User::ROLE_ADMIN && ! $currentUser->isDeveloper()) {
+            return response()->json(['error' => 'Admin users cannot be deactivated.'], 403);
+        }
+
+        if ($this->cannotManageTarget($currentUser, $user)) {
             return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
         }
 
@@ -372,7 +409,15 @@ class UserManagementController extends Controller
     {
         $roles = [User::ROLE_CLIENT];
 
-        if ($currentUser->isSuperAdmin()) {
+        if ($currentUser->isDeveloper()) {
+            $roles[] = User::ROLE_ADMIN;
+            $roles[] = User::ROLE_TECHNICAL;
+            $roles[] = User::ROLE_SUPER_USER;
+
+            return $roles;
+        }
+
+        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
             $roles[] = User::ROLE_TECHNICAL;
             $roles[] = User::ROLE_SUPER_USER;
         }
@@ -392,8 +437,12 @@ class UserManagementController extends Controller
 
     private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
     {
-        if ($currentUser->isSuperAdmin()) {
+        if ($currentUser->isDeveloper()) {
             return true;
+        }
+
+        if ($currentUser->isSuperAdmin()) {
+            return ! $targetUser->isDeveloper();
         }
 
         return ! (
@@ -404,6 +453,16 @@ class UserManagementController extends Controller
 
     private function applyVisibilityScope($query, User $currentUser): void
     {
+        if ($currentUser->isDeveloper()) {
+            return;
+        }
+
+        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
+            $query->where('role', '!=', User::ROLE_DEVELOPER);
+
+            return;
+        }
+
         if (! $currentUser->isSuperAdmin()) {
             $query->where('id', '!=', $currentUser->id)
                 ->whereIn('role', $this->manageableRolesForAdmin());
@@ -418,14 +477,19 @@ class UserManagementController extends Controller
             return;
         }
 
-        if ($currentUser->isSuperAdmin()) {
+        if ($this->canManageStaffAccounts($currentUser)) {
             $query->whereIn('role', [
-                User::ROLE_SUPER_ADMIN,
-                User::ROLE_SUPER_USER,
+                User::ROLE_DEVELOPER,
                 User::ROLE_ADMIN,
+                User::LEGACY_ROLE_SUPER_ADMIN,
+                User::ROLE_SUPER_USER,
                 User::ROLE_TECHNICAL,
                 User::ROLE_TECHNICIAN,
             ]);
+
+            if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
+                $query->where('role', '!=', User::ROLE_DEVELOPER);
+            }
 
             return;
         }
@@ -439,13 +503,11 @@ class UserManagementController extends Controller
             return [User::ROLE_CLIENT];
         }
 
-        if ($currentUser->isSuperAdmin()) {
+        if ($this->canManageStaffAccounts($currentUser)) {
             return [
-                User::ROLE_SUPER_ADMIN,
-                User::ROLE_SUPER_USER,
                 User::ROLE_ADMIN,
+                User::ROLE_SUPER_USER,
                 User::ROLE_TECHNICAL,
-                User::ROLE_TECHNICIAN,
             ];
         }
 
@@ -456,7 +518,7 @@ class UserManagementController extends Controller
     {
         $normalizedRole = User::normalizeRole($role);
 
-        if (in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL, User::ROLE_SUPER_ADMIN], true)) {
+        if (in_array($normalizedRole, [User::ROLE_DEVELOPER, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
             return 'iOne';
         }
 
@@ -521,7 +583,8 @@ class UserManagementController extends Controller
     private function legacyFallbackRole(string $role): ?string
     {
         return match (User::normalizeRole($role)) {
-            User::ROLE_SUPER_USER => User::ROLE_ADMIN,
+            User::ROLE_DEVELOPER => User::ROLE_ADMIN,
+            User::ROLE_ADMIN => User::LEGACY_ROLE_SUPER_ADMIN,
             User::ROLE_TECHNICAL => User::ROLE_TECHNICIAN,
             default => null,
         };
@@ -536,10 +599,13 @@ class UserManagementController extends Controller
     {
         $normalizedRole = $deletedUser->normalizedRole();
         $isSupportAccount = in_array($normalizedRole, [
-            User::ROLE_SUPER_ADMIN,
+            User::ROLE_DEVELOPER,
+            User::ROLE_ADMIN,
             User::ROLE_SUPER_USER,
             User::ROLE_TECHNICAL,
         ], true);
+
+        $defaultPassword = (string) config('helpdesk.default_user_password', 'i0n3R3s0urc3s!');
 
         if ($isSupportAccount) {
             return User::firstOrCreate(
@@ -549,7 +615,7 @@ class UserManagementController extends Controller
                     'phone' => null,
                     'department' => 'iOne',
                     'role' => User::ROLE_TECHNICAL,
-                    'password' => Hash::make('password'),
+                    'password' => Hash::make($defaultPassword),
                     'is_active' => false,
                 ]
             );
@@ -562,9 +628,31 @@ class UserManagementController extends Controller
                 'phone' => null,
                 'department' => 'iOne',
                 'role' => User::ROLE_CLIENT,
-                'password' => Hash::make('password'),
+                'password' => Hash::make($defaultPassword),
                 'is_active' => false,
             ]
         );
+    }
+
+    private function canManageStaffAccounts(User $currentUser): bool
+    {
+        return in_array($currentUser->normalizedRole(), [User::ROLE_DEVELOPER, User::ROLE_ADMIN], true);
+    }
+
+    private function cannotManageTarget(User $currentUser, User $targetUser): bool
+    {
+        if ($currentUser->isDeveloper()) {
+            return false;
+        }
+
+        if ($currentUser->normalizedRole() === User::ROLE_ADMIN && $targetUser->isDeveloper()) {
+            return true;
+        }
+
+        if ($currentUser->isSuperAdmin()) {
+            return false;
+        }
+
+        return ! $this->isManageableByNonSuperAdmin($targetUser);
     }
 }

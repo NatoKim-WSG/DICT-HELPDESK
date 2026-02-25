@@ -412,7 +412,7 @@
                             Delete Ticket
                         </button>
                     @else
-                        <span class="text-xs font-semibold text-slate-500">Delete is restricted to super admins.</span>
+                        <span class="text-xs font-semibold text-slate-500">Delete is restricted to admins.</span>
                     @endif
                     <div class="flex gap-2">
                         <button type="button" class="btn-secondary" data-modal-close="edit">Cancel</button>

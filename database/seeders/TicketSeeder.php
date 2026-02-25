@@ -13,16 +13,17 @@ class TicketSeeder extends Seeder
     public function run(): void
     {
         $clients = User::where('role', User::ROLE_CLIENT)->get();
-        $agents = User::whereIn('role', [
+        $supportUsers = User::whereIn('role', [
+            User::ROLE_DEVELOPER,
+            User::ROLE_ADMIN,
             User::ROLE_SUPER_USER,
-            User::ROLE_SUPER_ADMIN,
             User::ROLE_TECHNICAL,
         ])
             ->where('is_active', true)
             ->get();
         $categories = Category::all();
 
-        if ($clients->isEmpty() || $agents->isEmpty()) {
+        if ($clients->isEmpty() || $supportUsers->isEmpty()) {
             $this->command?->warn('Skipping TicketSeeder: missing client or support users.');
 
             return;
@@ -110,7 +111,7 @@ class TicketSeeder extends Seeder
             }
 
             $client = $clients->random();
-            $agent = $agents->random();
+            $agent = $supportUsers->random();
             $location = $seedLocations[array_rand($seedLocations)];
 
             $ticket = Ticket::create([

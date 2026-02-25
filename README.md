@@ -18,7 +18,7 @@ Laravel 11 help desk application with separate client and admin portals for tick
 - Client ticket creation with attachments
 - Ticket replies with threaded reply targets
 - Admin assignment, priority, status, and due date management
-- Role-based access (`client`, `super_user`, `technical`, `super_admin`)
+- Role-based access (`client`, `technical`, `super_user`, `admin`, `developer`)
 - Account activation/deactivation controls
 
 ## Setup
@@ -91,7 +91,7 @@ php artisan schedule:work
 
 ## Seeded Accounts
 
-Seeded users use `SEED_DEFAULT_USER_PASSWORD` from `.env`.
+Seeded users use `DEFAULT_USER_PASSWORD` from `.env`.
 
 - `admin@ioneresources.com` (`super_user`)
 - `support@ioneresources.com` (`technical`)
@@ -99,9 +99,8 @@ Seeded users use `SEED_DEFAULT_USER_PASSWORD` from `.env`.
 - `jane@ioneresources.com` (`client`)
 - `bob@ioneresources.com` (`client`)
 
-- If `SEED_DEFAULT_USER_PASSWORD` is missing, the seeder generates a random temporary password and prints it during seeding.
-- `SuperAdminSeeder` uses `SEED_SUPER_ADMIN_PASSWORD` (or generates one and prints it).
-- `admin@ione.com` is created as `super_admin`.
+- `admin@ione.com` is created as `admin`.
+- `developer@ione.com` is created as `developer` and uses `DEFAULT_DEVELOPER_PASSWORD`.
 
 ## Security Notes
 

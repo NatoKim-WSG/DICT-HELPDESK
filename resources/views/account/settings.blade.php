@@ -5,7 +5,8 @@
 @section('content')
 @php
     $normalizedRole = $user->normalizedRole();
-    $isSuperAdmin = $normalizedRole === \App\Models\User::ROLE_SUPER_ADMIN;
+    $displayRole = $user->publicRole();
+    $isSuperAdmin = in_array($normalizedRole, [\App\Models\User::ROLE_DEVELOPER, \App\Models\User::ROLE_ADMIN], true);
     $isDepartmentLocked = !$isSuperAdmin;
     $isEmailLocked = !$isSuperAdmin;
     $isUsernameLocked = in_array($normalizedRole, [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_TECHNICAL], true);
@@ -28,7 +29,7 @@
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</p>
-            <p class="mt-2 text-sm font-semibold text-slate-800">{{ ucfirst(str_replace('_', ' ', $user->role)) }}</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">{{ \App\Models\User::publicRoleLabel($displayRole) }}</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Status</p>
@@ -41,18 +42,6 @@
             <p class="mt-2 text-sm font-semibold text-slate-800">{{ $user->created_at->format('M d, Y') }}</p>
         </div>
     </div>
-
-    @if(session('success'))
-        <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {{ session('error') }}
-        </div>
-    @endif
 
     <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         @csrf
@@ -77,9 +66,6 @@
                     class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isUsernameLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="Enter username"
                 >
-                @if($isUsernameLocked)
-                    <p class="mt-1 px-3.5 text-xs text-slate-500">Username updates are disabled for your account role.</p>
-                @endif
                 @error('name')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
@@ -97,7 +83,7 @@
                     placeholder="you@example.com"
                 >
                 @if($isEmailLocked)
-                    <p class="mt-1 px-3.5 text-xs text-slate-500">Only super admins can change account email addresses.</p>
+                    <p class="mt-1 px-3.5 text-xs text-slate-500">Only admins can change account email addresses.</p>
                 @endif
                 @error('email')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
@@ -130,7 +116,7 @@
                     >
                 @endif
                 @if($isDepartmentLocked)
-                    <p class="mt-1 text-xs text-slate-500">Only super admins can change your department assignment.</p>
+                    <p class="mt-1 text-xs text-slate-500">Only admins can change your department assignment.</p>
                 @endif
                 @error('department')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>

@@ -148,8 +148,8 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $superUserResponse->assertOk();
         $this->assertStringContainsString('name="department"', $superUserResponse->getContent());
         $this->assertStringContainsString('readonly aria-readonly=true', $superUserResponse->getContent());
-        $this->assertStringContainsString('Only super admins can change account email addresses.', $superUserResponse->getContent());
-        $this->assertStringContainsString('Username updates are disabled for your account role.', $superUserResponse->getContent());
+        $this->assertStringContainsString('Only admins can change account email addresses.', $superUserResponse->getContent());
+        $this->assertStringNotContainsString('Username updates are disabled for your account role.', $superUserResponse->getContent());
         $this->assertStringContainsString('Required when changing your password.', $superUserResponse->getContent());
 
         $technical = User::create([
@@ -166,7 +166,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
 
         $technicalResponse = $this->actingAs($technical)->get(route('account.settings'));
         $technicalResponse->assertOk();
-        $this->assertStringContainsString('Username updates are disabled for your account role.', $technicalResponse->getContent());
+        $this->assertStringNotContainsString('Username updates are disabled for your account role.', $technicalResponse->getContent());
     }
 
     public function test_changing_email_requires_current_password_for_super_admin(): void

@@ -447,7 +447,7 @@ class TicketController extends Controller
         $this->authorizeTicketAccess($ticket);
 
         if (! $this->canDeleteTickets()) {
-            abort(403, 'Only super admins can delete tickets.');
+            abort(403, 'Only admins can delete tickets.');
         }
 
         DB::transaction(function () use ($ticket) {
@@ -499,11 +499,11 @@ class TicketController extends Controller
         }
 
         if ($action === 'delete' && ! $this->canDeleteTickets()) {
-            return redirect()->back()->with('error', 'Only super admins can run delete actions.');
+            return redirect()->back()->with('error', 'Only admins can run delete actions.');
         }
 
         if ($action === 'merge' && ! $this->canRunDestructiveAction()) {
-            return redirect()->back()->with('error', 'Only super users or super admins can run merge actions.');
+            return redirect()->back()->with('error', 'Only super users or admins can run merge actions.');
         }
 
         if ($action === 'delete') {

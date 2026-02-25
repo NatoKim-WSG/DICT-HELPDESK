@@ -249,7 +249,7 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('name="password"', false);
         $response->assertDontSee('name="password_confirmation"', false);
-        $response->assertSee('Password changes for client accounts are restricted to Super Admins.', false);
+        $response->assertSee('Password changes for client accounts are restricted to admins.', false);
     }
 
     public function test_staff_index_keeps_role_hierarchy_and_sorts_names_alphabetically_within_role_group(): void

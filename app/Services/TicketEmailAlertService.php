@@ -255,9 +255,10 @@ class TicketEmailAlertService
     private function superUserRoles(): array
     {
         return [
-            User::ROLE_SUPER_USER,
-            User::ROLE_SUPER_ADMIN,
+            User::ROLE_DEVELOPER,
             User::ROLE_ADMIN,
+            User::LEGACY_ROLE_SUPER_ADMIN,
+            User::ROLE_SUPER_USER,
         ];
     }
 

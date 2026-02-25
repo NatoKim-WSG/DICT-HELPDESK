@@ -12,6 +12,8 @@ class User extends Authenticatable
 
     public const ROLE_CLIENT = 'client';
 
+    public const ROLE_DEVELOPER = 'developer';
+
     public const ROLE_ADMIN = 'admin';
 
     public const ROLE_TECHNICIAN = 'technician';
@@ -20,20 +22,23 @@ class User extends Authenticatable
 
     public const ROLE_SUPER_USER = 'super_user';
 
-    public const ROLE_SUPER_ADMIN = 'super_admin';
+    // Legacy alias kept for backwards compatibility in existing references/tests.
+    public const ROLE_SUPER_ADMIN = self::ROLE_ADMIN;
+
+    public const LEGACY_ROLE_SUPER_ADMIN = 'super_admin';
 
     public const TICKET_CONSOLE_ROLES = [
+        self::ROLE_DEVELOPER,
         self::ROLE_ADMIN,
         self::ROLE_TECHNICIAN,
         self::ROLE_SUPER_USER,
-        self::ROLE_SUPER_ADMIN,
         self::ROLE_TECHNICAL,
     ];
 
     public const ADMIN_LEVEL_ROLES = [
+        self::ROLE_DEVELOPER,
         self::ROLE_ADMIN,
         self::ROLE_SUPER_USER,
-        self::ROLE_SUPER_ADMIN,
     ];
 
     public const ALLOWED_DEPARTMENTS = [
@@ -102,7 +107,12 @@ class User extends Authenticatable
 
     public function isSuperAdmin()
     {
-        return $this->role === self::ROLE_SUPER_ADMIN;
+        return in_array($this->normalizedRole(), [self::ROLE_ADMIN, self::ROLE_DEVELOPER], true);
+    }
+
+    public function isDeveloper(): bool
+    {
+        return $this->normalizedRole() === self::ROLE_DEVELOPER;
     }
 
     public function isClient()
@@ -132,7 +142,7 @@ class User extends Authenticatable
 
     public function canCreateAdmins()
     {
-        return $this->normalizedRole() === self::ROLE_SUPER_ADMIN;
+        return $this->normalizedRole() === self::ROLE_DEVELOPER;
     }
 
     public function isAdminLevel()
@@ -145,13 +155,32 @@ class User extends Authenticatable
         return self::normalizeRole($this->role);
     }
 
+    public function publicRole(): string
+    {
+        return self::publicRoleValue($this->role);
+    }
+
     public static function normalizeRole(?string $role): string
     {
         return match ($role) {
-            self::ROLE_ADMIN => self::ROLE_SUPER_USER,
+            self::LEGACY_ROLE_SUPER_ADMIN => self::ROLE_ADMIN,
             self::ROLE_TECHNICIAN => self::ROLE_TECHNICAL,
             default => (string) $role,
         };
+    }
+
+    public static function publicRoleValue(?string $role): string
+    {
+        $normalizedRole = self::normalizeRole($role);
+
+        return $normalizedRole === self::ROLE_DEVELOPER
+            ? self::ROLE_ADMIN
+            : $normalizedRole;
+    }
+
+    public static function publicRoleLabel(?string $role): string
+    {
+        return ucfirst(str_replace('_', ' ', self::publicRoleValue($role)));
     }
 
     public static function departmentBrandKey(?string $department, ?string $role = null): string
@@ -173,7 +202,7 @@ class User extends Authenticatable
             in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
             $departmentToken === 'dict' => 'dict',
             $departmentToken === 'others' => 'others',
-            in_array($normalizedRole, [self::ROLE_SUPER_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
+            in_array($normalizedRole, [self::ROLE_DEVELOPER, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
             default => 'dict',
         };
     }

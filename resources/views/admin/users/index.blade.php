@@ -50,7 +50,7 @@
                 <option value="all">All roles</option>
                 @foreach($availableRolesFilter as $role)
                     <option value="{{ $role }}" {{ request('role', 'all') === $role ? 'selected' : '' }}>
-                        {{ ucfirst(str_replace('_', ' ', $role)) }}
+                        {{ \App\Models\User::publicRoleLabel($role) }}
                     </option>
                 @endforeach
             </select>
@@ -113,15 +113,27 @@
                     @forelse($users as $user)
                         @php
                             $currentUser = auth()->user();
-                            $canEdit = $user->id !== $currentUser->id
-                                && ($currentUser->isSuperAdmin() || $user->isClient());
-                            $canDelete = false;
                             $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
                             $avatarUrl = $departmentBrand['logo_url'];
                             $initials = strtoupper(substr((string) $user->name, 0, 2));
+                            $normalizedTargetRole = \App\Models\User::normalizeRole($user->role);
+                            $displayRole = \App\Models\User::publicRoleValue($user->role);
+                            $currentRole = $currentUser->normalizedRole();
+                            $isCurrentDeveloper = $currentRole === \App\Models\User::ROLE_DEVELOPER;
+                            $isTargetDeveloper = $normalizedTargetRole === \App\Models\User::ROLE_DEVELOPER;
+                            $isTargetAdmin = $normalizedTargetRole === \App\Models\User::ROLE_ADMIN;
+                            $canEdit = $user->id !== $currentUser->id
+                                && (
+                                    $isCurrentDeveloper
+                                    || ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetDeveloper)
+                                    || (! in_array($currentRole, [\App\Models\User::ROLE_DEVELOPER, \App\Models\User::ROLE_ADMIN], true) && $user->isClient())
+                                );
+                            $canDelete = false;
 
-                            if ($user->id !== $currentUser->id && !$user->isSuperAdmin()) {
-                                if ($currentUser->isSuperAdmin()) {
+                            if ($user->id !== $currentUser->id && ! $isTargetDeveloper) {
+                                if ($isCurrentDeveloper) {
+                                    $canDelete = true;
+                                } elseif ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetAdmin) {
                                     $canDelete = true;
                                 } elseif ($currentUser->isAdmin() && $user->isClient()) {
                                     $canDelete = true;
@@ -156,12 +168,12 @@
                             </td>
                             <td class="px-6 py-4 align-top">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    @if($user->role === 'super_admin') bg-purple-100 text-purple-800
-                                    @elseif($user->role === 'super_user') bg-blue-100 text-blue-800
-                                    @elseif($user->role === 'technical') bg-amber-100 text-amber-800
+                                    @if($displayRole === 'admin') bg-indigo-100 text-indigo-800
+                                    @elseif($displayRole === 'super_user') bg-blue-100 text-blue-800
+                                    @elseif($displayRole === 'technical') bg-amber-100 text-amber-800
                                     @else bg-gray-100 text-gray-800
                                     @endif">
-                                    {{ ucfirst(str_replace('_', ' ', $user->role)) }}
+                                    {{ \App\Models\User::publicRoleLabel($displayRole) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 align-top text-sm text-gray-900 break-words">
@@ -207,15 +219,15 @@
                                                 title="Delete {{ $user->name }}">
                                             Delete
                                         </button>
-                                    @elseif($user->isSuperAdmin() && $user->id !== $currentUser->id)
+                                    @elseif($isTargetDeveloper && $user->id !== $currentUser->id)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>
-                                    @elseif($user->id === $currentUser->id && !$user->isSuperAdmin())
+                                    @elseif($user->id === $currentUser->id)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             You
                                         </span>
-                                    @elseif(($user->isAdmin() || $user->isSuperAdmin()) && !$currentUser->isSuperAdmin())
+                                    @elseif($isTargetAdmin && ! $isCurrentDeveloper)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
                                         </span>

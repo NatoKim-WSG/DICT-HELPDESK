@@ -38,7 +38,8 @@
         $tabContextLabel = 'Helpdesk';
         if ($tabUser) {
             $tabContextLabel = match ($tabUser->normalizedRole()) {
-                \App\Models\User::ROLE_SUPER_ADMIN => 'Super Admin Console',
+                \App\Models\User::ROLE_DEVELOPER => 'Admin Console',
+                \App\Models\User::ROLE_ADMIN => 'Admin Console',
                 \App\Models\User::ROLE_SUPER_USER => 'Super User Console',
                 \App\Models\User::ROLE_TECHNICAL => 'Technical Console',
                 default => $tabDepartmentBrand['name'] . ' Client Portal',
@@ -106,7 +107,8 @@
                     $notifications = $headerNotifications ?? collect();
                     $notificationCount = $notifications->count();
                     $consoleLabel = match ($user->normalizedRole()) {
-                        'super_admin' => 'Super Admin Console',
+                        'developer' => 'Admin Console',
+                        'admin' => 'Admin Console',
                         'super_user' => 'Super User Console',
                         default => 'Technical Console',
                     };

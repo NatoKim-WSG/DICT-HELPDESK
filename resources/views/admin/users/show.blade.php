@@ -56,14 +56,17 @@
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Role</dt>
+                            @php
+                                $displayRole = \App\Models\User::publicRoleValue($user->role);
+                            @endphp
                             <dd class="mt-1">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    @if($user->role === 'super_admin') bg-purple-100 text-purple-800
-                                    @elseif($user->role === 'super_user') bg-blue-100 text-blue-800
-                                    @elseif($user->role === 'technical') bg-amber-100 text-amber-800
+                                    @if($displayRole === 'admin') bg-indigo-100 text-indigo-800
+                                    @elseif($displayRole === 'super_user') bg-blue-100 text-blue-800
+                                    @elseif($displayRole === 'technical') bg-amber-100 text-amber-800
                                     @else bg-gray-100 text-gray-800
                                     @endif">
-                                    {{ ucfirst(str_replace('_', ' ', $user->role)) }}
+                                    {{ \App\Models\User::publicRoleLabel($displayRole) }}
                                 </span>
                             </dd>
                         </div>
@@ -185,17 +188,26 @@
 
             <!-- Account Actions -->
             @if($user->id !== auth()->id())
+                @php
+                    $currentViewer = auth()->user();
+                    $targetRole = $user->normalizedRole();
+                    $canModifyProtectedRole = $currentViewer->isDeveloper() || $targetRole !== \App\Models\User::ROLE_ADMIN;
+                    $canToggleAccount = $targetRole !== \App\Models\User::ROLE_DEVELOPER && $canModifyProtectedRole;
+                    $canDeleteAccount = $targetRole !== \App\Models\User::ROLE_DEVELOPER && $canModifyProtectedRole;
+                @endphp
                 <div class="bg-white shadow sm:rounded-lg">
                     <div class="px-4 py-5 sm:px-6">
                         <h3 class="text-lg leading-6 font-medium text-gray-900">Account Actions</h3>
                     </div>
                     <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                         <div class="space-y-3">
-                            <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }}, @js($user->name))"
-                                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md">
-                                {{ $user->is_active ? 'Deactivate Account' : 'Activate Account' }}
-                            </button>
-                            @if(!$user->isSuperAdmin())
+                            @if($canToggleAccount)
+                                <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }}, @js($user->name))"
+                                        class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md">
+                                    {{ $user->is_active ? 'Deactivate Account' : 'Activate Account' }}
+                                </button>
+                            @endif
+                            @if($canDeleteAccount)
                                 <button onclick="deleteUser({{ $user->id }})"
                                         class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md">
                                     Delete Account
