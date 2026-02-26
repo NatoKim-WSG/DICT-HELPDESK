@@ -1,5 +1,7 @@
 # DICT Helpdesk Ticketing System
 
+Current version: `1.0.1` (see `VERSION`)
+
 Laravel 12 help desk application with separate client and admin portals for ticket management.
 
 ## Tech Stack

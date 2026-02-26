@@ -172,6 +172,7 @@ class UserManagementController extends Controller
             'role' => $persistedRole,
             'password' => Hash::make($resolvedPassword),
             'is_active' => true,
+            'is_profile_locked' => false,
         ]);
         $this->systemLogs->record(
             'user.created',
@@ -272,6 +273,7 @@ class UserManagementController extends Controller
                 ? 'nullable|string|min:8|confirmed'
                 : 'prohibited',
             'is_active' => 'boolean',
+            'is_profile_locked' => 'boolean',
         ];
 
         if (! $canEditPassword) {
@@ -283,6 +285,25 @@ class UserManagementController extends Controller
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->normalizeRoleForPersistence($role);
+        $requestedIsProfileLocked = $request->boolean('is_profile_locked');
+
+        if ($user->is_profile_locked) {
+            $isChangingProfileFieldsWhileLocked = (
+                (string) $request->string('name')->toString() !== (string) $user->name
+                || (string) $request->string('email')->toString() !== (string) $user->email
+                || (string) $request->string('phone')->toString() !== (string) ($user->phone ?? '')
+                || (string) $department !== (string) $user->department
+                || (string) $persistedRole !== (string) $user->normalizedRole()
+                || $request->boolean('is_active') !== (bool) $user->is_active
+                || $request->filled('password')
+            );
+
+            if ($isChangingProfileFieldsWhileLocked) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Profile editing is locked. Unlock it first before changing other fields.');
+            }
+        }
 
         $updateData = [
             'name' => $request->name,
@@ -291,6 +312,7 @@ class UserManagementController extends Controller
             'department' => $department,
             'role' => $persistedRole,
             'is_active' => $request->boolean('is_active'),
+            'is_profile_locked' => $requestedIsProfileLocked,
         ];
 
         if ($request->filled('password')) {

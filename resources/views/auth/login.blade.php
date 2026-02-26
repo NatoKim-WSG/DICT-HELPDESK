@@ -104,7 +104,7 @@
         <button
             type="button"
             @click="toggleDarkMode"
-            class="app-pressable login-toggle absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-white sm:right-6 sm:top-6"
+            class="app-pressable login-toggle fixed right-4 top-4 z-30 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-white sm:right-6 sm:top-6"
             :aria-pressed="darkMode.toString()"
             aria-label="Toggle dark mode"
         >

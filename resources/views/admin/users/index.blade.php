@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const MODAL_TRANSITION_MS = 210;
 
     function syncBodyLock() {
-        const hasOpenModal = Boolean(document.querySelector('.app-modal-root:not(.hidden)'));
+        const hasOpenModal = Boolean(document.querySelector('.app-modal-root.is-open:not(.hidden)'));
         document.body.classList.toggle('overflow-hidden', hasOpenModal);
     }
 

@@ -67,6 +67,13 @@
             }
         })();
     </script>
+    <script>
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[#f3f5f7] font-sans antialiased text-slate-900">

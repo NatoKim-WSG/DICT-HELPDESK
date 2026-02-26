@@ -22,21 +22,42 @@ class SetSecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
 
-        if (app()->environment('production')) {
+        $cspEnabled = (bool) config('security.csp.enabled_in_production', true)
+            && (app()->environment('production') || (bool) config('security.csp.force', false));
+
+        if ($cspEnabled) {
             $response->headers->set(
                 'Content-Security-Policy',
-                "default-src 'self'; ".
-                "base-uri 'self'; ".
-                "frame-ancestors 'none'; ".
-                "form-action 'self'; ".
-                "img-src 'self' data: blob:; ".
-                "font-src 'self' https://fonts.bunny.net data:; ".
-                "style-src 'self' 'unsafe-inline' https://fonts.bunny.net; ".
-                "script-src 'self' 'unsafe-inline'; ".
-                "connect-src 'self';"
+                $this->compileCspDirectives((array) config('security.csp.directives', []))
             );
         }
 
+        if ($request->user()) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', '0');
+        }
+
         return $response;
+    }
+
+    private function compileCspDirectives(array $directives): string
+    {
+        $parts = [];
+        foreach ($directives as $directive => $values) {
+            $directiveName = trim((string) $directive);
+            if ($directiveName === '') {
+                continue;
+            }
+
+            $tokens = array_values(array_filter(
+                array_map(static fn (mixed $value): string => trim((string) $value), (array) $values),
+                static fn (string $value): bool => $value !== ''
+            ));
+
+            $parts[] = $directiveName . (empty($tokens) ? '' : ' ' . implode(' ', $tokens));
+        }
+
+        return implode('; ', $parts) . ';';
     }
 }

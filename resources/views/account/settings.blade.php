@@ -10,6 +10,7 @@
     $isDepartmentLocked = !$isSuperAdmin;
     $isEmailLocked = !$isSuperAdmin;
     $isUsernameLocked = in_array($normalizedRole, [\App\Models\User::ROLE_SUPER_USER, \App\Models\User::ROLE_TECHNICAL], true);
+    $isProfileLocked = (bool) $user->is_profile_locked;
     $backRoute = $user->canAccessAdminTickets()
         ? route('admin.dashboard')
         : route('client.dashboard');
@@ -26,7 +27,7 @@
         </a>
     </div>
 
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</p>
             <p class="mt-2 text-sm font-semibold text-slate-800">{{ \App\Models\User::publicRoleLabel($displayRole) }}</p>
@@ -41,7 +42,19 @@
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Member Since</p>
             <p class="mt-2 text-sm font-semibold text-slate-800">{{ $user->created_at->format('M d, Y') }}</p>
         </div>
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Profile Edit Lock</p>
+            <p class="mt-2 text-sm font-semibold {{ $isProfileLocked ? 'text-rose-700' : 'text-emerald-700' }}">
+                {{ $isProfileLocked ? 'Locked' : 'Unlocked' }}
+            </p>
+        </div>
     </div>
+
+    @if($isProfileLocked)
+        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            Your profile editing is locked by an administrator. Contact an admin to unlock this account before making changes.
+        </div>
+    @endif
 
     <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-submit-feedback>
         @csrf
@@ -62,8 +75,8 @@
                     name="name"
                     id="name"
                     value="{{ old('name', $user->name) }}"
-                    {{ $isUsernameLocked ? 'readonly aria-readonly=true' : 'required' }}
-                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isUsernameLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : ($isUsernameLocked ? 'readonly aria-readonly=true' : 'required') }}
+                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isUsernameLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="Enter username"
                 >
                 @error('name')
@@ -78,8 +91,8 @@
                     name="email"
                     id="email"
                     value="{{ old('email', $user->email) }}"
-                    {{ $isEmailLocked ? 'readonly aria-readonly=true' : 'required' }}
-                    class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isEmailLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : ($isEmailLocked ? 'readonly aria-readonly=true' : 'required') }}
+                    class="form-input @error('email') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isEmailLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="you@example.com"
                 >
                 @if($isEmailLocked)
@@ -96,6 +109,7 @@
                     <select
                         name="department"
                         id="department"
+                        {{ $isProfileLocked ? 'disabled' : '' }}
                         class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                     >
                         @foreach($departmentOptions as $departmentOption)
@@ -110,9 +124,9 @@
                         name="department"
                         id="department"
                         value="{{ old('department', $user->department) }}"
-                        class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isDepartmentLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
-                        placeholder="{{ $isDepartmentLocked ? '' : 'Optional' }}"
-                        {{ $isDepartmentLocked ? 'readonly aria-readonly=true' : '' }}
+                        class="form-input @error('department') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isDepartmentLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                        placeholder="{{ ($isDepartmentLocked || $isProfileLocked) ? '' : 'Optional' }}"
+                        {{ ($isDepartmentLocked || $isProfileLocked) ? 'readonly aria-readonly=true' : '' }}
                     >
                 @endif
                 @if($isDepartmentLocked)
@@ -130,6 +144,7 @@
                     name="phone"
                     id="phone"
                     value="{{ old('phone', $user->phone) }}"
+                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : '' }}
                     class="form-input @error('phone') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                     placeholder="Optional"
                 >
@@ -151,6 +166,7 @@
                     type="password"
                     name="current_password"
                     id="current_password"
+                    {{ $isProfileLocked ? 'disabled' : '' }}
                     class="form-input @error('current_password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                 >
                 <p class="mt-1 text-xs text-slate-500">Required when changing your password.</p>
@@ -166,6 +182,7 @@
                         type="password"
                         name="password"
                         id="password"
+                        {{ $isProfileLocked ? 'disabled' : '' }}
                         class="form-input pr-11 @error('password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                     >
                     <button
@@ -193,6 +210,7 @@
                         type="password"
                         name="password_confirmation"
                         id="password_confirmation"
+                        {{ $isProfileLocked ? 'disabled' : '' }}
                         class="form-input pr-11"
                     >
                     <button
@@ -212,7 +230,9 @@
 
         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
             <a href="{{ $backRoute }}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary" data-loading-text="Saving...">Save Changes</button>
+            <button type="submit" class="btn-primary" data-loading-text="Saving..." {{ $isProfileLocked ? 'disabled' : '' }}>
+                {{ $isProfileLocked ? 'Profile Locked' : 'Save Changes' }}
+            </button>
         </div>
     </form>
     <script>

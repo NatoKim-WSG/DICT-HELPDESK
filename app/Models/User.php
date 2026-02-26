@@ -48,6 +48,7 @@ class User extends Authenticatable
         'NAVY',
         'DA',
         'DAR',
+        'COMELEC',
         'AFP',
         'LGU Pasig',
         'DICT',
@@ -62,6 +63,7 @@ class User extends Authenticatable
         'role',
         'password',
         'is_active',
+        'is_profile_locked',
     ];
 
     protected $hidden = [
@@ -75,6 +77,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_profile_locked' => 'boolean',
         ];
     }
 
@@ -209,6 +212,7 @@ class User extends Authenticatable
             $departmentToken === 'navy' => 'navy',
             $departmentToken === 'dar' => 'dar',
             $departmentToken === 'da' => 'da',
+            $departmentToken === 'comelec' => 'comelec',
             $departmentToken === 'afp' => 'afp',
             in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
             $departmentToken === 'dict' => 'dict',
@@ -229,6 +233,7 @@ class User extends Authenticatable
             'navy' => ['name' => 'NAVY', 'logo' => 'images/Navy Logo.png'],
             'da' => ['name' => 'DA', 'logo' => 'images/DA Logo.png'],
             'dar' => ['name' => 'DAR', 'logo' => 'images/DAR Logo.png'],
+            'comelec' => ['name' => 'COMELEC', 'logo' => 'images/COMELEC Logo.png'],
             'afp' => ['name' => 'AFP', 'logo' => 'images/AFP Logo.png'],
             'lgu_pasig' => ['name' => 'LGU Pasig', 'logo' => 'images/LGUP Logo.png'],
             'dict' => ['name' => 'DICT', 'logo' => 'images/DICT Logo.png'],

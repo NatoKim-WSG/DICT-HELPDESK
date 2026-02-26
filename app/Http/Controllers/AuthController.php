@@ -134,6 +134,11 @@ class AuthController extends Controller
                 ->with('error', 'Client accounts cannot access account settings.');
         }
 
+        if ($user->is_profile_locked) {
+            return redirect()->route('account.settings')
+                ->with('error', 'Your profile editing is locked. Please contact an administrator.');
+        }
+
         $normalizedRole = $user->normalizedRole();
         $isSuperAdmin = in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
         $isUsernameLocked = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true);
