@@ -14,23 +14,27 @@
                 <h2 class="text-sm font-semibold text-slate-900">Tickets</h2>
             </div>
 
-            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-4">
-                <div class="md:col-span-2">
+            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-4" data-submit-feedback data-search-history-form data-search-history-key="client-ticket-filters">
+                <div class="relative md:col-span-2">
                     <label for="search" class="sr-only">Search</label>
                     <input
                         id="search"
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
+                        data-search-history-input
                         class="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                         placeholder="Search tickets"
+                        autocomplete="off"
                     >
+                    <div class="search-history-panel hidden" data-search-history-panel></div>
                 </div>
 
                 <div>
                     <label for="status" class="sr-only">Status</label>
                     <select id="status" name="status" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                         <option value="">All statuses</option>
+                        <option value="open_group" {{ request('status') === 'open_group' ? 'selected' : '' }}>Open (All Active)</option>
                         <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
                         <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                         <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
@@ -51,7 +55,7 @@
                 </div>
 
                 <div class="flex items-center gap-2 md:col-span-4">
-                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-3 text-sm font-semibold text-white transition hover:brightness-95">Filter</button>
+                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-3 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
                     <a href="{{ route('client.tickets.index') }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
@@ -69,7 +73,7 @@
                     </tr>
                 </thead>
 
-                <tbody class="divide-y divide-slate-200 bg-white">
+                <tbody class="app-table-body divide-y divide-slate-200 bg-white">
                     @forelse($tickets as $ticket)
                         @php
                             $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
@@ -89,7 +93,7 @@
                             </td>
 
                             <td class="px-6 py-5 align-top text-sm text-slate-700">
-                                {{ $ticket->assignedUser?->name ?? 'Unassigned' }}
+                                {{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}
                             </td>
 
                             <td class="px-6 py-5 text-center align-top">
@@ -106,7 +110,7 @@
                             </td>
 
                             <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
+                                <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                                     {{ $ticket->status_label }}
                                 </span>
                             </td>

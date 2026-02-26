@@ -332,7 +332,7 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                             <dd class="text-sm text-gray-900">
-                                {{ $ticket->assignedUser ? $ticket->assignedUser->name : 'Unassigned' }}
+                                {{ $ticket->assignedUser ? $ticket->assignedUser->publicDisplayName() : 'Unassigned' }}
                             </dd>
                         </div>
                         @if($ticket->due_date)
@@ -375,7 +375,7 @@
                                 @foreach($agents as $agent)
                                     <option value="{{ $agent->id }}"
                                             {{ $ticket->assigned_to == $agent->id ? 'selected' : '' }}>
-                                        {{ $agent->name }}
+                                        {{ $agent->publicDisplayName() }}
                                     </option>
                                 @endforeach
                             </select>
@@ -429,14 +429,14 @@
                     </form>
 
                     <!-- Set Due Date -->
-                    <form action="{{ route('admin.tickets.due-date', $ticket) }}" method="POST">
+                    <form action="{{ route('admin.tickets.due-date', $ticket) }}" method="POST" data-submit-feedback>
                         @csrf
                         <div>
                             <label for="due_date" class="form-label">Due Date</label>
                             <input type="datetime-local" name="due_date" id="due_date"
                                    value="{{ $ticket->due_date ? $ticket->due_date->format('Y-m-d\TH:i') : '' }}"
                                    class="form-input">
-                            <button type="submit" class="mt-2 btn-secondary w-full">Set Due Date</button>
+                            <button type="submit" class="mt-2 btn-secondary w-full" data-loading-text="Saving...">Set Due Date</button>
                         </div>
                     </form>
                 </div>
@@ -445,10 +445,10 @@
     </div>
 </div>
 
-<div id="attachment-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
+<div id="attachment-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-5xl bg-white rounded-lg shadow-xl">
+        <div class="app-modal-panel w-full max-w-5xl bg-white rounded-lg shadow-xl">
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                 <h3 id="attachment-modal-title" class="text-sm font-medium text-gray-900">Attachment Preview</h3>
                 <button type="button" id="attachment-modal-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">&times;</button>

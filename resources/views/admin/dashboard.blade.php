@@ -4,6 +4,13 @@
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+    @php
+        $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
+        $openTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
+        $attentionTicketsUrl = route('admin.tickets.index', ['tab' => 'attention']);
+        $urgentTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'priority' => 'urgent']);
+    @endphp
+
     <div class="panel mb-8 px-5 py-5 sm:px-6">
         <h3 class="font-display text-lg font-semibold text-slate-900">Quick Actions</h3>
         <div class="mt-4 flex flex-wrap gap-3">
@@ -20,7 +27,7 @@
     </div>
 
     <div class="stagger-fade mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div class="stat-card">
+        <a href="{{ $totalTicketsUrl }}" class="stat-card block" aria-label="View total tickets">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Tickets</p>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">
@@ -30,9 +37,9 @@
                 </span>
             </div>
             <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['total_tickets'] }}</p>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $openTicketsUrl }}" class="stat-card block" aria-label="View open tickets">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Open Tickets</p>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
@@ -42,9 +49,9 @@
                 </span>
             </div>
             <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['open_tickets'] }}</p>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $attentionTicketsUrl }}" class="stat-card block" aria-label="View tickets that need attention">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Needs Attention</p>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600">
@@ -54,9 +61,9 @@
                 </span>
             </div>
             <p class="mt-2 font-display text-3xl font-semibold text-amber-600">{{ $stats['attention_tickets'] }}</p>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $urgentTicketsUrl }}" class="stat-card block" aria-label="View urgent tickets">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Urgent Tickets</p>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
@@ -66,7 +73,7 @@
                 </span>
             </div>
             <p class="mt-2 font-display text-3xl font-semibold text-rose-600">{{ $stats['urgent_tickets'] }}</p>
-        </div>
+        </a>
     </div>
 
     <div class="grid grid-cols-1 gap-8 xl:grid-cols-3">
@@ -80,7 +87,7 @@
                     <ul class="divide-y divide-slate-100">
                         @forelse($recentTickets as $ticket)
                             <li>
-                                <a href="{{ route('admin.tickets.show', $ticket) }}" class="block px-5 py-4 transition hover:bg-slate-50 sm:px-6">
+                                <a href="{{ route('admin.tickets.show', $ticket) }}" class="dashboard-ticket-link block px-5 py-4 transition sm:px-6">
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div class="min-w-0">
                                             <div class="flex items-center gap-2">
@@ -116,6 +123,7 @@
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
                     <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Status</h3>
+                    <p class="mt-1 text-xs text-slate-500">Current month</p>
                 </div>
                 <div class="space-y-3 px-5 py-4">
                     @foreach(['open', 'in_progress', 'pending', 'resolved', 'closed'] as $status)
@@ -124,7 +132,7 @@
                                 ? ['tab' => 'history', 'status' => $status]
                                 : ['tab' => 'tickets', 'status' => $status];
                         @endphp
-                        <a href="{{ route('admin.tickets.index', $statusFilter) }}" class="group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                        <a href="{{ route('admin.tickets.index', $statusFilter) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
                             <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                             <span class="text-sm font-semibold text-slate-900">{{ $ticketsByStatus->get($status, 0) }}</span>
                         </a>
@@ -135,10 +143,11 @@
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
                     <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Priority</h3>
+                    <p class="mt-1 text-xs text-slate-500">Current month</p>
                 </div>
                 <div class="space-y-3 px-5 py-4">
                     @foreach(['urgent', 'high', 'medium', 'low'] as $priority)
-                        <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'priority' => $priority]) }}" class="group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                        <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'priority' => $priority]) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
                             <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst($priority) }}</span>
                             <span class="text-sm font-semibold text-slate-900">{{ $ticketsByPriority->get($priority, 0) }}</span>
                         </a>
@@ -152,21 +161,17 @@
                         <h3 class="font-display text-lg font-semibold text-slate-900">System Snapshot</h3>
                     </div>
                     <dl class="space-y-3 px-5 py-4">
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Assigned To Me</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['assigned_to_me'] }}</dd>
-                        </div>
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Client Users</dt>
+                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Total Users</dt>
                             <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_users'] }}</dd>
                         </div>
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Support Staff</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_staff'] }}</dd>
+                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Technical Users</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['technical_users'] }}</dd>
                         </div>
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Closed Tickets</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['closed_tickets'] }}</dd>
+                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <dt class="text-sm text-slate-600">Client Users</dt>
+                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['client_users'] }}</dd>
                         </div>
                     </dl>
                 </div>

@@ -129,6 +129,55 @@ class AdminReportsPageTest extends TestCase
         $this->assertStringContainsString('ticket-monthly-report-', (string) $response->headers->get('content-disposition'));
     }
 
+    public function test_reports_top_technical_users_hides_shadow_account(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Reports Viewer', 'reports-viewer@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Reports Client', 'reports-shadow-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $shadow = $this->createUser('Shadow Hidden', 'shadow-hidden@example.com', User::ROLE_SHADOW);
+        $technical = $this->createUser('Visible Technical', 'visible-technical@example.com', User::ROLE_TECHNICAL);
+        $category = $this->createCategory();
+
+        Ticket::create([
+            'name' => 'Shadow Assigned',
+            'contact_number' => '09180000111',
+            'email' => 'shadow-assigned@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Shadow assignee ticket',
+            'description' => 'Should not expose shadow in reports.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => now(),
+            'user_id' => $client->id,
+            'assigned_to' => $shadow->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::create([
+            'name' => 'Technical Assigned',
+            'contact_number' => '09180000112',
+            'email' => 'technical-assigned@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Visible technical ticket',
+            'description' => 'Should remain visible in reports.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => now(),
+            'user_id' => $client->id,
+            'assigned_to' => $technical->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('Shadow Hidden');
+        $response->assertSee('Visible Technical');
+    }
+
     public function test_monthly_completed_and_open_counts_include_closed_tickets_correctly(): void
     {
         config(['legal.require_acceptance' => false]);

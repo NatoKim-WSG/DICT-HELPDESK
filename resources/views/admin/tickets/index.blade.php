@@ -57,18 +57,21 @@
                 </div>
             </div>
 
-            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-8">
+            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-8" data-submit-feedback data-search-history-form data-search-history-key="admin-ticket-filters">
                 <input type="hidden" name="tab" value="{{ $tab }}">
-                <div class="xl:col-span-2">
+                <div class="relative xl:col-span-2">
                     <label for="search" class="sr-only">Search</label>
                     <input
                         id="search"
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
+                        data-search-history-input
                         class="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                         placeholder="Search tickets"
+                        autocomplete="off"
                     >
+                    <div class="search-history-panel hidden" data-search-history-panel></div>
                 </div>
 
                 <div>
@@ -131,17 +134,17 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95">Filter</button>
+                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
                     <a href="{{ route('admin.tickets.index', ['tab' => $tab]) }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
 
-            <form id="bulk-action-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="pb-4">
+            <form id="bulk-action-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="pb-4" data-submit-feedback>
                 @csrf
                 <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <div class="flex flex-wrap items-center gap-2">
                         <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
-                        <select id="bulk-action-select" name="action" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                        <select id="bulk-action-select" name="action" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                             <option value="assign">Assign technical</option>
                             <option value="status">Update status</option>
                             <option value="priority">Update priority</option>
@@ -155,17 +158,17 @@
 
                         <div id="bulk-assign-wrap" class="hidden">
                             <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
-                            <select id="bulk-assigned-to" name="assigned_to" class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <select id="bulk-assigned-to" name="assigned_to" data-enhanced-select class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                 <option value="">Choose technical</option>
                                 @foreach($agents as $agent)
-                                    <option value="{{ $agent->id }}">{{ $agent->name }}</option>
+                                    <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
                                 @endforeach
                             </select>
                         </div>
 
                         <div id="bulk-status-wrap" class="hidden">
                             <label for="bulk-status" class="sr-only">Status</label>
-                            <select id="bulk-status" name="status" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <select id="bulk-status" name="status" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                 <option value="open">Open</option>
                                 <option value="in_progress">In Progress</option>
                                 <option value="pending">Pending</option>
@@ -176,7 +179,7 @@
 
                         <div id="bulk-priority-wrap" class="hidden">
                             <label for="bulk-priority" class="sr-only">Priority</label>
-                            <select id="bulk-priority" name="priority" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <select id="bulk-priority" name="priority" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                 <option value="low">Low</option>
                                 <option value="medium">Medium</option>
                                 <option value="high">High</option>
@@ -187,7 +190,7 @@
                         <textarea id="bulk-close-reason" name="close_reason" rows="1" class="hidden h-10 min-w-[230px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Close reason (required for closed status)"></textarea>
                         <input type="hidden" name="tab" value="{{ $tab }}">
                         <div id="bulk-selected-ids"></div>
-                        <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" disabled>Apply</button>
+                        <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" data-loading-text="Applying..." disabled>Apply</button>
                         <button id="bulk-clear-selection" type="button" class="btn-secondary h-10 px-4">Clear selection</button>
                     </div>
                 </div>
@@ -214,7 +217,7 @@
                     </tr>
                 </thead>
 
-                <tbody class="divide-y divide-slate-200 bg-white">
+                <tbody class="app-table-body divide-y divide-slate-200 bg-white">
                     @forelse($tickets as $ticket)
                         @php
                             $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
@@ -226,7 +229,7 @@
                             $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
                         @endphp
 
-                        <tr class="transition hover:bg-slate-50">
+                        <tr class="admin-ticket-row transition hover:bg-slate-50">
                             <td class="px-6 py-5 align-top">
                                 <input type="checkbox" value="{{ $ticket->id }}" class="js-ticket-checkbox ticket-checkbox">
                             </td>
@@ -253,7 +256,7 @@
                                         data-ticket-number="{{ $ticket->ticket_number }}"
                                         data-assigned-to="{{ $ticket->assigned_to }}"
                                     >
-                                        {{ $ticket->assignedUser->name }}
+                                        {{ $ticket->assignedUser->publicDisplayName() }}
                                     </button>
                                 @else
                                     <button
@@ -288,7 +291,7 @@
                             @endif
 
                             <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
+                                <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                                     {{ $ticket->status_label }}
                                 </span>
                             </td>
@@ -327,10 +330,10 @@
     </section>
 </div>
 
-<div id="assign-ticket-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60" data-modal-overlay="assign"></div>
+<div id="assign-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-black/60" data-modal-overlay="assign"></div>
     <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
-        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
                 <h3 class="text-base font-semibold text-slate-900">Assign Technical User</h3>
                 <p id="assign-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
@@ -342,7 +345,7 @@
                     <select id="assign-modal-select" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
                         @foreach($agents as $agent)
-                            <option value="{{ $agent->id }}">{{ $agent->name }}</option>
+                            <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -355,10 +358,10 @@
     </div>
 </div>
 
-<div id="edit-ticket-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60" data-modal-overlay="edit"></div>
+<div id="edit-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="edit"></div>
     <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
-        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
                 <h3 class="text-base font-semibold text-slate-900">Edit Ticket</h3>
                 <p id="edit-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
@@ -370,7 +373,7 @@
                     <select id="edit-modal-assigned" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
                         @foreach($agents as $agent)
-                            <option value="{{ $agent->id }}">{{ $agent->name }}</option>
+                            <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -425,10 +428,10 @@
 </div>
 
 @if($canDeleteTickets)
-    <div id="delete-ticket-modal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/60" data-modal-overlay="delete"></div>
+    <div id="delete-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+        <div class="app-modal-overlay absolute inset-0 bg-black/60" data-modal-overlay="delete"></div>
         <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
-            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <div class="border-b border-slate-200 px-5 py-4">
                     <h3 class="text-base font-semibold text-slate-900">Delete Ticket</h3>
                     <p id="delete-modal-ticket" class="mt-1 text-sm text-slate-500"></p>

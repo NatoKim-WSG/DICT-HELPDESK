@@ -34,14 +34,17 @@
         </div>
     @endif
 
-    <form method="GET" class="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+    <form method="GET" class="mb-6 rounded-2xl border border-slate-200 bg-white p-4" data-submit-feedback data-search-history-form data-search-history-key="admin-user-filters">
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
-        <div class="xl:col-span-2">
+        <div class="relative xl:col-span-2">
             <label for="search" class="sr-only">Search users</label>
             <input id="search" name="search" type="text"
                    value="{{ request('search') }}"
+                   data-search-history-input
                    placeholder="Search users"
-                   class="h-10 block w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                   class="h-10 block w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
+                   autocomplete="off">
+            <div class="search-history-panel hidden" data-search-history-panel></div>
         </div>
 
         <div>
@@ -78,7 +81,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95">Filter</button>
+            <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
             <a href="{{ ($segment ?? 'staff') === 'clients' ? route('admin.users.clients') : route('admin.users.index') }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
         </div>
         </div>
@@ -109,7 +112,7 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="app-table-body bg-white divide-y divide-gray-200">
                     @forelse($users as $user)
                         @php
                             $currentUser = auth()->user();
@@ -267,9 +270,9 @@
 </div>
 
 <!-- Account Status Modal -->
-<div id="statusConfirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+<div id="statusConfirmModal" class="app-modal-root app-modal-overlay fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
     <div class="flex min-h-full items-center justify-center p-4">
-    <div class="relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100">
                 <svg class="h-6 w-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,9 +308,9 @@
 </div>
 
 <!-- Deactivate User Modal -->
-<div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+<div id="deleteModal" class="app-modal-root app-modal-overlay fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
     <div class="flex min-h-full items-center justify-center p-4">
-    <div class="relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,6 +363,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let pendingStatusChange = null;
     let actionNotificationTimeout = null;
+    const MODAL_TRANSITION_MS = 210;
+
+    function syncBodyLock() {
+        const hasOpenModal = Boolean(document.querySelector('.app-modal-root:not(.hidden)'));
+        document.body.classList.toggle('overflow-hidden', hasOpenModal);
+    }
+
+    function showAnimatedModal(targetModal) {
+        if (!targetModal) {
+            return;
+        }
+
+        if (targetModal._closeTimer) {
+            clearTimeout(targetModal._closeTimer);
+            targetModal._closeTimer = null;
+        }
+
+        targetModal.classList.remove('hidden', 'is-closing');
+        requestAnimationFrame(function () {
+            targetModal.classList.add('is-open');
+        });
+        syncBodyLock();
+    }
+
+    function hideAnimatedModal(targetModal) {
+        if (!targetModal || targetModal.classList.contains('hidden')) {
+            syncBodyLock();
+            return;
+        }
+
+        targetModal.classList.remove('is-open');
+        targetModal.classList.add('is-closing');
+        targetModal._closeTimer = setTimeout(function () {
+            targetModal.classList.add('hidden');
+            targetModal.classList.remove('is-closing');
+            targetModal._closeTimer = null;
+            syncBodyLock();
+        }, MODAL_TRANSITION_MS);
+    }
 
     function showActionNotification(message, tone = 'warning') {
         if (!actionNotification || !actionNotificationMessage) {
@@ -404,8 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (modal) {
-            modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
+            showAnimatedModal(modal);
         }
 
         if (deleteConfirmCheckbox) {
@@ -419,8 +460,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to hide modal
     function hideDeleteModal() {
         if (modal) {
-            modal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
+            hideAnimatedModal(modal);
         }
         deleteUserId = null;
         deleteInProgress = false;
@@ -562,24 +602,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 : 'px-4 py-2 bg-amber-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-300';
         }
         if (statusModal) {
-            statusModal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
+            showAnimatedModal(statusModal);
         }
     }
 
     function closeStatusModal() {
         pendingStatusChange = null;
 
-    if (statusConfirmCheckbox) {
-        statusConfirmCheckbox.checked = false;
+        if (statusConfirmCheckbox) {
+            statusConfirmCheckbox.checked = false;
+        }
+        if (statusModal) {
+            hideAnimatedModal(statusModal);
+        }
     }
-    if (statusModal) {
-        statusModal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
-    }
-}
 
-        if (confirmStatusButton) {
+    if (confirmStatusButton) {
         confirmStatusButton.addEventListener('click', function(e) {
             e.preventDefault();
             const currentStatusCheckbox = document.getElementById('statusConfirmCheckbox');
@@ -608,6 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    syncBodyLock();
     window.openDeactivateStatusModal = openStatusModal;
 });
 

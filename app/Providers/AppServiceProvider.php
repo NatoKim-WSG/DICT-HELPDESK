@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
+    private const HEADER_NOTIFICATION_TICKET_WINDOW = 120;
+
+    private const HEADER_NOTIFICATION_RENDER_LIMIT = 5;
+
     /**
      * Register any application services.
      */
@@ -27,38 +31,45 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->deleteStaleViteHotFile();
+
         View::composer('layouts.app', function ($view) {
             /** @var User|null $user */
             $user = Auth::user();
 
             if (! $user) {
                 $view->with('headerNotifications', collect());
+                $view->with('headerNotificationUnreadCount', 0);
 
                 return;
             }
 
             if (! $user->canAccessAdminTickets()) {
                 $tickets = Ticket::where('user_id', $user->id)
-                    ->with('user')
+                    ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at'])
+                    ->with('user:id,name')
                     ->latest('updated_at')
-                    ->take(20)
+                    ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
                     ->get();
             } else {
-                $notificationsQuery = Ticket::with('user')
-                    ->open();
+                $notificationsQuery = Ticket::query()
+                    ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at', 'assigned_to'])
+                    ->with('user:id,name')
+                    ->open()
+                    ->latest('updated_at');
 
                 if ($user->isTechnician()) {
                     $notificationsQuery->where('assigned_to', $user->id);
                 }
 
                 $tickets = $notificationsQuery
-                    ->latest('updated_at')
-                    ->take(20)
+                    ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
                     ->get();
             }
 
             $notifications = $this->buildNotificationsForUser($user, $tickets);
-            $view->with('headerNotifications', $notifications);
+            $view->with('headerNotifications', $notifications->sortByDesc('activity_ts')->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)->values());
+            $view->with('headerNotificationUnreadCount', (int) $notifications->where('is_viewed', false)->count());
         });
     }
 
@@ -70,7 +81,7 @@ class AppServiceProvider extends ServiceProvider
 
         $states = TicketUserState::where('user_id', $user->id)
             ->whereIn('ticket_id', $tickets->pluck('id'))
-            ->get()
+            ->get(['ticket_id', 'last_seen_at', 'dismissed_at'])
             ->keyBy('ticket_id');
         $latestRepliesByTicket = $this->latestCounterpartRepliesForTickets($user, $tickets);
 
@@ -138,9 +149,43 @@ class AppServiceProvider extends ServiceProvider
                 ];
             })
             ->filter()
-            ->sortByDesc('activity_ts')
-            ->take(5)
             ->values();
+    }
+
+    private function deleteStaleViteHotFile(): void
+    {
+        $hotFile = public_path('hot');
+
+        if (! is_file($hotFile)) {
+            return;
+        }
+
+        $hotUrl = trim((string) @file_get_contents($hotFile));
+        if ($hotUrl === '') {
+            @unlink($hotFile);
+
+            return;
+        }
+
+        $parsedUrl = parse_url($hotUrl);
+        if (! is_array($parsedUrl) || empty($parsedUrl['host'])) {
+            @unlink($hotFile);
+
+            return;
+        }
+
+        $scheme = $parsedUrl['scheme'] ?? 'http';
+        $host = (string) $parsedUrl['host'];
+        $port = (int) ($parsedUrl['port'] ?? ($scheme === 'https' ? 443 : 80));
+
+        $socket = @fsockopen($host, $port, $errno, $errstr, 0.25);
+        if ($socket === false) {
+            @unlink($hotFile);
+
+            return;
+        }
+
+        fclose($socket);
     }
 
     private function resolveNotificationActivityAt(
@@ -174,7 +219,8 @@ class AppServiceProvider extends ServiceProvider
             ->all();
 
         $query = TicketReply::query()
-            ->with('user')
+            ->select(['id', 'ticket_id', 'user_id', 'message', 'created_at'])
+            ->with('user:id,name')
             ->whereIn('ticket_id', $ticketIds)
             ->where('is_internal', false);
 

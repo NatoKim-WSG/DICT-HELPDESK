@@ -94,7 +94,7 @@
             </a>
 
             <button @click="sidebarOpen = false" @class([
-                'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
+                'app-pressable inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
                 'absolute right-5 top-1/2 -translate-y-1/2' => $isTicketConsole,
                 'absolute right-5 top-1/2 -translate-y-1/2' => $isClient,
             ]) aria-label="Close sidebar">
@@ -109,7 +109,7 @@
                 <a
                     href="{{ $item['href'] }}"
                     @class([
-                        'group flex items-center gap-3 rounded-xl px-3 py-3 transition',
+                        'app-nav-link group flex items-center gap-3 rounded-xl px-3 py-3 transition',
                         'text-base font-semibold',
                         'bg-white/10 text-white' => $item['active'],
                         'text-slate-200 hover:bg-white/5 hover:text-white' => !$item['active'] && !$item['disabled'],
@@ -130,6 +130,15 @@
                 </a>
             @endforeach
         </nav>
+
+        <div class="border-t border-[#0d5053] px-4 py-4 text-xs text-slate-300">
+            <span class="mr-2 text-slate-400">Legal:</span>
+            <button type="button" @click="openLegalModal('terms')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-slate-200 hover:text-white">Terms</button>
+            <span class="mx-1 text-slate-500">|</span>
+            <button type="button" @click="openLegalModal('privacy')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-slate-200 hover:text-white">Privacy</button>
+            <span class="mx-1 text-slate-500">|</span>
+            <button type="button" @click="openLegalModal('ticket-consent')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-slate-200 hover:text-white">Ticket</button>
+        </div>
 
     </div>
 </aside>

@@ -9,13 +9,13 @@
             <h1 class="font-display text-3xl font-semibold text-slate-900">System Logs</h1>
             <p class="mt-1 text-sm text-slate-500">Major platform activity and account-setting change history.</p>
         </div>
-        <form method="POST" action="{{ route('admin.system-logs.lock') }}">
+        <form method="POST" action="{{ route('admin.system-logs.lock') }}" data-submit-feedback>
             @csrf
-            <button type="submit" class="btn-secondary">Lock Logs</button>
+            <button type="submit" class="btn-secondary" data-loading-text="Locking...">Lock Logs</button>
         </form>
     </div>
 
-    <form method="GET" action="{{ route('admin.system-logs.index') }}" class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <form method="GET" action="{{ route('admin.system-logs.index') }}" class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-submit-feedback>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div>
                 <label for="search" class="form-label">Search</label>
@@ -47,7 +47,7 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="btn-primary w-full">Apply</button>
+                <button type="submit" class="btn-primary w-full" data-loading-text="Applying...">Apply</button>
                 <a href="{{ route('admin.system-logs.index') }}" class="btn-secondary whitespace-nowrap">Reset</a>
             </div>
         </div>
@@ -66,7 +66,7 @@
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">IP</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="app-table-body divide-y divide-slate-100">
                     @forelse($logs as $log)
                         <tr>
                             <td class="px-4 py-3 align-top text-xs text-slate-600">

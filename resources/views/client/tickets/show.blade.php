@@ -79,7 +79,7 @@
                             <span>Created {{ $ticket->created_at->format('M j, Y \a\t g:i A') }}</span>
                             @if($ticket->assignedUser)
                                 <span class="hidden text-gray-300 sm:inline">&bull;</span>
-                                <span>Assigned to {{ $ticket->assignedUser->name }}</span>
+                                <span>Assigned to {{ $ticket->assignedUser->publicDisplayName() }}</span>
                             @endif
                         </div>
                     </div>
@@ -379,7 +379,7 @@
                         @if($ticket->assignedUser)
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
-                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser->name }}</dd>
+                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser->publicDisplayName() }}</dd>
                             </div>
                         @endif
                         @if($ticket->due_date)
@@ -474,15 +474,15 @@
 </div>
 
 @if(!in_array($ticket->status, ['resolved', 'closed']))
-<div id="resolve-ticket-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black bg-opacity-60" data-resolve-ticket-overlay="true"></div>
+<div id="resolve-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-black bg-opacity-60" data-resolve-ticket-overlay="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="px-5 py-4 border-b border-slate-200">
                 <h3 class="text-lg font-semibold text-slate-900">Mark Ticket as Resolved</h3>
                 <p class="mt-1 text-sm text-slate-600">Confirm this ticket is resolved before proceeding.</p>
             </div>
-            <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="space-y-4 p-5">
+            <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="space-y-4 p-5" data-submit-feedback>
                 @csrf
                 <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
                     <input id="resolve_confirm_checkbox" type="checkbox" required class="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
@@ -490,7 +490,7 @@
                 </label>
                 <div class="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
                     <button type="button" id="resolve-ticket-cancel" class="btn-secondary sm:min-w-[110px]">Cancel</button>
-                    <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[160px] disabled:cursor-not-allowed disabled:opacity-60" disabled>Confirm Resolve</button>
+                    <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[160px] disabled:cursor-not-allowed disabled:opacity-60" data-loading-text="Resolving..." disabled>Confirm Resolve</button>
                 </div>
             </form>
         </div>
@@ -499,15 +499,15 @@
 @endif
 
 @if(!in_array($ticket->status, ['closed']))
-<div id="close-ticket-modal" class="fixed inset-0 z-50 {{ $errors->has('close_reason') ? '' : 'hidden' }}">
-    <div class="absolute inset-0 bg-black bg-opacity-60" data-close-ticket-overlay="true"></div>
+<div id="close-ticket-modal" class="app-modal-root fixed inset-0 z-50 {{ $errors->has('close_reason') ? '' : 'hidden' }}">
+    <div class="app-modal-overlay absolute inset-0 bg-black bg-opacity-60" data-close-ticket-overlay="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-lg bg-white rounded-lg shadow-xl">
+        <div class="app-modal-panel w-full max-w-lg bg-white rounded-lg shadow-xl">
             <div class="px-4 py-3 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900">Close Ticket as Unresolved</h3>
                 <p class="mt-1 text-sm text-gray-600">Please provide a reason before closing this ticket.</p>
             </div>
-            <form action="{{ route('client.tickets.close', $ticket) }}" method="POST" class="p-4 space-y-4">
+            <form action="{{ route('client.tickets.close', $ticket) }}" method="POST" class="p-4 space-y-4" data-submit-feedback>
                 @csrf
                 <div>
                     <label for="close_reason" class="form-label">Reason <span class="text-red-600">*</span></label>
@@ -520,7 +520,7 @@
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" id="close-ticket-cancel" class="btn-secondary">Cancel</button>
-                    <button type="submit" class="btn-danger">Close Ticket</button>
+                    <button type="submit" class="btn-danger" data-loading-text="Closing...">Close Ticket</button>
                 </div>
             </form>
         </div>
@@ -528,10 +528,10 @@
 </div>
 @endif
 
-<div id="attachment-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
+<div id="attachment-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-black bg-opacity-60" data-modal-close="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-5xl bg-white rounded-lg shadow-xl">
+        <div class="app-modal-panel w-full max-w-5xl bg-white rounded-lg shadow-xl">
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                 <h3 id="attachment-modal-title" class="text-sm font-medium text-gray-900">Attachment Preview</h3>
                 <button type="button" id="attachment-modal-close" class="text-gray-500 hover:text-gray-700 text-xl leading-none">&times;</button>

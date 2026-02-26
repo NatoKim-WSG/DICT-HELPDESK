@@ -11,16 +11,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased">
-    <div class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="motion-page-enter mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <a href="{{ route('login') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <a href="{{ route('login') }}" class="app-pressable inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 <img src="{{ asset('images/iOne Logo.png') }}" alt="iOne logo" class="h-6 w-auto">
                 <span>iOne Helpdesk</span>
             </a>
             <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                <a href="{{ route('legal.terms') }}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Terms</a>
-                <a href="{{ route('legal.privacy') }}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Privacy</a>
-                <a href="{{ route('legal.ticket-consent') }}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Ticket Consent</a>
+                <a href="{{ route('legal.terms') }}" class="app-pressable rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Terms</a>
+                <a href="{{ route('legal.privacy') }}" class="app-pressable rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Privacy</a>
+                <a href="{{ route('legal.ticket-consent') }}" class="app-pressable rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Ticket Consent</a>
             </div>
         </div>
 

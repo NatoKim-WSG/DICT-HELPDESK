@@ -19,7 +19,7 @@
     </div>
 
     <div class="bg-white shadow sm:rounded-lg">
-        <form action="{{ route('admin.users.update', $user) }}" method="POST" class="space-y-6">
+        <form action="{{ route('admin.users.update', $user) }}" method="POST" class="space-y-6" data-submit-feedback>
             @csrf
             @method('PUT')
             <div class="px-4 py-5 sm:p-6">
@@ -165,7 +165,7 @@
 
             <div class="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
                 <a href="{{ route('admin.users.index') }}" class="btn-secondary">Cancel</a>
-                <button type="submit" class="btn-primary">Update User</button>
+                <button type="submit" class="btn-primary" data-loading-text="Saving...">Update User</button>
             </div>
         </form>
     </div>

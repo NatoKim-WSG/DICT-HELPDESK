@@ -30,18 +30,28 @@ class TicketController extends Controller
         $query = auth()->user()->tickets()
             ->with(['category', 'assignedUser']);
 
+        $selectedStatus = $request->string('status')->toString();
+
         $query
-            ->when($request->filled('status') && $request->status !== 'all', function ($builder) use ($request) {
-                $builder->where('status', $request->string('status')->toString());
+            ->when($request->filled('status') && $selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
+                if ($selectedStatus === 'open_group') {
+                    $builder->whereIn('status', Ticket::OPEN_STATUSES);
+
+                    return;
+                }
+
+                $builder->where('status', $selectedStatus);
             })
             ->when($request->filled('priority') && $request->priority !== 'all', function ($builder) use ($request) {
                 $builder->where('priority', $request->string('priority')->toString());
             })
             ->when($request->filled('search'), function ($builder) use ($request) {
-                $search = $request->string('search')->toString();
-                $builder->where(function ($q) use ($search) {
-                    $q->where('subject', 'like', '%'.$search.'%')
-                        ->orWhere('ticket_number', 'like', '%'.$search.'%');
+                $search = mb_strtolower($request->string('search')->toString());
+                $pattern = '%'.$search.'%';
+
+                $builder->where(function ($q) use ($pattern) {
+                    $q->whereRaw('LOWER(subject) LIKE ?', [$pattern])
+                        ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern]);
                 });
             });
 
@@ -127,16 +137,7 @@ class TicketController extends Controller
     {
         $this->assertTicketOwner($ticket);
 
-        TicketUserState::updateOrCreate(
-            [
-                'ticket_id' => $ticket->id,
-                'user_id' => auth()->id(),
-            ],
-            [
-                'last_seen_at' => $ticket->updated_at ?? now(),
-                'dismissed_at' => null,
-            ]
-        );
+        TicketUserState::markSeen($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
 

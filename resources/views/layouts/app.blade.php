@@ -53,6 +53,10 @@
     <link rel="icon" type="image/png" href="{{ asset('images/iOne Logo.png') }}">
     <link rel="shortcut icon" href="{{ asset('images/iOne Logo.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/iOne Logo.png') }}">
+    <link rel="preload" as="image" href="{{ asset('images/iOne Logo.png') }}">
+    @if($tabUser)
+        <link rel="preload" as="image" href="{{ $tabDepartmentBrand['logo_url'] }}">
+    @endif
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
@@ -77,9 +81,16 @@
                 this.darkMode = document.documentElement.classList.contains('theme-dark');
             },
             toggleDarkMode() {
+                const root = document.documentElement;
                 this.darkMode = !this.darkMode;
-                document.documentElement.classList.toggle('theme-dark', this.darkMode);
-                localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+                root.classList.add('theme-switching');
+                requestAnimationFrame(() => {
+                    root.classList.toggle('theme-dark', this.darkMode);
+                    localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+                    window.setTimeout(() => {
+                        root.classList.remove('theme-switching');
+                    }, 120);
+                });
             },
             openLegalModal(tab = 'terms') {
                 this.legalModalTab = tab;
@@ -116,8 +127,14 @@
                     $headerSearchCarryParams = collect(request()->query())
                         ->except(['search', 'page'])
                         ->all();
-                    $notifications = $headerNotifications ?? collect();
-                    $notificationCount = $notifications->where('is_viewed', false)->count();
+                    $notificationsEnabled = !request()->routeIs('legal.acceptance.*');
+                    $notifications = $notificationsEnabled ? ($headerNotifications ?? collect()) : collect();
+                    $notificationCount = $notificationsEnabled
+                        ? (int) ($headerNotificationUnreadCount ?? $notifications->where('is_viewed', false)->count())
+                        : 0;
+                    $notificationClearAction = $notificationsEnabled
+                        ? route($isClient ? 'client.notifications.clear' : 'admin.notifications.clear')
+                        : null;
                     $consoleLabel = match ($user->normalizedRole()) {
                         'shadow' => 'Admin Console',
                         'admin' => 'Admin Console',
@@ -130,7 +147,7 @@
                     <div class="flex min-w-0 items-center gap-3">
                         <button
                             @click="sidebarOpen = true"
-                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 lg:hidden"
+                            class="app-pressable inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 lg:hidden"
                             aria-label="Open sidebar"
                         >
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,7 +157,7 @@
                         <button
                             type="button"
                             @click="toggleDarkMode"
-                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                            class="app-pressable inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                             :aria-pressed="darkMode.toString()"
                             aria-label="Toggle dark mode"
                         >
@@ -158,7 +175,7 @@
                             'relative w-full',
                             'mx-auto max-w-3xl' => $isClient,
                             'mx-auto max-w-xl' => !$isClient,
-                        ])>
+                        ]) data-search-history-form data-search-history-key="header-global">
                             @foreach($headerSearchCarryParams as $paramKey => $paramValue)
                                 @if(is_array($paramValue))
                                     @foreach($paramValue as $arrayValue)
@@ -175,15 +192,18 @@
                                 type="text"
                                 name="search"
                                 value="{{ $headerSearchQuery }}"
+                                data-search-history-input
                                 class="h-12 w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                                 placeholder="{{ $headerSearchPlaceholder }}"
+                                autocomplete="off"
                             >
+                            <div class="search-history-panel hidden" data-search-history-panel></div>
                         </form>
                     </div>
 
                     <div class="relative z-10 ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
                         @if($isClient)
-                            <a href="{{ route('client.tickets.create') }}" class="inline-flex items-center rounded-xl bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#022a2c] sm:px-4 sm:py-2.5">
+                            <a href="{{ route('client.tickets.create') }}" class="app-pressable inline-flex items-center rounded-xl bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#022a2c] sm:px-4 sm:py-2.5">
                                 New ticket
                             </a>
                         @endif
@@ -194,91 +214,100 @@
                             </span>
                         @endif
 
-                        <div class="relative" x-data="{ notificationOpen: false }">
-                            <button
-                                @click="notificationOpen = !notificationOpen"
-                                type="button"
-                                class="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                                aria-label="Notifications"
-                            >
-                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-3.5-3.5A6.965 6.965 0 0012 5a6.965 6.965 0 00-7.5 8.5L1 17h5m9 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                                </svg>
-                                @if($notificationCount > 0)
-                                    <span class="js-header-notification-badge absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white" data-count="{{ $notificationCount }}">
-                                        {{ $notificationCount > 9 ? '9+' : $notificationCount }}
-                                    </span>
-                                @endif
-                            </button>
+                        @if($notificationsEnabled)
+                            <div class="relative" x-data="{ notificationOpen: false }">
+                                <button
+                                    @click="notificationOpen = !notificationOpen"
+                                    type="button"
+                                    class="app-pressable relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                                    aria-label="Notifications"
+                                >
+                                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-3.5-3.5A6.965 6.965 0 0012 5a6.965 6.965 0 00-7.5 8.5L1 17h5m9 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                    </svg>
+                                    @if($notificationCount > 0)
+                                        <span class="js-header-notification-badge absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white" data-count="{{ $notificationCount }}">
+                                            {{ $notificationCount > 9 ? '9+' : $notificationCount }}
+                                        </span>
+                                    @endif
+                                </button>
 
-                            <div
-                                x-cloak
-                                x-show="notificationOpen"
-                                @click.away="notificationOpen = false"
-                                x-transition:enter="transition duration-220 ease-out"
-                                x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
-                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                                x-transition:leave="transition duration-160 ease-in"
-                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                                x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
-                                class="fixed left-2 right-2 top-20 z-40 max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]"
-                            >
-                                <div class="border-b border-slate-200 px-4 py-3">
-                                    <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
+                                <div
+                                    x-cloak
+                                    x-show="notificationOpen"
+                                    @click.away="notificationOpen = false"
+                                    x-transition:enter="transition duration-220 ease-out"
+                                    x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
+                                    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave="transition duration-160 ease-in"
+                                    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
+                                    class="fixed left-2 right-2 top-20 z-40 max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]"
+                                >
+                                    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                                        <h3 class="text-sm font-semibold text-slate-900">Notifications</h3>
+                                        <form method="POST" action="{{ $notificationClearAction }}" class="js-header-notification-clear-wrap {{ $notifications->count() > 0 ? '' : 'hidden' }}">
+                                            @csrf
+                                            <button type="submit" class="app-pressable inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
+                                                Clear
+                                            </button>
+                                        </form>
+                                    </div>
+                                    @if($notifications->count() > 0)
+                                        <div class="js-header-notification-list max-h-72 overflow-y-auto">
+                                            @foreach($notifications as $notification)
+                                                <div
+                                                    @class([
+                                                    'js-header-notification flex items-start gap-2 border-b border-slate-100 px-2 py-1 hover:bg-slate-50',
+                                                    'bg-slate-50/70' => !empty($notification['is_viewed']),
+                                                    'is-viewed' => !empty($notification['is_viewed']),
+                                                    ])
+                                                    data-ticket-id="{{ $notification['ticket_id'] }}"
+                                                    data-activity-at="{{ $notification['activity_at'] }}"
+                                                    data-viewed="{{ !empty($notification['is_viewed']) ? '1' : '0' }}"
+                                                >
+                                                    <a href="{{ $notification['url'] }}" class="block min-w-0 flex-1 px-2 py-2">
+                                                        <p class="text-sm font-semibold text-slate-900">{{ $notification['title'] }}</p>
+                                                        <p class="mt-0.5 truncate text-sm text-slate-600">{{ $notification['meta'] }}</p>
+                                                        <p class="mt-1 text-xs text-slate-400">
+                                                            {{ $notification['time'] }}
+                                                            @if(!empty($notification['is_viewed']))
+                                                                <span class="notification-viewed-pill ml-1 rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Viewed</span>
+                                                            @endif
+                                                        </p>
+                                                    </a>
+                                                    @if(!empty($notification['can_dismiss']) && !empty($notification['dismiss_url']) && !empty($notification['key']))
+                                                        <form method="POST" action="{{ $notification['dismiss_url'] }}" class="pt-2">
+                                                            @csrf
+                                                            <input type="hidden" name="ticket_id" value="{{ $notification['ticket_id'] }}">
+                                                            <input type="hidden" name="activity_at" value="{{ $notification['activity_at'] }}">
+                                                            <button type="submit" class="notification-dismiss-btn inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Dismiss notification">
+                                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                                </svg>
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        <div class="js-header-notification-empty hidden px-4 py-6 text-center">
+                                            <p class="text-sm font-semibold text-slate-700">No notifications</p>
+                                            <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
+                                        </div>
+                                    @else
+                                        <div class="js-header-notification-list hidden max-h-72 overflow-y-auto"></div>
+                                        <div class="js-header-notification-empty px-4 py-6 text-center">
+                                            <p class="text-sm font-semibold text-slate-700">No notifications</p>
+                                            <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
+                                        </div>
+                                    @endif
                                 </div>
-                                @if($notifications->count() > 0)
-                                    <div class="js-header-notification-list max-h-72 overflow-y-auto">
-                                        @foreach($notifications as $notification)
-                                            <div
-                                                @class([
-                                                'js-header-notification flex items-start gap-2 border-b border-slate-100 px-2 py-1 hover:bg-slate-50',
-                                                'bg-slate-50/70' => !empty($notification['is_viewed']),
-                                                ])
-                                                data-ticket-id="{{ $notification['ticket_id'] }}"
-                                                data-activity-at="{{ $notification['activity_at'] }}"
-                                                data-viewed="{{ !empty($notification['is_viewed']) ? '1' : '0' }}"
-                                            >
-                                                <a href="{{ $notification['url'] }}" class="block min-w-0 flex-1 px-2 py-2">
-                                                    <p class="text-sm font-semibold text-slate-900">{{ $notification['title'] }}</p>
-                                                    <p class="mt-0.5 truncate text-sm text-slate-600">{{ $notification['meta'] }}</p>
-                                                    <p class="mt-1 text-xs text-slate-400">
-                                                        {{ $notification['time'] }}
-                                                        @if(!empty($notification['is_viewed']))
-                                                            <span class="ml-1 rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">Viewed</span>
-                                                        @endif
-                                                    </p>
-                                                </a>
-                                                @if(!empty($notification['can_dismiss']) && !empty($notification['dismiss_url']) && !empty($notification['key']))
-                                                    <form method="POST" action="{{ $notification['dismiss_url'] }}" class="pt-2">
-                                                        @csrf
-                                                        <input type="hidden" name="ticket_id" value="{{ $notification['ticket_id'] }}">
-                                                        <input type="hidden" name="activity_at" value="{{ $notification['activity_at'] }}">
-                                                        <button type="submit" class="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Dismiss notification">
-                                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                            </svg>
-                                                        </button>
-                                                    </form>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                    <div class="js-header-notification-empty hidden px-4 py-6 text-center">
-                                        <p class="text-sm font-semibold text-slate-700">No notifications</p>
-                                        <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
-                                    </div>
-                                @else
-                                    <div class="js-header-notification-list hidden max-h-72 overflow-y-auto"></div>
-                                    <div class="js-header-notification-empty px-4 py-6 text-center">
-                                        <p class="text-sm font-semibold text-slate-700">No notifications</p>
-                                        <p class="mt-1 text-xs text-slate-500">You are all caught up.</p>
-                                    </div>
-                                @endif
                             </div>
-                        </div>
+                        @endif
 
                         <div class="relative" x-data="{ open: false }">
-                            <button @click="open = !open" class="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
+                            <button @click="open = !open" class="app-pressable inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
                                 <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
                                     <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="avatar-logo">
                                 </span>
@@ -301,11 +330,11 @@
                                 class="absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
                             >
                                 @if($canAccessAccountSettings)
-                                    <a href="{{ route('account.settings') }}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Account Settings</a>
+                                    <a href="{{ route('account.settings') }}" class="app-menu-link block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Account Settings</a>
                                 @endif
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
-                                    <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Sign out</button>
+                                    <button type="submit" class="app-menu-link block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Sign out</button>
                                 </form>
                             </div>
                         </div>
@@ -313,9 +342,9 @@
                 </div>
             </header>
 
-            <main class="px-4 py-6 sm:px-6 lg:px-8">
+            <main class="motion-page-enter px-4 py-6 sm:px-6 lg:px-8">
                 @if (session('success') && !session('suppress_success_banner'))
-                    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="alert">
+                    <div class="app-success-alert mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="alert">
                         {{ session('success') }}
                     </div>
                 @endif
@@ -333,15 +362,6 @@
                 @endif
 
                 @yield('content')
-
-                <div class="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-500">
-                    <span class="mr-2">Legal:</span>
-                    <button type="button" @click="openLegalModal('terms')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Terms</button>
-                    <span class="mx-1">|</span>
-                    <button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Privacy</button>
-                    <span class="mx-1">|</span>
-                    <button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-slate-600 hover:text-slate-900">Ticket Consent</button>
-                </div>
             </main>
         </div>
         @include('legal.modal')
@@ -351,6 +371,12 @@
             const notificationList = document.querySelector('.js-header-notification-list');
             const emptyState = document.querySelector('.js-header-notification-empty');
             const badge = document.querySelector('.js-header-notification-badge');
+            const clearNotificationsWrap = document.querySelector('.js-header-notification-clear-wrap');
+            const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+            let unreadCount = badge ? Number(badge.dataset.count || badge.textContent || 0) : 0;
+            if (Number.isNaN(unreadCount) || unreadCount < 0) {
+                unreadCount = 0;
+            }
 
             if (!notificationList) {
                 return;
@@ -361,35 +387,84 @@
                 return Number.isNaN(parsed) ? 0 : parsed;
             };
 
-            const updateNotificationUi = function () {
-                const items = Array.from(notificationList.querySelectorAll('.js-header-notification'));
-                const unreadCount = items.filter(function (item) {
-                    return item.dataset.viewed !== '1';
-                }).length;
-
-                if (items.length === 0) {
-                    notificationList.classList.add('hidden');
-                    if (emptyState) {
-                        emptyState.classList.remove('hidden');
+            const removeNotificationItem = function (item, delay) {
+                return new Promise(function (resolve) {
+                    if (!item) {
+                        resolve();
+                        return;
                     }
-                } else {
-                    notificationList.classList.remove('hidden');
-                    if (emptyState) {
-                        emptyState.classList.add('hidden');
-                    }
-                }
 
+                    const startRemoval = function () {
+                        item.classList.add('is-removing');
+                        window.setTimeout(function () {
+                            item.remove();
+                            resolve();
+                        }, 210);
+                    };
+
+                    if (!delay) {
+                        startRemoval();
+                        return;
+                    }
+
+                    window.setTimeout(startRemoval, delay);
+                });
+            };
+
+            const syncBadge = function () {
                 if (!badge) {
                     return;
                 }
 
                 if (unreadCount <= 0) {
                     badge.remove();
+
                     return;
                 }
 
                 badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
                 badge.dataset.count = String(unreadCount);
+            };
+
+            const updateNotificationUi = function () {
+                const items = Array.from(notificationList.querySelectorAll('.js-header-notification'));
+
+                if (items.length === 0) {
+                    notificationList.classList.add('hidden');
+                    if (emptyState) {
+                        emptyState.classList.remove('hidden');
+                    }
+                    if (clearNotificationsWrap) {
+                        clearNotificationsWrap.classList.add('hidden');
+                    }
+                } else {
+                    notificationList.classList.remove('hidden');
+                    if (emptyState) {
+                        emptyState.classList.add('hidden');
+                    }
+                    if (clearNotificationsWrap) {
+                        clearNotificationsWrap.classList.remove('hidden');
+                    }
+                }
+
+                syncBadge();
+            };
+
+            const clearNotificationItems = function () {
+                const items = Array.from(notificationList.querySelectorAll('.js-header-notification'));
+                if (items.length === 0) {
+                    unreadCount = 0;
+                    updateNotificationUi();
+                    return Promise.resolve();
+                }
+
+                return Promise.all(items.map(function (item, index) {
+                    const delay = Math.min(index * 24, 170);
+                    return removeNotificationItem(item, delay);
+                })).then(function () {
+                    unreadCount = 0;
+                    updateNotificationUi();
+                });
             };
 
             const removeNotificationsForSeenEvent = function (ticketId, seenAt) {
@@ -399,20 +474,137 @@
                     return;
                 }
 
+                let removedUnreadCount = 0;
+                const removals = [];
                 notificationList.querySelectorAll('.js-header-notification').forEach(function (item) {
                     const itemTicketId = Number(item.dataset.ticketId || 0);
                     const itemActivityAt = parseTimestamp(item.dataset.activityAt || '');
                     if (itemTicketId === normalizedTicketId && itemActivityAt > 0 && itemActivityAt <= seenTimestamp) {
-                        item.remove();
+                        if (item.dataset.viewed !== '1') {
+                            removedUnreadCount += 1;
+                        }
+                        removals.push(removeNotificationItem(item, 0));
                     }
                 });
 
-                updateNotificationUi();
+                if (removedUnreadCount > 0) {
+                    unreadCount = Math.max(0, unreadCount - removedUnreadCount);
+                }
+
+                if (removals.length === 0) {
+                    updateNotificationUi();
+                    return;
+                }
+
+                Promise.all(removals).then(function () {
+                    updateNotificationUi();
+                });
             };
 
             window.addEventListener('ticket-notification-seen', function (event) {
                 const detail = event && event.detail ? event.detail : {};
                 removeNotificationsForSeenEvent(detail.ticketId, detail.seenAt);
+            });
+
+            if (clearNotificationsWrap) {
+                let allowNativeClearSubmit = false;
+                clearNotificationsWrap.addEventListener('submit', function (event) {
+                    if (allowNativeClearSubmit) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const clearButton = clearNotificationsWrap.querySelector('button[type="submit"]');
+                    const clearButtonOriginalText = clearButton ? clearButton.textContent : '';
+                    if (clearButton) {
+                        clearButton.disabled = true;
+                        clearButton.classList.add('app-submit-busy');
+                        clearButton.textContent = 'Clearing...';
+                    }
+
+                    fetch(clearNotificationsWrap.action, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfTokenMeta ? (csrfTokenMeta.getAttribute('content') || '') : '',
+                        },
+                        credentials: 'same-origin',
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Unable to clear notifications.');
+                            }
+
+                            return clearNotificationItems();
+                        })
+                        .catch(function () {
+                            allowNativeClearSubmit = true;
+                            clearNotificationsWrap.submit();
+                        })
+                        .finally(function () {
+                            if (clearButton) {
+                                clearButton.disabled = false;
+                                clearButton.classList.remove('app-submit-busy');
+                                clearButton.textContent = clearButtonOriginalText;
+                            }
+                        });
+                });
+            }
+
+            notificationList.addEventListener('submit', function (event) {
+                const dismissForm = event.target.closest('form');
+                if (!dismissForm || dismissForm === clearNotificationsWrap) {
+                    return;
+                }
+
+                const ticketInput = dismissForm.querySelector('input[name="ticket_id"]');
+                const activityInput = dismissForm.querySelector('input[name="activity_at"]');
+                if (!ticketInput || !activityInput) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const row = dismissForm.closest('.js-header-notification');
+                const dismissButton = dismissForm.querySelector('button[type="submit"]');
+                if (dismissButton) {
+                    dismissButton.disabled = true;
+                    dismissButton.classList.add('app-submit-busy');
+                }
+
+                fetch(dismissForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfTokenMeta ? (csrfTokenMeta.getAttribute('content') || '') : '',
+                    },
+                    body: new FormData(dismissForm),
+                    credentials: 'same-origin',
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Unable to dismiss notification.');
+                        }
+
+                        if (row && row.dataset.viewed !== '1') {
+                            unreadCount = Math.max(0, unreadCount - 1);
+                        }
+
+                        return removeNotificationItem(row, 0).then(function () {
+                            updateNotificationUi();
+                        });
+                    })
+                    .catch(function () {
+                        dismissForm.submit();
+                    })
+                    .finally(function () {
+                        if (dismissButton) {
+                            dismissButton.disabled = false;
+                            dismissButton.classList.remove('app-submit-busy');
+                        }
+                    });
             });
 
             updateNotificationUi();

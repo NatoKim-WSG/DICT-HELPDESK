@@ -71,6 +71,23 @@ class LegalConsentFlowTest extends TestCase
         $this->actingAs($user)->get(route('account.settings'))->assertOk();
     }
 
+    public function test_acceptance_page_hides_notifications_control(): void
+    {
+        config([
+            'legal.require_acceptance' => true,
+            'legal.terms_version' => '2026-02-25',
+            'legal.privacy_version' => '2026-02-25',
+            'legal.platform_consent_version' => '2026-02-25',
+        ]);
+
+        $user = $this->createUser(User::ROLE_SUPER_USER, 'consent-no-bell@example.com');
+
+        $response = $this->actingAs($user)->get(route('legal.acceptance.show'));
+
+        $response->assertOk();
+        $response->assertDontSee('aria-label="Notifications"', false);
+    }
+
     public function test_ticket_submission_requires_ticket_consent_checkbox(): void
     {
         $client = $this->createUser(User::ROLE_CLIENT, 'client-consent@example.com', 'DICT');

@@ -26,11 +26,22 @@
         .theme-dark .login-card {
             background: linear-gradient(160deg, #161b22 0%, #11161d 100%) !important;
             border-color: #2b323c !important;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.58) !important;
         }
 
         .theme-dark .login-hero {
-            background: linear-gradient(140deg, rgba(15, 118, 110, 0.18), rgba(14, 165, 233, 0.12)) !important;
+            background: linear-gradient(140deg, rgba(15, 118, 110, 0.12), rgba(14, 165, 233, 0.07)) !important;
             border-right: 1px solid #2b323c;
+        }
+
+        .theme-dark .login-orb-left {
+            background-color: rgba(45, 119, 155, 0.12) !important;
+            opacity: 0.45;
+        }
+
+        .theme-dark .login-orb-right {
+            background-color: rgba(18, 106, 126, 0.12) !important;
+            opacity: 0.4;
         }
 
         .login-toggle {
@@ -64,9 +75,16 @@
             this.darkMode = document.documentElement.classList.contains('theme-dark');
         },
         toggleDarkMode() {
+            const root = document.documentElement;
             this.darkMode = !this.darkMode;
-            document.documentElement.classList.toggle('theme-dark', this.darkMode);
-            localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+            root.classList.add('theme-switching');
+            requestAnimationFrame(() => {
+                root.classList.toggle('theme-dark', this.darkMode);
+                localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+                window.setTimeout(() => {
+                    root.classList.remove('theme-switching');
+                }, 120);
+            });
         },
         openLegalModal(tab = 'terms') {
             this.legalModalTab = tab;
@@ -79,14 +97,14 @@
         }
     }"
 >
-    <div class="relative min-h-screen overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
-        <div class="pointer-events-none absolute -left-20 top-8 h-72 w-72 rounded-full bg-ione-blue-300/20 blur-3xl"></div>
-        <div class="pointer-events-none absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
+    <div class="motion-page-enter relative min-h-screen overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
+        <div class="login-orb-left pointer-events-none absolute -left-20 top-8 h-72 w-72 rounded-full bg-ione-blue-300/20 blur-3xl"></div>
+        <div class="login-orb-right pointer-events-none absolute -right-24 bottom-10 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl"></div>
 
         <button
             type="button"
             @click="toggleDarkMode"
-            class="login-toggle absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-white sm:right-6 sm:top-6"
+            class="app-pressable login-toggle absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-white sm:right-6 sm:top-6"
             :aria-pressed="darkMode.toString()"
             aria-label="Toggle dark mode"
         >
@@ -104,7 +122,7 @@
                     <img src="{{ asset('images/iOne Logo.png') }}" alt="iOne Logo" class="h-14 w-auto">
                     <h1 class="mt-8 font-display text-3xl font-semibold text-slate-900">iOne Resources Inc. Helpdesk</h1>
                     <p class="mt-3 max-w-sm text-sm text-slate-600">
-                        Centralized ticket management for iOne Resources with faster response tracking and clearer workflows.
+                        Centralized ticket management for iOne Resources.
                     </p>
                 </div>
                 <p class="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Secure Internal Portal</p>
@@ -156,10 +174,10 @@
                 </p>
                 <p class="mt-3 text-center text-xs text-slate-500">
                     By signing in, you agree to the
-                    <button type="button" @click="openLegalModal('terms')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Terms</button>,
-                    <button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Privacy Notice</button>,
+                    <button type="button" @click="openLegalModal('terms')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Terms</button>,
+                    <button type="button" @click="openLegalModal('privacy')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Privacy Notice</button>,
                     and
-                    <button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Ticket Consent</button>.
+                    <button type="button" @click="openLegalModal('ticket-consent')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Ticket Consent</button>.
                 </p>
             </div>
         </div>

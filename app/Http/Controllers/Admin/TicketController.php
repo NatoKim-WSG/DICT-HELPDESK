@@ -15,6 +15,7 @@ use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -85,13 +86,15 @@ class TicketController extends Controller
         }
 
         $query->when($request->filled('search'), function ($builder) use ($request) {
-            $search = $request->string('search')->toString();
-            $builder->where(function ($q) use ($search) {
-                $q->where('subject', 'like', '%'.$search.'%')
-                    ->orWhere('ticket_number', 'like', '%'.$search.'%')
-                    ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', '%'.$search.'%')
-                            ->orWhere('email', 'like', '%'.$search.'%');
+            $search = mb_strtolower($request->string('search')->toString());
+            $pattern = '%'.$search.'%';
+
+            $builder->where(function ($q) use ($pattern) {
+                $q->whereRaw('LOWER(subject) LIKE ?', [$pattern])
+                    ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern])
+                    ->orWhereHas('user', function ($userQuery) use ($pattern) {
+                        $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
+                            ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
                     });
             });
         });
@@ -107,11 +110,10 @@ class TicketController extends Controller
         $provinceOptions = $this->distinctTicketColumnOptions('province', clone $scopedTickets);
         $municipalityOptions = $this->distinctTicketColumnOptions('municipality', clone $scopedTickets);
 
-        $accountOptionsQuery = User::where('role', User::ROLE_CLIENT)
-            ->where('is_active', true);
-
         $currentUser = auth()->user();
         if ($currentUser && $currentUser->isTechnician()) {
+            $accountOptionsQuery = User::where('role', User::ROLE_CLIENT)
+                ->where('is_active', true);
             $visibleClientIds = (clone $scopedTickets)
                 ->whereNotNull('user_id')
                 ->select('user_id')
@@ -119,12 +121,19 @@ class TicketController extends Controller
                 ->pluck('user_id');
 
             $accountOptionsQuery->whereIn('id', $visibleClientIds);
+            $accountOptions = $accountOptionsQuery
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->values();
+        } else {
+            $accountOptions = Cache::remember('admin_ticket_account_options_active_clients_v1', now()->addSeconds(60), function () {
+                return User::where('role', User::ROLE_CLIENT)
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->values();
+            });
         }
-
-        $accountOptions = $accountOptionsQuery
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->values();
 
         $tickets = $query->latest()->paginate(15);
         $ticketSeenTimestamps = TicketUserState::where('user_id', auth()->id())
@@ -137,10 +146,12 @@ class TicketController extends Controller
             })
             ->all();
 
-        $categories = Category::active()->get();
-        $agents = User::whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->where('is_active', true)
-            ->get();
+        $categories = Cache::remember('admin_ticket_active_categories_v1', now()->addSeconds(120), function () {
+            return Category::active()
+                ->orderBy('name')
+                ->get(['id', 'name']);
+        });
+        $agents = $this->activeAssignableAgents();
 
         return view('admin.tickets.index', compact(
             'tickets',
@@ -159,21 +170,10 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        TicketUserState::updateOrCreate(
-            [
-                'ticket_id' => $ticket->id,
-                'user_id' => auth()->id(),
-            ],
-            [
-                'last_seen_at' => $ticket->updated_at ?? now(),
-                'dismissed_at' => null,
-            ]
-        );
+        TicketUserState::markSeen($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
-        $agents = User::whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->where('is_active', true)
-            ->get();
+        $agents = $this->activeAssignableAgents();
 
         return view('admin.tickets.show', compact('ticket', 'agents'));
     }
@@ -785,6 +785,7 @@ class TicketController extends Controller
     {
         return Rule::exists('users', 'id')->where(function ($query) {
             $query->whereIn('role', User::TICKET_CONSOLE_ROLES)
+                ->where('role', '!=', User::ROLE_SHADOW)
                 ->where('is_active', true);
         });
     }
@@ -854,8 +855,8 @@ class TicketController extends Controller
         }
 
         $actorName = optional(auth()->user())->name ?? 'System';
-        $previousAssigneeName = $previousAssignedTo ? optional(User::find($previousAssignedTo))->name : null;
-        $newAssigneeName = $newAssignedTo ? optional(User::find($newAssignedTo))->name : null;
+        $previousAssigneeName = $previousAssignedTo ? optional(User::find($previousAssignedTo))->publicDisplayName() : null;
+        $newAssigneeName = $newAssignedTo ? optional(User::find($newAssignedTo))->publicDisplayName() : null;
 
         $message = match (true) {
             $previousAssignedTo === null && $newAssigneeName !== null => "Ticket was assigned to {$newAssigneeName} by {$actorName}.",
@@ -959,5 +960,16 @@ class TicketController extends Controller
             'latest_updated_at' => $latestUpdatedTimestamp,
             'total_tickets' => $totalTickets,
         ]));
+    }
+
+    private function activeAssignableAgents(): \Illuminate\Support\Collection
+    {
+        return Cache::remember('admin_ticket_active_agents_v2', now()->addSeconds(45), function () {
+            return User::whereIn('role', User::TICKET_CONSOLE_ROLES)
+                ->visibleDirectory()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'role']);
+        });
     }
 }

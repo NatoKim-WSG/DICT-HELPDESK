@@ -24,7 +24,7 @@ class DashboardController extends Controller
         $stats = [
             'total_tickets' => (clone $ticketQuery)->count(),
             'open_tickets' => (clone $ticketQuery)->open()->count(),
-            'closed_tickets' => (clone $ticketQuery)->closed()->count(),
+            'in_progress_tickets' => (clone $ticketQuery)->where('status', 'in_progress')->count(),
             'urgent_tickets' => (clone $ticketQuery)->byPriority('urgent')->open()->count(),
         ];
 
@@ -41,11 +41,11 @@ class DashboardController extends Controller
     {
         $latestUpdatedAt = (clone $ticketQuery)->max('updated_at');
         $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
+        $totalTickets = (clone $ticketQuery)->count();
 
         return sha1(json_encode([
             'latest_updated_at' => $latestUpdatedTimestamp,
-            'open_tickets' => (clone $ticketQuery)->open()->count(),
-            'total_tickets' => (clone $ticketQuery)->count(),
+            'total_tickets' => $totalTickets,
         ]));
     }
 }

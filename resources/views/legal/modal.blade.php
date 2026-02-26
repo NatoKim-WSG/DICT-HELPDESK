@@ -9,15 +9,16 @@
     x-cloak
     x-show="legalModalOpen"
     x-transition.opacity
+    :class="{ 'is-open': legalModalOpen }"
     @keydown.escape.window="closeLegalModal()"
-    class="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6"
+    class="app-modal-root fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6"
     aria-modal="true"
     role="dialog"
     aria-label="Legal documents"
 >
-    <div class="absolute inset-0 bg-slate-900/70" @click="closeLegalModal()"></div>
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/70" @click="closeLegalModal()"></div>
 
-    <div class="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div class="app-modal-panel relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div class="flex items-start justify-between border-b border-slate-200 px-4 py-3 sm:px-6">
             <div>
                 <h2 class="font-display text-lg font-semibold text-slate-900">Legal Documents</h2>
@@ -25,7 +26,7 @@
                     Effective {{ $effectiveDate }} | Terms v{{ $termsVersion }} | Privacy v{{ $privacyVersion }} | Ticket Consent v{{ $ticketConsentVersion }}
                 </p>
             </div>
-            <button type="button" @click="closeLegalModal()" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Close legal modal">
+            <button type="button" @click="closeLegalModal()" class="app-pressable inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Close legal modal">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>

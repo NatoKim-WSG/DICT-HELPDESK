@@ -222,9 +222,9 @@
 </div>
 
 <!-- Account Status Modal -->
-<div id="statusConfirmModal" class="fixed inset-0 z-50 hidden bg-gray-600 bg-opacity-50">
+<div id="statusConfirmModal" class="app-modal-root app-modal-overlay fixed inset-0 z-50 hidden bg-gray-600 bg-opacity-50">
     <div class="flex min-h-full items-center justify-center p-4">
-    <div class="relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100">
                 <svg class="h-6 w-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,9 +260,9 @@
 </div>
 
 <!-- Deactivate User Modal -->
-<div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+<div id="deleteModal" class="app-modal-root app-modal-overlay fixed inset-0 z-50 hidden bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
     <div class="flex min-h-full items-center justify-center p-4">
-    <div class="relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
         <div class="mt-3 text-center">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,6 +295,7 @@
 <script>
 const deleteConfirmCheckbox = document.getElementById('deleteConfirmCheckbox');
 const confirmDeleteButton = document.getElementById('confirmDelete');
+const deleteModal = document.getElementById('deleteModal');
 const statusConfirmCheckbox = document.getElementById('statusConfirmCheckbox');
 const confirmStatusButton = document.getElementById('confirmStatusChange');
 const statusModal = document.getElementById('statusConfirmModal');
@@ -306,6 +307,43 @@ const actionNotification = document.getElementById('actionNotification');
 const actionNotificationMessage = document.getElementById('actionNotificationMessage');
 let pendingStatusChange = null;
 let actionNotificationTimeout = null;
+const MODAL_TRANSITION_MS = 210;
+
+function syncBodyLock() {
+    const hasOpenModal = Boolean(document.querySelector('.app-modal-root:not(.hidden)'));
+    document.body.classList.toggle('overflow-hidden', hasOpenModal);
+}
+
+function showAnimatedModal(targetModal) {
+    if (!targetModal) return;
+
+    if (targetModal._closeTimer) {
+        clearTimeout(targetModal._closeTimer);
+        targetModal._closeTimer = null;
+    }
+
+    targetModal.classList.remove('hidden', 'is-closing');
+    requestAnimationFrame(function () {
+        targetModal.classList.add('is-open');
+    });
+    syncBodyLock();
+}
+
+function hideAnimatedModal(targetModal) {
+    if (!targetModal || targetModal.classList.contains('hidden')) {
+        syncBodyLock();
+        return;
+    }
+
+    targetModal.classList.remove('is-open');
+    targetModal.classList.add('is-closing');
+    targetModal._closeTimer = setTimeout(function () {
+        targetModal.classList.add('hidden');
+        targetModal.classList.remove('is-closing');
+        targetModal._closeTimer = null;
+        syncBodyLock();
+    }, MODAL_TRANSITION_MS);
+}
 
 function setStatusConfirmButtonTheme(isReactivation) {
     if (!confirmStatusButton) return;
@@ -344,7 +382,7 @@ function showActionNotification(message, tone = 'warning') {
 }
 
 function deleteUser(userId) {
-    document.getElementById('deleteModal').classList.remove('hidden');
+    showAnimatedModal(deleteModal);
 
     if (deleteConfirmCheckbox) {
         deleteConfirmCheckbox.checked = false;
@@ -381,7 +419,7 @@ function deleteUser(userId) {
 }
 
 function closeDeleteModal() {
-    document.getElementById('deleteModal').classList.add('hidden');
+    hideAnimatedModal(deleteModal);
     if (deleteConfirmCheckbox) {
         deleteConfirmCheckbox.checked = false;
     }
@@ -428,7 +466,7 @@ function openStatusModal(userId, userName, newStatus) {
         setStatusConfirmButtonTheme(isReactivation);
     }
     if (statusModal) {
-        statusModal.classList.remove('hidden');
+        showAnimatedModal(statusModal);
     }
 }
 
@@ -439,7 +477,7 @@ function closeStatusModal() {
         statusConfirmCheckbox.checked = false;
     }
     if (statusModal) {
-        statusModal.classList.add('hidden');
+        hideAnimatedModal(statusModal);
     }
 }
 
@@ -471,6 +509,22 @@ if (statusModal) {
         }
     });
 }
+
+if (deleteModal) {
+    deleteModal.addEventListener('click', function(e) {
+        if (e.target === deleteModal) {
+            closeDeleteModal();
+        }
+    });
+}
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    closeDeleteModal();
+    closeStatusModal();
+});
+
+syncBodyLock();
 
 function performToggleUserStatus(userId, newStatus) {
     fetch(`/admin/users/${userId}/toggle-status`, {

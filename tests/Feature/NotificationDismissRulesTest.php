@@ -173,6 +173,78 @@ class NotificationDismissRulesTest extends TestCase
         $this->assertTrue($state->dismissed_at->equalTo($state->last_seen_at));
     }
 
+    public function test_client_can_clear_notifications(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        [$client, $admin, $ticket] = $this->seedTicketContext();
+
+        $response = $this->actingAs($client)
+            ->from(route('client.dashboard'))
+            ->post(route('client.notifications.clear'));
+
+        $response->assertRedirect(route('client.dashboard'));
+
+        $state = TicketUserState::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('user_id', $client->id)
+            ->first();
+
+        $this->assertNotNull($state);
+        $this->assertNotNull($state->last_seen_at);
+        $this->assertNotNull($state->dismissed_at);
+    }
+
+    public function test_technician_clear_notifications_only_affects_assigned_open_tickets(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        [$client, $admin, $assignedTicket] = $this->seedTicketContext();
+        $assignedTechnical = User::query()->where('email', 'notify-technical@example.test')->firstOrFail();
+        $otherTechnical = User::create([
+            'name' => 'Other Technical',
+            'email' => 'notify-technical-other@example.test',
+            'phone' => '09170000103',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $unassignedTicket = Ticket::create([
+            'name' => 'Requester Two',
+            'contact_number' => '09170000099',
+            'email' => 'requester-two@example.test',
+            'province' => 'Metro Manila',
+            'municipality' => 'Pasig',
+            'subject' => 'Another notification behavior test',
+            'description' => 'Used for technician clear scope test.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'assigned_to' => $otherTechnical->id,
+            'category_id' => $assignedTicket->category_id,
+        ]);
+
+        $response = $this->actingAs($assignedTechnical)
+            ->from(route('admin.dashboard'))
+            ->post(route('admin.notifications.clear'));
+
+        $response->assertRedirect(route('admin.dashboard'));
+
+        $assignedState = TicketUserState::query()
+            ->where('ticket_id', $assignedTicket->id)
+            ->where('user_id', $assignedTechnical->id)
+            ->first();
+        $this->assertNotNull($assignedState);
+        $this->assertNotNull($assignedState->dismissed_at);
+
+        $this->assertDatabaseMissing('ticket_user_states', [
+            'ticket_id' => $unassignedTicket->id,
+            'user_id' => $assignedTechnical->id,
+        ]);
+    }
+
     private function seedTicketContext(): array
     {
         $client = User::create([

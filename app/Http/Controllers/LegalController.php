@@ -41,9 +41,9 @@ class LegalController extends Controller
             'accept_privacy' => 'accepted',
             'accept_platform_consent' => 'accepted',
         ], [
-            'accept_terms.accepted' => 'You must accept the Terms of Service.',
-            'accept_privacy.accepted' => 'You must accept the Privacy Notice and Consent.',
-            'accept_platform_consent.accepted' => 'You must accept the platform consent statement.',
+            'accept_terms.accepted' => 'Please review and accept the Terms of Service to continue.',
+            'accept_privacy.accepted' => 'Please review and accept the Privacy Notice and Consent to continue.',
+            'accept_platform_consent.accepted' => 'Please confirm the platform consent statement to continue.',
         ]);
 
         $user = $request->user();

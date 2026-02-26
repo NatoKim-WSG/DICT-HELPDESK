@@ -43,7 +43,7 @@
         </div>
     </div>
 
-    <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-submit-feedback>
         @csrf
         @method('PUT')
 
@@ -212,7 +212,7 @@
 
         <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
             <a href="{{ $backRoute }}" class="btn-secondary">Cancel</a>
-            <button type="submit" class="btn-primary">Save Changes</button>
+            <button type="submit" class="btn-primary" data-loading-text="Saving...">Save Changes</button>
         </div>
     </form>
     <script>

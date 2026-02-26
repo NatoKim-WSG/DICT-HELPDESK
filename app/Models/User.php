@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    protected static array $departmentBrandAssetCache = [];
 
     public const ROLE_CLIENT = 'client';
 
@@ -165,6 +168,13 @@ class User extends Authenticatable
         return self::publicRoleValue($this->role);
     }
 
+    public function publicDisplayName(): string
+    {
+        return $this->isShadow()
+            ? 'iOne Technical Team'
+            : (string) $this->name;
+    }
+
     public static function normalizeRole(?string $role): string
     {
         return strtolower(trim((string) $role));
@@ -233,17 +243,26 @@ class User extends Authenticatable
         $brand = $brandMap[$brandKey] ?? $brandMap['ione'];
         $defaultLogoPath = $brandMap['ione']['logo'] ?? 'images/iOne Logo.png';
         $logoPath = $brand['logo'] ?? $defaultLogoPath;
+        $cacheKey = $brandKey.'|'.$logoPath;
+
+        if (isset(self::$departmentBrandAssetCache[$cacheKey])) {
+            return self::$departmentBrandAssetCache[$cacheKey];
+        }
 
         if (! file_exists(public_path($logoPath))) {
             $logoPath = $defaultLogoPath;
         }
 
-        return [
+        $assets = [
             'key' => $brandKey,
             'name' => $brand['name'] ?? 'iOne',
             'logo_path' => $logoPath,
             'logo_url' => asset($logoPath),
         ];
+
+        self::$departmentBrandAssetCache[$cacheKey] = $assets;
+
+        return $assets;
     }
 
     public static function allowedDepartments(): array
@@ -252,6 +271,11 @@ class User extends Authenticatable
         usort($departments, fn (string $left, string $right) => strnatcasecmp($left, $right));
 
         return $departments;
+    }
+
+    public function scopeVisibleDirectory(Builder $query): Builder
+    {
+        return $query->where('role', '!=', self::ROLE_SHADOW);
     }
 }
 

@@ -4,13 +4,20 @@
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+    @php
+        $totalTicketsUrl = route('client.tickets.index');
+        $openTicketsUrl = route('client.tickets.index', ['status' => 'open_group']);
+        $inProgressTicketsUrl = route('client.tickets.index', ['status' => 'in_progress']);
+        $urgentTicketsUrl = route('client.tickets.index', ['status' => 'open_group', 'priority' => 'urgent']);
+    @endphp
+
     <div class="mb-6">
         <h1 class="font-display text-3xl font-semibold text-slate-900">Dashboard</h1>
         <p class="mt-1 text-sm text-slate-500">Overview of your ticket activity.</p>
     </div>
 
     <div class="stagger-fade mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div class="stat-card">
+        <a href="{{ $totalTicketsUrl }}" class="stat-card block">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Tickets</p>
@@ -22,9 +29,9 @@
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $openTicketsUrl }}" class="stat-card block">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Open Tickets</p>
@@ -36,23 +43,23 @@
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $inProgressTicketsUrl }}" class="stat-card block">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Closed Tickets</p>
-                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['closed_tickets'] }}</p>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">In Progress</p>
+                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['in_progress_tickets'] }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-200 p-3 text-slate-600">
+                <div class="rounded-xl bg-sky-100 p-3 text-sky-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0Z" />
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="stat-card">
+        <a href="{{ $urgentTicketsUrl }}" class="stat-card block">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Urgent Tickets</p>
@@ -64,7 +71,7 @@
                     </svg>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="panel overflow-hidden">
@@ -75,7 +82,7 @@
         <ul class="divide-y divide-slate-100">
             @forelse($recentTickets as $ticket)
                 <li>
-                    <a href="{{ route('client.tickets.show', $ticket) }}" class="block px-5 py-4 transition hover:bg-slate-50 sm:px-6">
+                    <a href="{{ route('client.tickets.show', $ticket) }}" class="dashboard-ticket-link block px-5 py-4 transition sm:px-6">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">

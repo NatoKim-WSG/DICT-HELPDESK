@@ -19,7 +19,7 @@
     </div>
 
     <div class="bg-white shadow sm:rounded-lg">
-        <form action="{{ route('admin.users.store') }}" method="POST" class="space-y-6">
+        <form action="{{ route('admin.users.store') }}" method="POST" class="space-y-6" data-submit-feedback>
             @csrf
             <div class="px-4 py-5 sm:p-6">
                 <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -148,7 +148,7 @@
 
             <div class="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
                 <a href="{{ route('admin.users.index') }}" class="btn-secondary">Cancel</a>
-                <button type="submit" class="btn-primary">Create User</button>
+                <button type="submit" class="btn-primary" data-loading-text="Creating...">Create User</button>
             </div>
         </form>
     </div>

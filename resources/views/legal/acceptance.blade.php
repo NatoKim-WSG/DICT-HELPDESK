@@ -4,10 +4,6 @@
 
 @section('content')
 @php
-    $termsVersion = (string) config('legal.terms_version');
-    $privacyVersion = (string) config('legal.privacy_version');
-    $platformConsentVersion = (string) config('legal.platform_consent_version');
-    $effectiveDate = (string) config('legal.effective_date');
 @endphp
 
 <div class="mx-auto max-w-3xl">
@@ -16,18 +12,12 @@
         <p class="mt-2 text-sm text-slate-600">
             You need to review and accept the current legal documents to use the ticketing system.
         </p>
-        <p class="mt-1 text-xs text-slate-500">
-            Effective date: {{ $effectiveDate }} |
-            Terms v{{ $termsVersion }} |
-            Privacy v{{ $privacyVersion }} |
-            Platform Consent v{{ $platformConsentVersion }}
-        </p>
 
         <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
             <ul class="list-disc space-y-1 pl-5 text-slate-700">
-                <li><button type="button" @click="openLegalModal('terms')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Terms of Service</button></li>
-                <li><button type="button" @click="openLegalModal('privacy')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Privacy Notice and Consent</button></li>
-                <li><button type="button" @click="openLegalModal('ticket-consent')" class="border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Ticket Submission Consent</button></li>
+                <li><button type="button" @click="openLegalModal('terms')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Terms of Service</button></li>
+                <li><button type="button" @click="openLegalModal('privacy')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Privacy Notice and Consent</button></li>
+                <li><button type="button" @click="openLegalModal('ticket-consent')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Read Ticket Submission Consent</button></li>
             </ul>
         </div>
 
@@ -64,7 +54,7 @@
                 </button>
                 <a href="{{ route('logout') }}"
                    onclick="event.preventDefault(); document.getElementById('legal-logout-form').submit();"
-                   class="text-sm font-semibold text-slate-500 hover:text-slate-700">
+                   class="app-menu-link text-sm font-semibold text-slate-500 hover:text-slate-700">
                     Sign out
                 </a>
             </div>

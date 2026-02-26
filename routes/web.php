@@ -101,6 +101,37 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
         return back();
     })->middleware('throttle:60,1')->name('notifications.dismiss');
 
+    Route::post('/notifications/clear', function (Request $request) {
+        $ticketIds = Ticket::query()
+            ->where('user_id', (int) auth()->id())
+            ->pluck('id');
+
+        if ($ticketIds->isEmpty()) {
+            return back();
+        }
+
+        $now = now();
+        $rows = $ticketIds->map(fn ($ticketId) => [
+            'ticket_id' => (int) $ticketId,
+            'user_id' => (int) auth()->id(),
+            'last_seen_at' => $now,
+            'dismissed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all();
+        TicketUserState::upsert(
+            $rows,
+            ['ticket_id', 'user_id'],
+            ['last_seen_at', 'dismissed_at', 'updated_at']
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back();
+    })->middleware('throttle:30,1')->name('notifications.clear');
+
     Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
         if ((int) $ticket->user_id !== (int) auth()->id()) {
             abort(403);
@@ -208,6 +239,41 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
 
         return back();
     })->middleware('throttle:60,1')->name('notifications.dismiss');
+
+    Route::post('/notifications/clear', function (Request $request) {
+        $authUser = auth()->user();
+        $ticketsQuery = Ticket::query()->open();
+
+        if ($authUser && $authUser->isTechnician()) {
+            $ticketsQuery->where('assigned_to', $authUser->id);
+        }
+
+        $ticketIds = $ticketsQuery->pluck('id');
+        if ($ticketIds->isEmpty()) {
+            return back();
+        }
+
+        $now = now();
+        $rows = $ticketIds->map(fn ($ticketId) => [
+            'ticket_id' => (int) $ticketId,
+            'user_id' => (int) auth()->id(),
+            'last_seen_at' => $now,
+            'dismissed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all();
+        TicketUserState::upsert(
+            $rows,
+            ['ticket_id', 'user_id'],
+            ['last_seen_at', 'dismissed_at', 'updated_at']
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back();
+    })->middleware('throttle:30,1')->name('notifications.clear');
 
     Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
         $authUser = auth()->user();

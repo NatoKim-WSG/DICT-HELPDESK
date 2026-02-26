@@ -15,6 +15,8 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
         $scopedTickets = $this->scopedTicketQueryForUser($user);
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
         $liveSnapshotToken = $this->buildDashboardSnapshotToken(clone $scopedTickets);
 
         if ($request->boolean('heartbeat')) {
@@ -32,11 +34,9 @@ class DashboardController extends Controller
                 ->where('created_at', '<=', now()->subHours(16))
                 ->count(),
             'urgent_tickets' => (clone $scopedTickets)->byPriority('urgent')->open()->count(),
-            'total_users' => User::where('role', User::ROLE_CLIENT)->count(),
-            'total_staff' => User::whereIn('role', User::TICKET_CONSOLE_ROLES)->count(),
-            'assigned_to_me' => (clone $scopedTickets)->where('assigned_to', $user->id)
-                ->whereNotIn('status', Ticket::CLOSED_STATUSES)
-                ->count(),
+            'total_users' => User::query()->visibleDirectory()->count(),
+            'technical_users' => User::query()->where('role', User::ROLE_TECHNICAL)->count(),
+            'client_users' => User::query()->where('role', User::ROLE_CLIENT)->count(),
         ];
 
         $recentTickets = (clone $scopedTickets)->with(['user', 'category', 'assignedUser'])
@@ -44,12 +44,16 @@ class DashboardController extends Controller
             ->take(20)
             ->get();
 
-        $ticketsByStatus = (clone $scopedTickets)->selectRaw('status, COUNT(*) as count')
+        $ticketsByStatus = (clone $scopedTickets)
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->get()
             ->pluck('count', 'status');
 
-        $ticketsByPriority = (clone $scopedTickets)->selectRaw('priority, COUNT(*) as count')
+        $ticketsByPriority = (clone $scopedTickets)
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->selectRaw('priority, COUNT(*) as count')
             ->groupBy('priority')
             ->get()
             ->pluck('count', 'priority');
@@ -94,20 +98,11 @@ class DashboardController extends Controller
     {
         $latestUpdatedAt = (clone $scopedTickets)->max('updated_at');
         $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
-        $statusCounts = (clone $scopedTickets)
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->sortKeys()
-            ->all();
+        $totalTickets = (clone $scopedTickets)->count();
 
         return sha1(json_encode([
             'latest_updated_at' => $latestUpdatedTimestamp,
-            'status_counts' => $statusCounts,
-            'total' => (clone $scopedTickets)->count(),
-            'attention' => (clone $scopedTickets)->whereNotIn('status', Ticket::CLOSED_STATUSES)
-                ->where('created_at', '<=', now()->subHours(16))
-                ->count(),
+            'total' => $totalTickets,
         ]));
     }
 }

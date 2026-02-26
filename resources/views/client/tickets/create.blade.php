@@ -40,7 +40,7 @@
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-gray-900 mb-6">Create New Support Ticket</h3>
 
-            <form id="ticket-create-form" action="{{ route('client.tickets.store') }}" method="POST" enctype="multipart/form-data">
+            <form id="ticket-create-form" action="{{ route('client.tickets.store') }}" method="POST" enctype="multipart/form-data" data-submit-feedback>
                 @csrf
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -79,8 +79,8 @@
                         </div>
                     </div>
                     <div class="xl:col-span-2">
-                        <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            Your email and phone number will only be visible to iOne Technicals for communication related to this ticket.
+                        <p class="ticket-contact-note inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            Contact details are visible only to the iOne technical team for emergency communication purposes.
                         </p>
                     </div>
 
@@ -165,7 +165,7 @@
                     <div class="xl:col-span-2">
                         <label for="attachments" class="form-label">Attachments <span class="text-red-600">*</span></label>
                         <input type="file" name="attachments[]" id="attachments" multiple required
-                               class="form-input @error('attachments.*') border-red-500 @enderror"
+                               class="form-input cursor-pointer @error('attachments.*') border-red-500 @enderror"
                                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt">
                         <p class="mt-1 text-sm text-gray-500">
                             Upload at least one file. Supported formats: JPG, PNG, PDF, DOC, DOCX, TXT (max 10MB each)
@@ -206,7 +206,7 @@
                     <a href="{{ route('client.tickets.index') }}" class="btn-secondary">
                         Cancel
                     </a>
-                    <button type="submit" class="btn-primary">
+                    <button type="submit" class="btn-primary" data-loading-text="Creating...">
                         Create Ticket
                     </button>
                 </div>
