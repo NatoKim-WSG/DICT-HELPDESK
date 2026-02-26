@@ -22,6 +22,8 @@ Laravel 12 help desk application with separate client and admin portals for tick
 ```bash
 composer install
 npm install
+# Windows PowerShell fallback if npm script execution is restricted:
+# npm.cmd install
 ```
 
 2. Configure environment:
@@ -41,11 +43,16 @@ php artisan storage:link
 4. Build frontend assets:
 ```bash
 npm run build
+# Windows PowerShell fallback:
+# npm.cmd run build
 ```
 
 5. Run the app:
 ```bash
 php artisan serve
+npm run dev
+# Windows PowerShell fallback:
+# npm.cmd run dev
 ```
 
 ## Environment Variables
@@ -64,6 +71,21 @@ Legal/consent behavior is versioned and configurable using:
 - `LEGAL_TICKET_CONSENT_VERSION`
 - `LEGAL_DPO_EMAIL`
 - `LEGAL_SUPPORT_EMAIL`
+- `LEGAL_EFFECTIVE_DATE`
+- `LEGAL_ORGANIZATION_NAME`
+- `LEGAL_GOVERNING_LAW`
+- `LEGAL_CONTACT_ADDRESS`
+- `LEGAL_RETENTION_PERIOD`
+
+Optional infra/config variables currently used:
+
+- `DB_URL`, `DB_SOCKET`, `DB_CHARSET`, `DB_COLLATION`, `DB_FOREIGN_KEYS`
+- `MYSQL_ATTR_SSL_CA`
+- `DYNAMODB_CACHE_TABLE`, `DYNAMODB_ENDPOINT`
+- `MEMCACHED_PERSISTENT_ID`, `MEMCACHED_USERNAME`, `MEMCACHED_PASSWORD`, `MEMCACHED_PORT`
+- `SESSION_CONNECTION`, `SESSION_STORE`
+- `REDIS_URL`, `REDIS_PREFIX`, `REDIS_USERNAME`, `REDIS_CLUSTER`, `REDIS_DB`, `REDIS_CACHE_DB`
+- `MAIL_URL`, `MAIL_EHLO_DOMAIN`, `MAIL_LOG_CHANNEL`
 
 ## Seeded Accounts
 

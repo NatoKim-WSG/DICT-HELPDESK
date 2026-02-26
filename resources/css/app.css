@@ -623,7 +623,7 @@
         color: var(--dm-ink) !important;
     }
 
-    .theme-dark html.is-page-transitioning body {
+    html.theme-dark.is-page-transitioning body {
         opacity: 0.88;
     }
 

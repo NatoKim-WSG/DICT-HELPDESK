@@ -14,6 +14,8 @@ Run these commands from the project root:
 php artisan migrate --seed
 php artisan test
 npm run build
+# Windows PowerShell fallback:
+# npm.cmd run build
 ```
 
 If all commands pass, the local project is synced.
@@ -34,6 +36,8 @@ If all commands pass, the local project is synced.
 ```bash
 php artisan serve
 npm run dev
+# Windows PowerShell fallback:
+# npm.cmd run dev
 php artisan schedule:work
 ```
 
