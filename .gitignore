@@ -4,9 +4,15 @@
 /public/storage
 /storage/*.key
 /storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
 /storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
 /storage/framework/views/*
+!/storage/framework/views/.gitignore
 /storage/logs/*
+!/storage/logs/.gitignore
 /storage/app/public/attachments/*
 !/storage/app/public/attachments/.gitignore
 /storage/app/private/attachments/*
