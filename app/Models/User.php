@@ -62,12 +62,14 @@ class User extends Authenticatable
         'department',
         'role',
         'password',
+        'password_reveal',
         'is_active',
         'is_profile_locked',
     ];
 
     protected $hidden = [
         'password',
+        'password_reveal',
         'remember_token',
     ];
 
@@ -76,6 +78,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_reveal' => 'encrypted',
             'is_active' => 'boolean',
             'is_profile_locked' => 'boolean',
         ];

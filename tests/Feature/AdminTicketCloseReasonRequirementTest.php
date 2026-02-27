@@ -47,6 +47,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         $ticket->refresh();
         $this->assertSame('closed', $ticket->status);
         $this->assertNotNull($ticket->closed_at);
+        $this->assertSame($admin->id, (int) $ticket->assigned_to);
 
         $this->assertDatabaseHas('ticket_replies', [
             'ticket_id' => $ticket->id,

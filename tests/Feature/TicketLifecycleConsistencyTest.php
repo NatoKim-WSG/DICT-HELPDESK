@@ -60,6 +60,47 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertNull($ticket->closed_at);
     }
 
+    public function test_resolving_unassigned_ticket_auto_assigns_reviewing_super_user(): void
+    {
+        [$superUser, , $ticket] = $this->seedUsersAndTicket();
+
+        $response = $this->actingAs($superUser)
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'resolved',
+            ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame('resolved', $ticket->status);
+        $this->assertSame($superUser->id, (int) $ticket->assigned_to);
+        $this->assertNotNull($ticket->resolved_at);
+    }
+
+    public function test_admin_can_revert_closed_ticket_to_in_progress_and_clear_timestamps(): void
+    {
+        [$superUser, , $ticket] = $this->seedUsersAndTicket();
+
+        $ticket->update([
+            'status' => 'closed',
+            'resolved_at' => Carbon::now()->subHour(),
+            'closed_at' => Carbon::now()->subMinutes(45),
+            'assigned_to' => null,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'in_progress',
+            ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame('in_progress', $ticket->status);
+        $this->assertNull($ticket->resolved_at);
+        $this->assertNull($ticket->closed_at);
+    }
+
     private function seedUsersAndTicket(): array
     {
         $superUser = User::create([

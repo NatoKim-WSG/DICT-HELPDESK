@@ -2,23 +2,16 @@
 
 namespace App\Support;
 
-use RuntimeException;
-
 class DefaultPasswordResolver
 {
+    private const DEFAULT_USER_PASSWORD = 'i0n3i0n3';
+
     public static function user(): string
     {
-        return self::resolve('helpdesk.default_user_password', 'DEFAULT_USER_PASSWORD');
-    }
+        $configuredPassword = trim((string) config('helpdesk.default_user_password'));
 
-    private static function resolve(string $configKey, string $envKey): string
-    {
-        $value = trim((string) config($configKey));
-
-        if ($value === '') {
-            throw new RuntimeException("Missing required configuration value [{$envKey}].");
-        }
-
-        return $value;
+        return $configuredPassword !== ''
+            ? $configuredPassword
+            : self::DEFAULT_USER_PASSWORD;
     }
 }

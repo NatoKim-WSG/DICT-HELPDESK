@@ -340,6 +340,9 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])
             ->middleware('throttle:30,1')
             ->name('users.toggle-status');
+        Route::post('/users/{user}/password/reset-default', [UserManagementController::class, 'resetManagedUserPassword'])
+            ->middleware(['throttle:20,1', 'role:shadow'])
+            ->name('users.password.reset-default');
     });
 });
 

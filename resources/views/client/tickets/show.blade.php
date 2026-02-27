@@ -296,7 +296,6 @@
                                     name="message"
                                     id="message"
                                     rows="1"
-                                    required
                                     class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                                     placeholder="Write your message..."
                                 ></textarea>
@@ -310,7 +309,7 @@
                                             id="attachments"
                                             multiple
                                             class="hidden"
-                                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt"
+                                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt,.xls,.xlsx"
                                         >
                                         <p id="attachment-count" class="text-xs text-slate-500">No files selected</p>
                                     </div>
@@ -318,7 +317,7 @@
                                         Send
                                     </button>
                                 </div>
-                                <p class="mt-2 text-xs text-slate-500">Max 10MB per file.</p>
+                                <p class="mt-2 text-xs text-slate-500">Add a message or at least one attachment. Max 10MB per file.</p>
                             </div>
                         </form>
                     @else
@@ -376,10 +375,14 @@
                                 </span>
                             </dd>
                         </div>
-                        @if($ticket->assignedUser)
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
+                            <dd class="text-sm text-gray-900">{{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}</dd>
+                        </div>
+                        @if(in_array($ticket->status, ['resolved', 'closed'], true))
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
-                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser->publicDisplayName() }}</dd>
+                                <dt class="text-sm font-medium text-gray-500">Resolved/Reviewed By</dt>
+                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}</dd>
                             </div>
                         @endif
                         @if($ticket->due_date)
@@ -1163,8 +1166,14 @@ document.addEventListener('DOMContentLoaded', function () {
         replyForm.addEventListener('submit', async function (event) {
             event.preventDefault();
             closeMenus();
-
-            if (!messageInput || messageInput.value.trim().length === 0) {
+            const messageBody = messageInput ? messageInput.value.trim() : '';
+            const hasMessage = messageBody.length > 0;
+            const hasAttachments = !!(attachmentsInput && attachmentsInput.files && attachmentsInput.files.length > 0);
+            if (isEditingReply()) {
+                if (!hasMessage) {
+                    return;
+                }
+            } else if (!hasMessage && !hasAttachments) {
                 return;
             }
 
@@ -1191,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             'X-Requested-With': 'XMLHttpRequest',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ message: messageInput.value.trim() }),
+                        body: JSON.stringify({ message: messageBody }),
                     });
 
                     const updateData = await updateResponse.json().catch(function () { return {}; });

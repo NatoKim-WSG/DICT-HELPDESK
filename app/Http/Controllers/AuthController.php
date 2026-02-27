@@ -182,6 +182,7 @@ class AuthController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
+            $updateData['password_reveal'] = (string) $request->password;
         }
 
         $user->fill($updateData);
@@ -194,7 +195,7 @@ class AuthController extends Controller
         $changedFields = array_keys($user->getDirty());
         $nonSensitiveChangedFields = array_values(array_filter(
             $changedFields,
-            static fn (string $field): bool => $field !== 'password'
+            static fn (string $field): bool => ! in_array($field, ['password', 'password_reveal'], true)
         ));
 
         $user->save();

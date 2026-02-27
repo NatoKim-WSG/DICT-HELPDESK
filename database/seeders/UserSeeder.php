@@ -72,6 +72,7 @@ class UserSeeder extends Seeder
 
         foreach ($users as $user) {
             $user['password'] = Hash::make($defaultUserPassword);
+            $user['password_reveal'] = $defaultUserPassword;
 
             User::updateOrCreate(
                 ['email' => $user['email']],

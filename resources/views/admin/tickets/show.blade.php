@@ -270,13 +270,13 @@
                             <button type="button" id="admin-cancel-edit-target" class="rounded-md px-2 py-0.5 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900">Cancel edit</button>
                         </div>
                         <div class="px-0 py-0">
-                            <textarea name="message" id="message" rows="1" required class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Write your reply..."></textarea>
+                            <textarea name="message" id="message" rows="1" class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Write your reply..."></textarea>
                         </div>
 
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <label for="attachments" class="inline-flex cursor-pointer items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100">Attach</label>
-                                <input type="file" name="attachments[]" id="attachments" multiple class="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt">
+                                <input type="file" name="attachments[]" id="attachments" multiple class="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt,.xls,.xlsx">
                                 <span id="admin-attachment-count" class="text-xs text-slate-500">No files selected</span>
                             </div>
                             <div class="flex items-center gap-4">
@@ -290,7 +290,7 @@
                                 </button>
                             </div>
                         </div>
-                        <p class="text-xs text-slate-500">Max 10MB per file.</p>
+                        <p class="text-xs text-slate-500">Add a message or at least one attachment. Max 10MB per file.</p>
                     </form>
                 </div>
             </div>
@@ -335,6 +335,12 @@
                                 {{ $ticket->assignedUser ? $ticket->assignedUser->publicDisplayName() : 'Unassigned' }}
                             </dd>
                         </div>
+                        @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Resolved/Reviewed By</dt>
+                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser ? $ticket->assignedUser->publicDisplayName() : 'Unassigned' }}</dd>
+                            </div>
+                        @endif
                         @if($ticket->due_date)
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Due Date</dt>
@@ -365,6 +371,14 @@
                     <h3 class="text-lg leading-6 font-medium text-gray-900">Actions</h3>
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
+                    @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                        <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="status" value="in_progress">
+                            <button type="submit" class="btn-secondary w-full">Revert to In Progress</button>
+                        </form>
+                    @endif
+
                     <!-- Assign Ticket -->
                     <form action="{{ route('admin.tickets.assign', $ticket) }}" method="POST">
                         @csrf
@@ -1015,10 +1029,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (replyForm) {
         replyForm.addEventListener('submit', async function (event) {
             event.preventDefault();
-            if (!messageInput) return;
+            const messageBody = messageInput ? messageInput.value.trim() : '';
+            const hasMessage = messageBody.length > 0;
+            const hasAttachments = !!(attachmentInput && attachmentInput.files && attachmentInput.files.length > 0);
 
-            const messageBody = messageInput.value.trim();
-            if (messageBody.length === 0) return;
+            if (isEditingReply()) {
+                if (!hasMessage) return;
+            } else if (!hasMessage && !hasAttachments) {
+                return;
+            }
 
             if (replyError) {
                 replyError.classList.add('hidden');

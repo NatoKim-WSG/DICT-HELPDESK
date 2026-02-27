@@ -34,7 +34,7 @@ class TicketController extends Controller
 
         $query
             ->when($request->filled('status') && $selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
-                if ($selectedStatus === 'open_group') {
+                if (in_array($selectedStatus, ['open', 'open_group'], true)) {
                     $builder->whereIn('status', Ticket::OPEN_STATUSES);
 
                     return;
@@ -88,7 +88,7 @@ class TicketController extends Controller
             'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
             'ticket_consent' => 'accepted',
             'attachments' => 'required|array|min:1',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
+            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
         ]);
 
         $ticketData = [
@@ -166,9 +166,10 @@ class TicketController extends Controller
         $this->assertTicketOwner($ticket);
 
         $request->validate([
-            'message' => 'required|string',
+            'message' => 'nullable|string|required_without:attachments',
             'reply_to_id' => 'nullable|integer|exists:ticket_replies,id',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
+            'attachments' => 'nullable|array|min:1|required_without:message',
+            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
         ]);
 
         if ($errorResponse = $this->invalidReplyTargetResponse($request, $ticket)) {
@@ -179,7 +180,7 @@ class TicketController extends Controller
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
             'reply_to_id' => $request->integer('reply_to_id') ?: null,
-            'message' => $request->message,
+            'message' => trim($request->string('message')->toString()),
             'is_internal' => false,
         ]);
 

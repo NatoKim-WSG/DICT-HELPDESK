@@ -226,7 +226,7 @@
                             @if($ticket->assignedUser)
                                 <button
                                     type="button"
-                                    class="js-open-assign-modal font-medium text-[#0f8d88] hover:underline"
+                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned"
                                     data-ticket-id="{{ $ticket->id }}"
                                     data-ticket-number="{{ $ticket->ticket_number }}"
                                     data-assigned-to="{{ $ticket->assigned_to }}"
@@ -236,7 +236,7 @@
                             @else
                                 <button
                                     type="button"
-                                    class="js-open-assign-modal font-medium text-[#b49252] hover:underline"
+                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned"
                                     data-ticket-id="{{ $ticket->id }}"
                                     data-ticket-number="{{ $ticket->ticket_number }}"
                                     data-assigned-to=""
@@ -269,17 +269,26 @@
                             </span>
                         </div>
 
-                        <button
-                            type="button"
-                            class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            data-ticket-id="{{ $ticket->id }}"
-                            data-ticket-number="{{ $ticket->ticket_number }}"
-                            data-assigned-to="{{ $ticket->assigned_to }}"
-                            data-status="{{ $ticket->status }}"
-                            data-priority="{{ $ticket->priority }}"
-                        >
-                            Edit
-                        </button>
+                        <div class="flex items-center gap-2">
+                            @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                                <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
+                                    @csrf
+                                    <input type="hidden" name="status" value="in_progress">
+                                    <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
+                                </form>
+                            @endif
+                            <button
+                                type="button"
+                                class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                data-ticket-id="{{ $ticket->id }}"
+                                data-ticket-number="{{ $ticket->ticket_number }}"
+                                data-assigned-to="{{ $ticket->assigned_to }}"
+                                data-status="{{ $ticket->status }}"
+                                data-priority="{{ $ticket->priority }}"
+                            >
+                                Edit
+                            </button>
+                        </div>
                     </div>
                 </div>
             @empty
@@ -298,7 +307,7 @@
                             <input id="select-all-tickets" type="checkbox" class="ticket-checkbox">
                         </th>
                         <th class="w-[38%] px-6 py-4">Details</th>
-                        <th class="w-[16%] px-6 py-4">Assigned Technical</th>
+                        <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
                         <th class="w-[11%] px-6 py-4 text-center">Priority</th>
                         @if($isHistoryTab)
                             <th class="w-[19%] px-6 py-4 text-center">Completed At</th>
@@ -340,11 +349,11 @@
                                 </a>
                             </td>
 
-                            <td class="px-6 py-5 align-top text-sm text-slate-700">
+                            <td class="px-6 py-5 align-top text-center text-sm text-slate-700">
                                 @if($ticket->assignedUser)
                                     <button
                                         type="button"
-                                        class="js-open-assign-modal font-medium text-[#0f8d88] hover:underline"
+                                        class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned justify-center"
                                         data-ticket-id="{{ $ticket->id }}"
                                         data-ticket-number="{{ $ticket->ticket_number }}"
                                         data-assigned-to="{{ $ticket->assigned_to }}"
@@ -354,7 +363,7 @@
                                 @else
                                     <button
                                         type="button"
-                                        class="js-open-assign-modal font-medium text-[#b49252] hover:underline"
+                                        class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned justify-center"
                                         data-ticket-id="{{ $ticket->id }}"
                                         data-ticket-number="{{ $ticket->ticket_number }}"
                                         data-assigned-to=""
@@ -390,17 +399,26 @@
                             </td>
 
                             <td class="px-6 py-5 text-center align-top">
-                                <button
-                                    type="button"
-                                    class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                    data-ticket-id="{{ $ticket->id }}"
-                                    data-ticket-number="{{ $ticket->ticket_number }}"
-                                    data-assigned-to="{{ $ticket->assigned_to }}"
-                                    data-status="{{ $ticket->status }}"
-                                    data-priority="{{ $ticket->priority }}"
-                                >
-                                    Edit
-                                </button>
+                                <div class="flex flex-col items-center gap-2">
+                                    @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                                        <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
+                                            @csrf
+                                            <input type="hidden" name="status" value="in_progress">
+                                            <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
+                                        </form>
+                                    @endif
+                                    <button
+                                        type="button"
+                                        class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                        data-ticket-id="{{ $ticket->id }}"
+                                        data-ticket-number="{{ $ticket->ticket_number }}"
+                                        data-assigned-to="{{ $ticket->assigned_to }}"
+                                        data-status="{{ $ticket->status }}"
+                                        data-priority="{{ $ticket->priority }}"
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty

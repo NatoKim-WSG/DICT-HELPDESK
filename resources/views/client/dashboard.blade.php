@@ -6,9 +6,9 @@
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     @php
         $totalTicketsUrl = route('client.tickets.index');
-        $openTicketsUrl = route('client.tickets.index', ['status' => 'open_group']);
+        $openTicketsUrl = route('client.tickets.index', ['status' => 'open']);
         $inProgressTicketsUrl = route('client.tickets.index', ['status' => 'in_progress']);
-        $urgentTicketsUrl = route('client.tickets.index', ['status' => 'open_group', 'priority' => 'urgent']);
+        $urgentTicketsUrl = route('client.tickets.index', ['status' => 'open', 'priority' => 'urgent']);
     @endphp
 
     <div class="mb-6">

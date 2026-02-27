@@ -170,25 +170,109 @@
         @apply px-5 py-5 sm:p-6;
     }
 
-    .form-input {
-        @apply mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:ring-2 focus:ring-[#0f8d88]/20;
+    .form-input:not([type="file"]) {
+        @apply mt-1 block w-full rounded-2xl border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-500;
+        background-color: #ffffff;
+        background-image: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.06),
+            inset 0 1px 0 rgba(255, 255, 255, 0.55);
         transition:
             border-color var(--motion-duration-base) var(--motion-ease-standard),
             box-shadow var(--motion-duration-base) var(--motion-ease-standard),
             background-color var(--motion-duration-base) var(--motion-ease-standard),
+            background-image var(--motion-duration-base) var(--motion-ease-standard),
             color var(--motion-duration-base) var(--motion-ease-standard);
     }
 
+    html:not(.theme-dark) input[type="text"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="email"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="password"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="search"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="tel"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="number"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) input[type="datetime-local"]:not(.app-native-select-hidden):not(.form-input),
+    html:not(.theme-dark) textarea:not(.form-input) {
+        @apply block w-full rounded-2xl border border-slate-300 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-500;
+        background-color: #ffffff;
+        background-image: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.06),
+            inset 0 1px 0 rgba(255, 255, 255, 0.55);
+        transition:
+            border-color var(--motion-duration-base) var(--motion-ease-standard),
+            box-shadow var(--motion-duration-base) var(--motion-ease-standard),
+            background-color var(--motion-duration-base) var(--motion-ease-standard),
+            background-image var(--motion-duration-base) var(--motion-ease-standard),
+            color var(--motion-duration-base) var(--motion-ease-standard);
+    }
+
+    .form-input:not([type="file"]):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="text"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="email"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="password"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="search"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="tel"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="number"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) input[type="datetime-local"]:not(.app-native-select-hidden):not(.form-input):hover:not(:disabled):not([readonly]),
+    html:not(.theme-dark) textarea:not(.form-input):hover:not(:disabled):not([readonly]) {
+        @apply border-slate-400;
+        background-image: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+    }
+
+    .form-input:not([type="file"]):focus,
+    .form-input:not([type="file"]):focus-visible,
+    html:not(.theme-dark) input[type="text"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="text"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="email"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="email"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="password"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="password"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="search"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="search"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="tel"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="tel"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="number"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="number"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) input[type="datetime-local"]:not(.app-native-select-hidden):not(.form-input):focus,
+    html:not(.theme-dark) input[type="datetime-local"]:not(.app-native-select-hidden):not(.form-input):focus-visible,
+    html:not(.theme-dark) textarea:not(.form-input):focus,
+    html:not(.theme-dark) textarea:not(.form-input):focus-visible {
+        border-color: #0f8d88;
+        box-shadow:
+            0 0 0 4px rgba(15, 141, 136, 0.18),
+            0 8px 18px rgba(15, 23, 42, 0.08);
+        outline: none;
+    }
+
+    .form-input:not([type="file"]):disabled,
+    .form-input:not([type="file"])[readonly],
+    html:not(.theme-dark) input[type="text"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="email"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="password"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="search"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="tel"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="number"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) input[type="datetime-local"]:not(.app-native-select-hidden):not(.form-input):disabled,
+    html:not(.theme-dark) textarea:not(.form-input):disabled {
+        @apply bg-slate-100 text-slate-500;
+        border-color: #cbd5e1;
+        background-image: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        cursor: not-allowed;
+        opacity: 1;
+    }
+
     .form-input[type="file"] {
-        @apply px-2 py-1.5;
+        @apply px-2 py-1.5 text-sm text-slate-700;
     }
 
     .form-input[type="file"]::file-selector-button {
-        @apply mr-3 rounded-lg border-0 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition;
+        @apply mr-3 rounded-lg border border-[#033b3d] bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white transition-colors duration-200;
     }
 
     .form-input[type="file"]::file-selector-button:hover {
-        @apply bg-slate-200;
+        @apply border-[#022a2c] bg-[#022a2c];
     }
 
     .form-label {
@@ -358,6 +442,30 @@
         @apply border-[#0f8d88];
     }
 
+    .assigned-tech-btn {
+        @apply inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-semibold transition;
+    }
+
+    .assigned-tech-btn--assigned {
+        color: #0b6f6b;
+        background-color: #e7f8f7;
+    }
+
+    .assigned-tech-btn--assigned:hover {
+        color: #085f5c;
+        background-color: #d5f1ef;
+    }
+
+    .assigned-tech-btn--unassigned {
+        color: #7a5a1a;
+        background-color: #fff6df;
+    }
+
+    .assigned-tech-btn--unassigned:hover {
+        color: #664a14;
+        background-color: #f9ebc5;
+    }
+
     .client-ticket-row,
     .admin-ticket-row,
     .dashboard-ticket-link,
@@ -377,7 +485,7 @@
     }
 
     .client-ticket-row:hover {
-        background-color: rgba(248, 250, 252, 0.9);
+        background-color: rgba(241, 245, 249, 0.96);
         transform: translateX(2px);
     }
 
@@ -386,7 +494,7 @@
     }
 
     .dashboard-ticket-link:hover {
-        background-color: rgba(248, 250, 252, 0.9);
+        background-color: rgba(241, 245, 249, 0.96);
         transform: translateX(2px);
     }
 
@@ -605,6 +713,17 @@
 }
 
 @layer base {
+    html:not(.theme-dark) .text-slate-400,
+    html:not(.theme-dark) .text-gray-400 {
+        color: #64748b !important;
+    }
+
+    html:not(.theme-dark) .placeholder-slate-400::placeholder,
+    html:not(.theme-dark) .placeholder-gray-400::placeholder {
+        color: #64748b !important;
+        opacity: 1;
+    }
+
     .theme-dark {
         color-scheme: dark;
         --dm-base: #101215;
@@ -844,18 +963,47 @@
     .theme-dark select,
     .theme-dark textarea {
         background-color: var(--dm-surface-soft) !important;
+        background-image: none !important;
         color: var(--dm-ink) !important;
         border-color: var(--dm-border) !important;
+        box-shadow: none !important;
+    }
+
+    .theme-dark .form-input::placeholder,
+    .theme-dark input::placeholder,
+    .theme-dark textarea::placeholder {
+        color: #90a0b5 !important;
+        opacity: 1;
+    }
+
+    .theme-dark .form-input:disabled,
+    .theme-dark .form-input[readonly],
+    .theme-dark input:disabled,
+    .theme-dark input[readonly],
+    .theme-dark select:disabled,
+    .theme-dark textarea:disabled,
+    .theme-dark textarea[readonly] {
+        background-color: #1b222c !important;
+        background-image: none !important;
+        border-color: #3a4656 !important;
+        color: #acb8c9 !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+        opacity: 1 !important;
+    }
+
+    .theme-dark .form-label {
+        color: #b7c4d8 !important;
     }
 
     .theme-dark .form-input[type="file"]::file-selector-button {
-        background-color: #2a3442 !important;
-        color: #dbe4f3 !important;
-        border: 1px solid #3a4656 !important;
+        background-color: #0f766e !important;
+        color: #ffffff !important;
+        border: 1px solid #0f766e !important;
     }
 
     .theme-dark .form-input[type="file"]::file-selector-button:hover {
-        background-color: #334155 !important;
+        background-color: #115e59 !important;
+        border-color: #115e59 !important;
     }
 
     .theme-dark .btn-secondary {
@@ -881,6 +1029,26 @@
     .theme-dark .ticket-checkbox:checked {
         background-color: #14b8a6 !important;
         border-color: #14b8a6 !important;
+    }
+
+    .theme-dark .assigned-tech-btn--assigned {
+        background-color: #1c3f3c !important;
+        color: #8ae4dd !important;
+    }
+
+    .theme-dark .assigned-tech-btn--assigned:hover {
+        background-color: #24524f !important;
+        color: #abefe9 !important;
+    }
+
+    .theme-dark .assigned-tech-btn--unassigned {
+        background-color: #3b3020 !important;
+        color: #f4cf84 !important;
+    }
+
+    .theme-dark .assigned-tech-btn--unassigned:hover {
+        background-color: #4a3c28 !important;
+        color: #f7d99f !important;
     }
 
     .theme-dark .client-ticket-row:hover {

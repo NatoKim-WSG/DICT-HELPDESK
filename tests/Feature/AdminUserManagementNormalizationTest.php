@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\DefaultPasswordResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -330,5 +331,126 @@ class AdminUserManagementNormalizationTest extends TestCase
             $this->assertGreaterThan($previousPosition, $position, "Unexpected order in users table around: {$expectedName}");
             $previousPosition = $position;
         }
+    }
+
+    public function test_shadow_user_can_view_managed_password_access_for_non_shadow_user(): void
+    {
+        $shadow = User::create([
+            'name' => 'Shadow Access',
+            'email' => 'shadow-password-access@example.com',
+            'phone' => '09100000017',
+            'department' => 'iOne',
+            'role' => User::ROLE_SHADOW,
+            'password' => Hash::make('shadowpass123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Password Access',
+            'email' => 'client-password-access@example.com',
+            'phone' => '09100000018',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make(DefaultPasswordResolver::user()),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($shadow)->get(route('admin.users.show', $client));
+
+        $response->assertOk();
+        $response->assertSee('Password Access');
+        $response->assertSee('Current Login Password');
+        $response->assertSee(DefaultPasswordResolver::user());
+        $response->assertSee('managed default password');
+    }
+
+    public function test_shadow_user_can_reset_managed_user_password_to_default(): void
+    {
+        $shadow = User::create([
+            'name' => 'Shadow Reset',
+            'email' => 'shadow-password-reset@example.com',
+            'phone' => '09100000019',
+            'department' => 'iOne',
+            'role' => User::ROLE_SHADOW,
+            'password' => Hash::make('shadowpass123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Reset Target',
+            'email' => 'client-reset-target@example.com',
+            'phone' => '09100000020',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('custompass123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($shadow)->post(route('admin.users.password.reset-default', $client));
+
+        $response->assertRedirect(route('admin.users.show', $client));
+        $response->assertSessionHas('success', 'Password access is now available for this account.');
+
+        $client->refresh();
+        $this->assertTrue(Hash::check(DefaultPasswordResolver::user(), $client->password));
+    }
+
+    public function test_shadow_user_can_view_custom_password_when_reveal_value_exists(): void
+    {
+        $shadow = User::create([
+            'name' => 'Shadow Custom Reveal',
+            'email' => 'shadow-custom-reveal@example.com',
+            'phone' => '09100000023',
+            'department' => 'iOne',
+            'role' => User::ROLE_SHADOW,
+            'password' => Hash::make('shadowpass123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Custom Reveal',
+            'email' => 'client-custom-reveal@example.com',
+            'phone' => '09100000024',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('custompass123'),
+            'password_reveal' => 'custompass123',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($shadow)->get(route('admin.users.show', $client));
+
+        $response->assertOk();
+        $response->assertSee('custompass123');
+        $response->assertSee('custom password and it is available for Shadow review');
+    }
+
+    public function test_non_shadow_user_cannot_reset_managed_user_password(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin Cannot Reset',
+            'email' => 'admin-cannot-reset@example.com',
+            'phone' => '09100000021',
+            'department' => 'iOne',
+            'role' => User::ROLE_ADMIN,
+            'password' => Hash::make('adminpass123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Protected',
+            'email' => 'client-protected@example.com',
+            'phone' => '09100000022',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('custompass123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.users.password.reset-default', $client));
+        $response->assertForbidden();
+
+        $client->refresh();
+        $this->assertTrue(Hash::check('custompass123', $client->password));
     }
 }

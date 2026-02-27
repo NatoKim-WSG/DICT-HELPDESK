@@ -140,3 +140,101 @@ php artisan mail:test your-email@example.com
 - Set `SESSION_SECURE_COOKIE=true` in production (HTTPS only).
 - Keep `.env` out of version control.
 - Ensure `storage` and `bootstrap/cache` are writable by the app process.
+
+## Project Checklist
+
+Use this checklist when setting up or deploying the project.
+
+### 1) Prerequisites
+
+- [ ] Install PHP `8.2+` (recommended `8.3` for development/tests)
+- [ ] Install Composer
+- [ ] Install Node.js and npm
+- [ ] Install PostgreSQL or MySQL/MariaDB
+- [ ] Ensure PHP extensions are available: `mbstring`, `openssl`, `pdo`, `tokenizer`, `xml`
+
+### 2) Local Setup
+
+- [ ] Install dependencies:
+
+```bash
+composer install
+npm install
+```
+
+- [ ] Initialize environment:
+
+```bash
+cp .env.example .env
+# PowerShell: Copy-Item .env.example .env
+php artisan key:generate
+```
+
+- [ ] Update `.env` values (`APP_*`, `DB_*`, `MAIL_*`, `DEFAULT_USER_PASSWORD`, `LEGAL_*`, `ATTACHMENTS_DISK`)
+- [ ] Run migrations and seeders:
+
+```bash
+php artisan migrate --seed
+php artisan storage:link
+```
+
+### 3) Verify Locally
+
+- [ ] Run tests:
+
+```bash
+php artisan test
+```
+
+- [ ] Build frontend:
+
+```bash
+npm run build
+# PowerShell fallback: npm.cmd run build
+```
+
+- [ ] Run app:
+
+```bash
+php artisan serve
+npm run dev
+# PowerShell fallback: npm.cmd run dev
+```
+
+### 4) Scheduler (Required for Alerts)
+
+- [ ] Development scheduler:
+
+```bash
+php artisan schedule:work
+```
+
+- [ ] Production cron (every minute):
+
+```bash
+* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
+```
+
+### 5) Production Readiness
+
+- [ ] Set `APP_ENV=production`
+- [ ] Set `APP_DEBUG=false`
+- [ ] Set `SESSION_SECURE_COOKIE=true` (HTTPS)
+- [ ] Use strong, environment-specific secrets (`APP_KEY`, DB creds, mail creds)
+- [ ] Ensure web root points to `public/`
+- [ ] Ensure `storage/` and `bootstrap/cache/` are writable
+- [ ] Cache framework config for performance:
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+### 6) Post-Deploy Checks
+
+- [ ] Confirm login works for seeded/admin account
+- [ ] Confirm ticket create/reply flow works
+- [ ] Confirm assignment and notification behavior works
+- [ ] Confirm scheduled alert emails are being sent
+- [ ] Confirm logs and database backups are configured

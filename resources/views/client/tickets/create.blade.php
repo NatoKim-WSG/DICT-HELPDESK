@@ -166,9 +166,9 @@
                         <label for="attachments" class="form-label">Attachments <span class="text-red-600">*</span></label>
                         <input type="file" name="attachments[]" id="attachments" multiple required
                                class="form-input cursor-pointer @error('attachments.*') border-red-500 @enderror"
-                               accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt">
+                               accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt,.xls,.xlsx">
                         <p class="mt-1 text-sm text-gray-500">
-                            Upload at least one file. Supported formats: JPG, PNG, PDF, DOC, DOCX, TXT (max 10MB each)
+                            Upload at least one file (max 10MB each).
                         </p>
                         @error('attachments')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -227,8 +227,8 @@
                 <div class="mt-2 text-sm text-slate-700">
                     <ul class="list-disc pl-5 space-y-1">
                         <li>Be specific about the problem you're experiencing</li>
-                        <li>Include screenshots or error messages if relevant</li>
-                        <li>Mention your operating system and browser if it's a technical issue</li>
+                        <li>Include screenshots or error messages for more detailed information</li>
+                        <li>Share when the issue started and how often it happens</li>
                         <li>List the steps you've already tried to resolve the issue</li>
                     </ul>
                 </div>

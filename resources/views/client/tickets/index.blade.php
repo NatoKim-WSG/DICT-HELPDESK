@@ -34,8 +34,7 @@
                     <label for="status" class="sr-only">Status</label>
                     <select id="status" name="status" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                         <option value="">All statuses</option>
-                        <option value="open_group" {{ request('status') === 'open_group' ? 'selected' : '' }}>Open (All Active)</option>
-                        <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
+                        <option value="open" {{ in_array(request('status'), ['open', 'open_group'], true) ? 'selected' : '' }}>Open</option>
                         <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                         <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
                         <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>

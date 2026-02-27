@@ -138,11 +138,10 @@
                     @csrf
 
                     <div>
-                        <label for="login" class="form-label">Email or Username</label>
+                        <label for="login" class="form-label">Username or Email</label>
                         <input id="login" name="login" type="text" autocomplete="username" required
                                class="login-input form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
-                               placeholder="you@example.com or Juan Dela Cruz" value="{{ old('login') }}">
-                        <p class="mt-1 text-xs text-slate-500">Full name login is case-sensitive.</p>
+                               placeholder="Username or email" value="{{ old('login') }}">
                     </div>
 
                     <div>

@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use RuntimeException;
 
 class UserManagementController extends Controller
 {
@@ -153,15 +152,7 @@ class UserManagementController extends Controller
         if ($request->filled('password')) {
             $resolvedPassword = (string) $request->password;
         } else {
-            try {
-                $resolvedPassword = DefaultPasswordResolver::user();
-            } catch (RuntimeException) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'password' => 'Default user password is not configured. Set DEFAULT_USER_PASSWORD or provide a password.',
-                    ]);
-            }
+            $resolvedPassword = DefaultPasswordResolver::user();
         }
 
         $createdUser = User::create([
@@ -171,6 +162,7 @@ class UserManagementController extends Controller
             'department' => $department,
             'role' => $persistedRole,
             'password' => Hash::make($resolvedPassword),
+            'password_reveal' => $resolvedPassword,
             'is_active' => true,
             'is_profile_locked' => false,
         ]);
@@ -211,8 +203,77 @@ class UserManagementController extends Controller
         $statistics = $this->buildUserTicketStatistics($user);
         $statisticsLinks = $this->buildUserStatisticsLinks($user, $statistics['show_assigned']);
         $recentTickets = $this->recentTicketsForUser($user);
+        $canRevealManagedPassword = $currentUser->isShadow() && ! $user->isShadow() && $user->id !== $currentUser->id;
+        $defaultManagedPassword = $canRevealManagedPassword ? DefaultPasswordResolver::user() : null;
+        $isUsingManagedDefaultPassword = $canRevealManagedPassword
+            ? Hash::check((string) $defaultManagedPassword, (string) $user->password)
+            : false;
+        $knownManagedPassword = null;
+        if ($canRevealManagedPassword) {
+            if (is_string($user->password_reveal) && trim($user->password_reveal) !== '') {
+                $knownManagedPassword = $user->password_reveal;
+            } elseif ($isUsingManagedDefaultPassword) {
+                $knownManagedPassword = $defaultManagedPassword;
+            }
+        }
 
-        return view('admin.users.show', compact('user', 'statistics', 'statisticsLinks', 'recentTickets'));
+        return view('admin.users.show', compact(
+            'user',
+            'statistics',
+            'statisticsLinks',
+            'recentTickets',
+            'canRevealManagedPassword',
+            'defaultManagedPassword',
+            'isUsingManagedDefaultPassword',
+            'knownManagedPassword'
+        ));
+    }
+
+    public function resetManagedUserPassword(User $user)
+    {
+        $currentUser = auth()->user();
+
+        if (! $currentUser->isShadow()) {
+            abort(403, 'Access denied. Insufficient permissions.');
+        }
+
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be modified.');
+        }
+
+        if ($user->isShadow()) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('error', 'Shadow account passwords cannot be revealed from user management.');
+        }
+
+        if ($user->id === $currentUser->id) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('error', 'Use Account Settings to update your own password.');
+        }
+
+        $defaultPassword = DefaultPasswordResolver::user();
+        $alreadyDefault = Hash::check($defaultPassword, (string) $user->password);
+
+        if (! $alreadyDefault) {
+            $user->forceFill([
+                'password' => Hash::make($defaultPassword),
+                'password_reveal' => $defaultPassword,
+            ])->save();
+
+            $this->systemLogs->record(
+                'user.password.reset_default',
+                'Reset a user password to the managed default.',
+                [
+                    'category' => 'security',
+                    'target_type' => User::class,
+                    'target_id' => $user->id,
+                ]
+            );
+        }
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('success', 'Password access is now available for this account.');
     }
 
     public function edit(User $user)
@@ -317,6 +378,7 @@ class UserManagementController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
+            $updateData['password_reveal'] = (string) $request->password;
         }
 
         $user->fill($updateData);
@@ -329,7 +391,7 @@ class UserManagementController extends Controller
         $changedFields = array_keys($user->getDirty());
         $nonSensitiveChangedFields = array_values(array_filter(
             $changedFields,
-            static fn (string $field): bool => $field !== 'password'
+            static fn (string $field): bool => ! in_array($field, ['password', 'password_reveal'], true)
         ));
 
         $user->save();

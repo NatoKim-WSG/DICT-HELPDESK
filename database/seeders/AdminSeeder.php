@@ -20,6 +20,7 @@ class AdminSeeder extends Seeder
             'department' => 'iOne',
             'role' => User::ROLE_ADMIN,
             'password' => Hash::make($defaultUserPassword),
+            'password_reveal' => $defaultUserPassword,
             'is_active' => true,
             'email_verified_at' => '2026-02-25 06:59:20',
         ]);

@@ -257,15 +257,24 @@ class TicketController extends Controller
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
+        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $newAssignedTo = $this->determineReviewerAssignee($nextStatus, $previousAssignedTo);
 
         if ($previousStatus === $nextStatus) {
             return redirect()->back()->with('success', 'No changes were detected.');
         }
 
         $updateData = ['status' => $nextStatus];
+        if ($previousAssignedTo !== $newAssignedTo) {
+            $updateData['assigned_to'] = $newAssignedTo;
+            $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo));
+        }
         $this->applyLifecycleTimestamps($ticket, $updateData);
 
         $ticket->update($updateData);
+        if ($previousAssignedTo !== $newAssignedTo) {
+            $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+        }
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
         $this->systemLogs->record(
             'ticket.status.updated',
@@ -322,10 +331,11 @@ class TicketController extends Controller
         $this->authorizeTicketAccess($ticket);
 
         $request->validate([
-            'message' => 'required|string',
+            'message' => 'nullable|string|required_without:attachments',
             'is_internal' => 'boolean',
             'reply_to_id' => 'nullable|integer|exists:ticket_replies,id',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt',
+            'attachments' => 'nullable|array|min:1|required_without:message',
+            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
         ]);
 
         $replyToId = $request->integer('reply_to_id') ?: null;
@@ -348,7 +358,7 @@ class TicketController extends Controller
             'ticket_id' => $ticket->id,
             'user_id' => auth()->id(),
             'reply_to_id' => $replyToId,
-            'message' => $request->message,
+            'message' => trim($request->string('message')->toString()),
             'is_internal' => $isInternal,
         ]);
 
@@ -475,13 +485,14 @@ class TicketController extends Controller
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
         $nextPriority = $request->string('priority')->toString();
+        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+        $requestedAssignedTo = $request->filled('assigned_to') ? $request->integer('assigned_to') : null;
+        $newAssignedTo = $this->determineReviewerAssignee($nextStatus, $requestedAssignedTo);
         $updateData = [
-            'assigned_to' => $request->filled('assigned_to') ? $request->integer('assigned_to') : null,
+            'assigned_to' => $newAssignedTo,
             'status' => $nextStatus,
             'priority' => $nextPriority,
         ];
-        $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
-        $newAssignedTo = $updateData['assigned_to'];
         $previousPriority = (string) $ticket->priority;
 
         if (
@@ -677,20 +688,32 @@ class TicketController extends Controller
                 return redirect()->back()->with('error', 'Please provide a reason before closing ticket(s).');
             }
 
-            $ticketsForCloseNote = $newStatus === 'closed'
-                ? $tickets->filter(fn (Ticket $ticket) => $ticket->status !== 'closed')
-                : collect();
+            $tickets->each(function (Ticket $ticket) use ($newStatus, $closeReason) {
+                $previousStatus = (string) $ticket->status;
+                $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
+                $newAssignedTo = $this->determineReviewerAssignee($newStatus, $previousAssignedTo);
 
-            $updateData = ['status' => $newStatus];
-            $this->applyLifecycleTimestamps(null, $updateData);
+                $updateData = ['status' => $newStatus];
+                if ($previousAssignedTo !== $newAssignedTo) {
+                    $updateData['assigned_to'] = $newAssignedTo;
+                    $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedTo, $newAssignedTo));
+                }
+                $this->applyLifecycleTimestamps($ticket, $updateData);
 
-            Ticket::whereIn('id', $selectedIds)->update($updateData);
+                if ($previousStatus === $newStatus && $previousAssignedTo === $newAssignedTo) {
+                    return;
+                }
 
-            if ($newStatus === 'closed' && $ticketsForCloseNote->isNotEmpty()) {
-                $ticketsForCloseNote->each(function (Ticket $ticket) use ($closeReason) {
-                    $this->recordStatusClosureReason($ticket, $ticket->status, 'closed', $closeReason);
-                });
-            }
+                $ticket->update($updateData);
+
+                if ($previousAssignedTo !== $newAssignedTo) {
+                    $this->recordAssignmentHandoff($ticket, $previousAssignedTo, $newAssignedTo);
+                }
+
+                if ($newStatus === 'closed') {
+                    $this->recordStatusClosureReason($ticket, $previousStatus, 'closed', $closeReason);
+                }
+            });
             $this->systemLogs->record(
                 'ticket.bulk.status',
                 'Updated ticket statuses in bulk.',
@@ -832,6 +855,24 @@ class TicketController extends Controller
         $user = auth()->user();
 
         return $user && $user->isSuperAdmin();
+    }
+
+    private function determineReviewerAssignee(string $nextStatus, ?int $requestedAssignedTo): ?int
+    {
+        if ($requestedAssignedTo !== null) {
+            return $requestedAssignedTo;
+        }
+
+        if (! in_array($nextStatus, Ticket::CLOSED_STATUSES, true)) {
+            return null;
+        }
+
+        $actor = auth()->user();
+        if (! $actor || ! $actor->isAdminLevel() || $actor->isShadow()) {
+            return null;
+        }
+
+        return (int) $actor->id;
     }
 
     private function assignmentMetadataForChange(?int $previousAssignedTo, ?int $newAssignedTo): array
