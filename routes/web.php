@@ -360,8 +360,14 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
         }
     } elseif ($attachable instanceof \App\Models\TicketReply) {
         $ticket = $attachable->ticket;
-        if ($user->isClient() && $ticket->user_id !== $user->id) {
-            abort(403);
+        if ($user->isClient()) {
+            if ($ticket->user_id !== $user->id) {
+                abort(403);
+            }
+
+            if ((bool) $attachable->is_internal) {
+                abort(403);
+            }
         }
         if ($user->isTechnician() && (int) $ticket->assigned_to !== (int) $user->id) {
             abort(403);
