@@ -67,6 +67,14 @@ class TicketController extends Controller
             })
             ->when($request->filled('category') && $request->category !== 'all', function ($builder) use ($request) {
                 $builder->where('category_id', $request->integer('category'));
+            })
+            ->when($request->filled('category_bucket') && $request->category_bucket !== 'all', function (Builder $builder) use ($request) {
+                $bucket = $this->normalizeCategoryBucketFilter($request->string('category_bucket')->toString());
+                if ($bucket === null) {
+                    return;
+                }
+
+                $this->applyCategoryBucketFilter($builder, $bucket);
             });
 
         if ($request->filled('province') && $request->province !== 'all') {
@@ -989,6 +997,110 @@ class TicketController extends Controller
         }
 
         return $query;
+    }
+
+    private function normalizeCategoryBucketFilter(string $raw): ?string
+    {
+        $normalized = strtolower(trim($raw));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return match ($normalized) {
+            'hardware' => 'hardware',
+            'software' => 'software',
+            'network' => 'network',
+            'access_permissions', 'access/permissions', 'access / permissions' => 'access_permissions',
+            'security' => 'security',
+            'other' => 'other',
+            default => null,
+        };
+    }
+
+    private function applyCategoryBucketFilter(Builder $query, string $bucket): void
+    {
+        $hardwarePattern = '%hardware%';
+        $softwarePattern = '%software%';
+        $applicationPattern = '%application%';
+        $networkPattern = '%network%';
+        $connectPattern = '%connect%';
+        $accessPattern = '%access%';
+        $permissionPattern = '%permission%';
+        $accountPattern = '%account%';
+        $securityPattern = '%security%';
+
+        $query->where(function (Builder $builder) use (
+            $bucket,
+            $hardwarePattern,
+            $softwarePattern,
+            $applicationPattern,
+            $networkPattern,
+            $connectPattern,
+            $accessPattern,
+            $permissionPattern,
+            $accountPattern,
+            $securityPattern
+        ) {
+            if ($bucket === 'other') {
+                $builder->whereNull('category_id')
+                    ->orWhereHas('category', function (Builder $categoryQuery) use (
+                        $hardwarePattern,
+                        $softwarePattern,
+                        $applicationPattern,
+                        $networkPattern,
+                        $connectPattern,
+                        $accessPattern,
+                        $permissionPattern,
+                        $accountPattern,
+                        $securityPattern
+                    ) {
+                        $categoryQuery
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$hardwarePattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$softwarePattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$applicationPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$networkPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$connectPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accessPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$permissionPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accountPattern])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$securityPattern]);
+                    });
+
+                return;
+            }
+
+            $builder->whereHas('category', function (Builder $categoryQuery) use (
+                $bucket,
+                $hardwarePattern,
+                $softwarePattern,
+                $applicationPattern,
+                $networkPattern,
+                $connectPattern,
+                $accessPattern,
+                $permissionPattern,
+                $accountPattern,
+                $securityPattern
+            ) {
+                match ($bucket) {
+                    'hardware' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$hardwarePattern]),
+                    'software' => $categoryQuery->where(function (Builder $q) use ($softwarePattern, $applicationPattern) {
+                        $q->whereRaw('LOWER(name) LIKE ?', [$softwarePattern])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$applicationPattern]);
+                    }),
+                    'network' => $categoryQuery->where(function (Builder $q) use ($networkPattern, $connectPattern) {
+                        $q->whereRaw('LOWER(name) LIKE ?', [$networkPattern])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$connectPattern]);
+                    }),
+                    'access_permissions' => $categoryQuery->where(function (Builder $q) use ($accessPattern, $permissionPattern, $accountPattern) {
+                        $q->whereRaw('LOWER(name) LIKE ?', [$accessPattern])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$permissionPattern])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$accountPattern]);
+                    }),
+                    'security' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$securityPattern]),
+                    default => null,
+                };
+            });
+        });
     }
 
     private function buildTicketListSnapshotToken(Builder $query): string

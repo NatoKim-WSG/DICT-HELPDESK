@@ -26,12 +26,12 @@
     $selectedPerformancePoint = $monthlyPerformanceSeries->firstWhere('key', $selectedMonthKey)
         ?? $monthlyPerformanceSeries->last();
 
-    $pieInProgress = (int) ($periodOverview['in_progress'] ?? 0);
-    $piePending = (int) ($periodOverview['pending'] ?? 0);
-    $pieResolved = (int) ($periodOverview['resolved'] ?? 0);
-    $pieClosed = (int) ($periodOverview['closed'] ?? 0);
-    $pieTotalCreated = (int) ($periodOverview['total_created'] ?? 0);
-    $pieOther = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved + $pieClosed), 0);
+    $pieInProgress = (int) ($ticketsBreakdownOverview['in_progress'] ?? 0);
+    $piePending = (int) ($ticketsBreakdownOverview['pending'] ?? 0);
+    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
+    $pieClosed = (int) ($ticketsBreakdownOverview['closed'] ?? 0);
+    $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
+    $pieOpen = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved + $pieClosed), 0);
 
     $ticketPieSlices = [
         ['label' => 'In progress', 'count' => $pieInProgress, 'color' => '#0ea5e9'],
@@ -39,8 +39,8 @@
         ['label' => 'Resolved', 'count' => $pieResolved, 'color' => '#10b981'],
         ['label' => 'Closed', 'count' => $pieClosed, 'color' => '#64748b'],
     ];
-    if ($pieOther > 0) {
-        $ticketPieSlices[] = ['label' => 'Other', 'count' => $pieOther, 'color' => '#8b5cf6'];
+    if ($pieOpen > 0) {
+        $ticketPieSlices[] = ['label' => 'Open', 'count' => $pieOpen, 'color' => '#8b5cf6'];
     }
 
     $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
@@ -135,6 +135,13 @@
 
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <form method="GET" action="{{ route('admin.reports.index') }}" class="flex items-end gap-2" data-submit-feedback>
+                    @if($detailFilterApplied)
+                        <input type="hidden" name="apply_details_filter" value="1">
+                    @endif
+                    <input type="hidden" name="daily_month" value="{{ $dailyMonthKey }}">
+                    <input type="hidden" name="daily_date" value="{{ $dailySelectedDateValue }}">
+                    <input type="hidden" name="detail_month" value="{{ $detailMonthKey }}">
+                    <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                     <div>
                         <label for="month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reporting Period</label>
                         <select id="month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
@@ -165,7 +172,8 @@
             <div class="stat-card">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">% Change Vs Previous Period</p>
                 <p class="mt-2 font-display text-3xl font-semibold {{ $periodChangeTone }}">{{ $periodChangePrefix }}{{ number_format($periodChange, 1) }}%</p>
-                <p class="mt-2 text-xs text-slate-500">Compared with {{ $previousMonthRow['month_label'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">Current: {{ $periodOverview['total_tickets'] }} | Previous: {{ $previousMonthRow['received'] ?? 0 }}</p>
+                <p class="mt-1 text-xs text-slate-500">Compared with {{ $previousMonthRow['month_label'] }}</p>
             </div>
             <div class="stat-card">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">SLA Compliance Rate</p>
@@ -192,20 +200,6 @@
 
     <div class="grid grid-cols-1 gap-8 xl:grid-cols-3">
         <div class="flex flex-col gap-8 xl:col-span-2">
-            <div class="panel order-1 p-5 sm:p-6">
-                <div class="mb-4">
-                    <h2 class="font-display text-xl font-semibold text-slate-900">Volume Comparison</h2>
-                    <p class="mt-1 text-sm text-slate-500">Current period volume compared with previous period.</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div class="flex flex-wrap items-center gap-3 text-sm">
-                        <span class="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">Current: {{ $periodOverview['total_tickets'] }}</span>
-                        <span class="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">Previous: {{ $previousMonthRow['received'] ?? 0 }}</span>
-                        <span class="rounded-full bg-slate-100 px-3 py-1 font-semibold {{ $periodChangeTone }}">Change: {{ $periodChangePrefix }}{{ number_format($periodChange, 1) }}%</span>
-                    </div>
-                </div>
-            </div>
-
             <div class="panel order-3 p-5 sm:p-6">
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
@@ -250,8 +244,20 @@
                                 @php
                                     $sliceCount = (int) ($slice['count'] ?? 0);
                                     $sliceShare = $ticketPieTotal > 0 ? ($sliceCount / $ticketPieTotal) * 100 : 0;
+                                    $statusFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
+                                        'in progress' => 'in_progress',
+                                        'pending' => 'pending',
+                                        'resolved' => 'resolved',
+                                        'closed' => 'closed',
+                                        'open' => 'open',
+                                        default => null,
+                                    };
+                                    $statusTab = in_array($statusFilter, ['resolved', 'closed'], true) ? 'history' : 'tickets';
+                                    $statusLink = $statusFilter
+                                        ? route('admin.tickets.index', ['tab' => $statusTab, 'status' => $statusFilter, 'include_closed' => 1])
+                                        : route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
                                 @endphp
-                                <div class="pie-legend-row flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm">
+                                <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
                                         <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
                                         <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
@@ -260,7 +266,7 @@
                                         <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
                                         <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
                                     </div>
-                                </div>
+                                </a>
                             @endforeach
                         </div>
                     </div>
@@ -310,14 +316,23 @@
                             @foreach($categoryPieSlices as $slice)
                                 @php
                                     $sliceShare = $categoryPieTotal > 0 ? ($slice['count'] / $categoryPieTotal) * 100 : 0;
+                                    $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
+                                    $categoryLink = route('admin.tickets.index', [
+                                        'tab' => 'tickets',
+                                        'include_closed' => 1,
+                                        'category_bucket' => $categoryBucket,
+                                    ]);
                                 @endphp
-                                <div class="flex items-center justify-between text-xs">
+                                <a href="{{ $categoryLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
                                         <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
-                                        <span class="text-slate-600">{{ $slice['label'] }}</span>
+                                        <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
-                                    <span class="font-semibold text-slate-900">{{ $slice['count'] }} <span class="text-slate-500">({{ number_format($sliceShare, 1) }}%)</span></span>
-                                </div>
+                                    <div class="text-right">
+                                        <span class="pie-legend-value font-semibold text-slate-900">{{ $slice['count'] }}</span>
+                                        <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
+                                    </div>
+                                </a>
                             @endforeach
                         </div>
                     </div>
@@ -367,14 +382,27 @@
                             @foreach($priorityPieSlices as $slice)
                                 @php
                                     $sliceShare = $priorityPieTotal > 0 ? ($slice['count'] / $priorityPieTotal) * 100 : 0;
+                                    $priorityFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
+                                        'critical' => 'urgent',
+                                        'high' => 'high',
+                                        'medium' => 'medium',
+                                        'low' => 'low',
+                                        default => null,
+                                    };
+                                    $priorityLink = $priorityFilter
+                                        ? route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1, 'priority' => $priorityFilter])
+                                        : route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
                                 @endphp
-                                <div class="flex items-center justify-between text-xs">
+                                <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
                                         <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
-                                        <span class="text-slate-600">{{ $slice['label'] }}</span>
+                                        <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
-                                    <span class="font-semibold text-slate-900">{{ $slice['count'] }} <span class="text-slate-500">({{ number_format($sliceShare, 1) }}%)</span></span>
-                                </div>
+                                    <div class="text-right">
+                                        <span class="pie-legend-value font-semibold text-slate-900">{{ $slice['count'] }}</span>
+                                        <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
+                                    </div>
+                                </a>
                             @endforeach
                         </div>
                     </div>
@@ -388,6 +416,13 @@
                         <p class="mt-1 text-sm text-slate-500">Received and completed bars by month.</p>
                     </div>
                     <form method="GET" action="{{ route('admin.reports.index') }}" class="flex items-end gap-2" data-submit-feedback>
+                        @if($detailFilterApplied)
+                            <input type="hidden" name="apply_details_filter" value="1">
+                        @endif
+                        <input type="hidden" name="daily_month" value="{{ $dailyMonthKey }}">
+                        <input type="hidden" name="daily_date" value="{{ $dailySelectedDateValue }}">
+                        <input type="hidden" name="detail_month" value="{{ $detailMonthKey }}">
+                        <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                         <div>
                             <label for="monthly-focus-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Focus Month</label>
                             <select id="monthly-focus-month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
@@ -456,62 +491,62 @@
                 </div>
             </div>
 
-            <div class="panel order-6 overflow-hidden">
+            <div class="panel order-1 overflow-visible">
                 <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">Monthly Statistics Detail</h2>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
+                            <p class="mt-1 text-xs text-slate-500">Select a date to view received, in-progress, and resolved tickets.</p>
+                        </div>
+                        <form method="GET" action="{{ route('admin.reports.index') }}" class="flex flex-wrap items-end gap-2" data-submit-feedback>
+                            <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
+                            <input type="hidden" name="detail_month" value="{{ $detailMonthKey }}">
+                            <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
+                            @if($detailFilterApplied)
+                                <input type="hidden" name="apply_details_filter" value="1">
+                            @endif
+                            <div>
+                                <label for="daily-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
+                                <select id="daily-month" name="daily_month" class="form-input min-w-[170px] py-2 text-sm" onchange="this.form.submit()">
+                                    @foreach($monthOptions as $option)
+                                        <option value="{{ $option['key'] }}" {{ $dailyMonthKey === $option['key'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="daily-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Day</label>
+                                <select id="daily-date" name="daily_date" class="form-input min-w-[190px] py-2 text-sm" onchange="this.form.submit()">
+                                    @foreach($dailyDateOptions as $option)
+                                        <option value="{{ $option['value'] }}" {{ $dailySelectedDateValue === $option['value'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <noscript>
+                                <button type="submit" class="btn-secondary py-2">Apply</button>
+                            </noscript>
+                        </form>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="reports-month-table min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-50/90">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Month</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Received</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Completed</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Open at Month End</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Completion Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody class="app-table-body reports-month-table-body divide-y divide-slate-100 bg-white">
-                            @foreach($monthlyReportRowsDescending as $row)
-                                <tr class="reports-month-row {{ $row['month_key'] === $selectedMonthKey ? 'is-selected' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $row['month_label'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $row['received'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $row['resolved'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $row['open_end_of_month'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ number_format($row['resolution_rate'], 1) }}%</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="panel order-7 overflow-hidden">
-                <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                    <p class="mt-1 text-xs text-slate-500">{{ $periodOverview['label'] }} daily counts (received, in progress, resolved).</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="reports-month-table min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-50/90">
-                            <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Date</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Received</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">In Progress</th>
-                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Resolved</th>
-                            </tr>
-                        </thead>
-                        <tbody class="app-table-body reports-month-table-body divide-y divide-slate-100 bg-white">
-                            @foreach($dailyTicketStatistics as $dailyRow)
-                                <tr>
-                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $dailyRow['label'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['received'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['in_progress'] }}</td>
-                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['resolved'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <div class="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3 sm:p-6">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Received</p>
+                        <p class="mt-1 text-2xl font-semibold text-sky-600">{{ $dailySelectedStats['received'] }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">In Progress</p>
+                        <p class="mt-1 text-2xl font-semibold text-amber-600">{{ $dailySelectedStats['in_progress'] }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resolved</p>
+                        <p class="mt-1 text-2xl font-semibold text-emerald-600">{{ $dailySelectedStats['resolved'] }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -519,58 +554,41 @@
         <div class="space-y-8">
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">Total Tickets</h2>
+                    <h2 class="font-display text-lg font-semibold text-slate-900">Details Filter</h2>
+                    <p class="mt-1 text-xs text-slate-500">Use month or set a date for right-side details.</p>
                 </div>
-                <div class="space-y-3 px-5 py-4">
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Total tickets created</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['total_created'] }}</span>
-                    </a>
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'status' => 'in_progress']) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Tickets in progress</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['in_progress'] }}</span>
-                    </a>
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'status' => 'pending']) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Tickets pending</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['pending'] }}</span>
-                    </a>
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'history', 'status' => 'resolved']) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Tickets resolved</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['resolved'] }}</span>
-                    </a>
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'history', 'status' => 'closed']) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Tickets closed</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['closed'] }}</span>
-                    </a>
-                    <a href="{{ route('admin.tickets.index', ['tab' => 'tickets']) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                        <span class="text-slate-600 transition group-hover:text-slate-700">Backlog (open tickets at period end)</span>
-                        <span class="font-semibold text-slate-900">{{ $periodOverview['backlog_end'] }}</span>
-                    </a>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">Major Issues / Incidents</h2>
-                </div>
-                <div class="space-y-3 px-5 py-4">
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span class="text-slate-600">Major issues this period</span><span class="font-semibold text-slate-900">{{ $majorIssueSummary['major_count'] ?? 0 }}</span></div>
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span class="text-slate-600">Still open</span><span class="font-semibold text-slate-900">{{ $majorIssueSummary['open_major_count'] ?? 0 }}</span></div>
-                    <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span class="text-slate-600">Urgent incidents</span><span class="font-semibold text-slate-900">{{ $majorIssueSummary['urgent_total'] ?? 0 }}</span></div>
-                    <div class="rounded-lg bg-slate-50 px-3 py-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Top issue groups</p>
-                        <div class="mt-2 space-y-2">
-                            @forelse(($majorIssueSummary['top_categories'] ?? collect()) as $category)
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-slate-600">{{ $category['name'] }}</span>
-                                    <span class="font-semibold text-slate-900">{{ $category['count'] }}</span>
-                                </div>
-                            @empty
-                                <p class="text-sm text-slate-500">No major incidents for this period.</p>
-                            @endforelse
+                <form method="GET" action="{{ route('admin.reports.index') }}" class="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2" data-submit-feedback>
+                    <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
+                    <input type="hidden" name="daily_month" value="{{ $dailyMonthKey }}">
+                    <input type="hidden" name="daily_date" value="{{ $dailySelectedDateValue }}">
+                    <div>
+                        <label for="detail-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
+                        <select id="detail-month" name="detail_month" class="form-input w-full py-2 text-sm">
+                            @foreach($monthOptions as $option)
+                                <option value="{{ $option['key'] }}" {{ $detailMonthKey === $option['key'] ? 'selected' : '' }}>
+                                    {{ $option['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label for="detail-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Day (Optional)</label>
+                        <select id="detail-date" name="detail_date" class="form-input w-full py-2 text-sm">
+                            <option value="">All days in {{ $monthOptions->firstWhere('key', $detailMonthKey)['label'] ?? 'selected month' }}</option>
+                            @foreach($detailDateOptions as $option)
+                                <option value="{{ $option['value'] }}" {{ $detailDateValue === $option['value'] ? 'selected' : '' }}>
+                                    {{ $option['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <div class="flex items-center gap-2">
+                            <button type="submit" name="apply_details_filter" value="1" class="btn-primary py-2 text-sm">Filter</button>
+                            <a href="{{ route('admin.reports.index', ['month' => $selectedMonthKey, 'daily_month' => $dailyMonthKey, 'daily_date' => $dailySelectedDateValue, 'detail_month' => $detailMonthKey]) }}" class="btn-secondary py-2 text-sm">Clear</a>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
 
             <div class="panel">
@@ -583,8 +601,8 @@
                         <span class="font-semibold text-slate-900">{{ $averageResolutionLabel }}</span>
                     </div>
                     <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                        <span class="text-slate-600">SLA compliance (this period)</span>
-                        <span class="font-semibold text-slate-900">{{ number_format((float) ($periodOverview['sla_compliance_rate'] ?? 0), 1) }}%</span>
+                        <span class="text-slate-600">SLA compliance (selection)</span>
+                        <span class="font-semibold text-slate-900">{{ number_format((float) ($detailOverview['sla_compliance_rate'] ?? 0), 1) }}%</span>
                     </div>
                     <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
                         <span class="text-slate-600">Open tickets (current)</span>
@@ -598,43 +616,6 @@
                         <span class="text-slate-600">Urgent open tickets</span>
                         <span class="font-semibold text-slate-900">{{ $stats['urgent_open_tickets'] ?? 0 }}</span>
                     </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">By Category</h2>
-                </div>
-                <div class="space-y-3 px-5 py-4">
-                    @foreach($categoryBreakdownBuckets as $bucket)
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                            <span class="text-slate-600">{{ $bucket['name'] }}</span>
-                            <span class="font-semibold text-slate-900">{{ $bucket['count'] }}</span>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="border-b border-slate-100 px-5 py-4">
-                    <h2 class="font-display text-lg font-semibold text-slate-900">By Priority</h2>
-                </div>
-                <div class="space-y-3 px-5 py-4">
-                    @foreach($priorityBreakdownBuckets as $bucket)
-                        @php
-                            $priorityFilter = match (strtolower((string) ($bucket['name'] ?? ''))) {
-                                'critical' => 'urgent',
-                                'high' => 'high',
-                                'medium' => 'medium',
-                                'low' => 'low',
-                                default => null,
-                            };
-                        @endphp
-                        <a href="{{ $priorityFilter ? route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1, 'priority' => $priorityFilter]) : route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm transition hover:bg-slate-100">
-                            <span class="text-slate-600">{{ $bucket['name'] }}</span>
-                            <span class="font-semibold text-slate-900">{{ $bucket['count'] }}</span>
-                        </a>
-                    @endforeach
                 </div>
             </div>
 
@@ -736,6 +717,17 @@ document.addEventListener('DOMContentLoaded', function () {
             modalContent.innerHTML = '';
         }, 180);
     };
+    const closeModal = function () {
+        if (modalController) {
+            modalController.close();
+            window.setTimeout(function () {
+                modalContent.innerHTML = '';
+            }, 180);
+            return;
+        }
+
+        fallbackClose();
+    };
 
     const tuneModalChartLayout = function (clone) {
         const chartArea = clone.querySelector('.h-48');
@@ -805,23 +797,28 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    if (!modalController) {
-        const closeButtons = modal.querySelectorAll('[data-modal-close="volume-chart"]');
-        closeButtons.forEach(function (button) {
-            button.addEventListener('click', fallbackClose);
-        });
+    const closeButtons = modal.querySelectorAll('[data-modal-close="volume-chart"]');
+    closeButtons.forEach(function (button) {
+        button.addEventListener('click', closeModal);
+    });
 
-        const overlay = modal.querySelector('[data-modal-overlay="volume-chart"]');
-        if (overlay) {
-            overlay.addEventListener('click', fallbackClose);
+    modal.addEventListener('click', function (event) {
+        if (modal.classList.contains('hidden')) {
+            return;
         }
 
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-                fallbackClose();
-            }
-        });
-    }
+        if (event.target.closest('.app-modal-panel')) {
+            return;
+        }
+
+        closeModal();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
 });
 </script>
 @endpush

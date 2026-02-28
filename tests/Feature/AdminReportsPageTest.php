@@ -72,10 +72,9 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Category Breakdown');
         $response->assertSee('Top Technical Users');
         $response->assertSee('Monthly Performance (Last 12 Months)');
-        $response->assertSee('Monthly Statistics Detail');
     }
 
-    public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics(): void
+    public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics_for_selected_date(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -124,17 +123,312 @@ class AdminReportsPageTest extends TestCase
 
         $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
             'month' => '2026-02',
+            'daily_date' => '2026-02-24',
         ]));
 
         $response->assertOk();
         $response->assertSee('Daily Ticket Statistics');
-        $response->assertViewHas('dailyTicketStatistics', function ($dailyRows) {
-            $targetRow = collect($dailyRows)->firstWhere('date', '2026-02-24');
+        $response->assertViewHas('dailySelectedDateValue', '2026-02-24');
+        $response->assertViewHas('dailySelectedStats', function (array $dailyStats) {
+            return $dailyStats['date'] === '2026-02-24'
+                && (int) $dailyStats['received'] === 1
+                && (int) $dailyStats['in_progress'] === 1
+                && (int) $dailyStats['resolved'] === 1;
+        });
+    }
 
-            return is_array($targetRow)
-                && (int) $targetRow['received'] === 1
-                && (int) $targetRow['in_progress'] === 1
-                && (int) $targetRow['resolved'] === 1;
+    public function test_daily_ticket_statistics_defaults_to_current_month_and_today_when_no_daily_filter_is_set(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Daily Default Super', 'daily-default-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Daily Default Client', 'daily-default-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $todayTicket = Ticket::create([
+            'name' => 'Today Requester',
+            'contact_number' => '09180000013',
+            'email' => 'today-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Ticket for today default',
+            'description' => 'Should be counted in default daily view.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($todayTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 25, 11, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 11, 0, 0),
+        ]);
+
+        $pastMonthTicket = Ticket::create([
+            'name' => 'Past Month Requester',
+            'contact_number' => '09180000014',
+            'email' => 'past-month-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Ticket for january',
+            'description' => 'Should not be counted in default daily view.',
+            'priority' => 'low',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($pastMonthTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 1, 10, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-01',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('dailyMonthKey', '2026-02');
+        $response->assertViewHas('dailySelectedDateValue', '2026-02-25');
+        $response->assertViewHas('dailySelectedStats', function (array $dailyStats) {
+            return $dailyStats['date'] === '2026-02-25'
+                && (int) $dailyStats['received'] === 1;
+        });
+    }
+
+    public function test_reports_page_right_side_detail_filter_can_target_specific_day(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Detail Scope Super', 'detail-scope-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Detail Scope Client', 'detail-scope-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $dayTicketInProgress = Ticket::create([
+            'name' => 'Day In Progress',
+            'contact_number' => '09180000021',
+            'email' => 'day-in-progress@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Detail in progress',
+            'description' => 'In progress ticket for selected day.',
+            'priority' => 'medium',
+            'status' => 'in_progress',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($dayTicketInProgress->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 8, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 10, 8, 0, 0),
+        ]);
+
+        $dayTicketResolved = Ticket::create([
+            'name' => 'Day Resolved',
+            'contact_number' => '09180000022',
+            'email' => 'day-resolved@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Detail resolved',
+            'description' => 'Resolved ticket for selected day.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 10, 14, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($dayTicketResolved->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 10, 14, 0, 0),
+        ]);
+
+        $otherDayTicket = Ticket::create([
+            'name' => 'Other Day Open',
+            'contact_number' => '09180000023',
+            'email' => 'other-day-open@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Other day ticket',
+            'description' => 'Should not be counted in selected day details.',
+            'priority' => 'low',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($otherDayTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 11, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 11, 10, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+            'detail_month' => '2026-02',
+            'detail_date' => '2026-02-10',
+            'apply_details_filter' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('detailOverview', function (array $detailOverview) {
+            return $detailOverview['mode'] === 'day'
+                && $detailOverview['start'] === '2026-02-10'
+                && (int) $detailOverview['total_created'] === 2
+                && (int) $detailOverview['in_progress'] === 1
+                && (int) $detailOverview['resolved'] === 1;
+        });
+    }
+
+    public function test_detail_day_filter_is_ignored_when_day_is_outside_selected_detail_month(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Detail Clamp Super', 'detail-clamp-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Detail Clamp Client', 'detail-clamp-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $januaryTicket = Ticket::create([
+            'name' => 'January Ticket',
+            'contact_number' => '09180000024',
+            'email' => 'january-ticket@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'January scope',
+            'description' => 'Should appear when using month scope.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($januaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 8, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 1, 8, 10, 0, 0),
+        ]);
+
+        $februaryTicket = Ticket::create([
+            'name' => 'February Ticket',
+            'contact_number' => '09180000025',
+            'email' => 'february-ticket@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'February scope',
+            'description' => 'Outside january detail scope.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($februaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 10, 10, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'detail_month' => '2026-01',
+            'detail_date' => '2026-02-10',
+            'apply_details_filter' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('detailDateValue', null);
+        $response->assertViewHas('detailOverview', function (array $detailOverview) {
+            return $detailOverview['mode'] === 'month'
+                && $detailOverview['start'] === '2026-01-01'
+                && (int) $detailOverview['total_created'] === 1;
+        });
+    }
+
+    public function test_details_filter_applies_scope_to_breakdown_daily_kpis_and_top_technical_users(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Scoped Super', 'scoped-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Scoped Client', 'scoped-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $technicalInScope = $this->createUser('Scoped Tech', 'scoped-tech@example.com', User::ROLE_TECHNICAL);
+        $technicalOutOfScope = $this->createUser('Other Tech', 'other-tech@example.com', User::ROLE_TECHNICAL);
+        $category = $this->createCategory();
+
+        $inScopeOpen = Ticket::create([
+            'name' => 'Scoped Open',
+            'contact_number' => '09180000031',
+            'email' => 'scoped-open@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Scoped open ticket',
+            'description' => 'Counted in scoped day metrics.',
+            'priority' => 'high',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'assigned_to' => $technicalInScope->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($inScopeOpen->id)->update([
+            'created_at' => Carbon::create(2026, 2, 12, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 12, 9, 0, 0),
+        ]);
+
+        $inScopeResolved = Ticket::create([
+            'name' => 'Scoped Resolved',
+            'contact_number' => '09180000032',
+            'email' => 'scoped-resolved@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Scoped resolved ticket',
+            'description' => 'Resolved in selected day.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 12, 16, 0, 0),
+            'user_id' => $client->id,
+            'assigned_to' => $technicalInScope->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($inScopeResolved->id)->update([
+            'created_at' => Carbon::create(2026, 2, 12, 11, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 12, 16, 0, 0),
+        ]);
+
+        $outOfScope = Ticket::create([
+            'name' => 'Out Scope',
+            'contact_number' => '09180000033',
+            'email' => 'out-scope@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Out of scope ticket',
+            'description' => 'Must not count in scoped metrics.',
+            'priority' => 'low',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'assigned_to' => $technicalOutOfScope->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($outOfScope->id)->update([
+            'created_at' => Carbon::create(2026, 2, 13, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 13, 10, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+            'detail_month' => '2026-02',
+            'detail_date' => '2026-02-12',
+            'apply_details_filter' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('detailFilterApplied', true);
+        $response->assertViewHas('dailySelectedDateValue', '2026-02-12');
+        $response->assertViewHas('dailySelectedStats', function (array $dailyStats) {
+            return $dailyStats['date'] === '2026-02-12'
+                && (int) $dailyStats['received'] === 2
+                && (int) $dailyStats['resolved'] === 1;
+        });
+        $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
+            return (int) $overview['total_created'] === 2
+                && (int) $overview['resolved'] === 1
+                && (int) $overview['closed'] === 0;
+        });
+        $response->assertViewHas('stats', function (array $stats) {
+            return (int) $stats['total_tickets'] === 2
+                && (int) $stats['open_tickets'] === 1
+                && (int) $stats['urgent_open_tickets'] === 0;
+        });
+        $response->assertViewHas('topTechnicians', function ($rows) {
+            return collect($rows)->pluck('name')->contains('Scoped Tech')
+                && ! collect($rows)->pluck('name')->contains('Other Tech');
         });
     }
 

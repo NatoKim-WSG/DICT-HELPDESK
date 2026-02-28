@@ -33,28 +33,89 @@ class ReportController extends Controller
                 'start' => $previousPeriodStart,
                 'end' => $previousPeriodEnd,
             ]);
+        $detailFilterApplied = $request->boolean('apply_details_filter');
 
-        $totalTickets = (clone $scopedTickets)->count();
-        $resolvedTicketsCount = (clone $scopedTickets)
+        $detailMonthKey = $this->resolveSelectedMonthKey(
+            $request->query('detail_month'),
+            $monthlyReportRows,
+            $selectedMonthKey
+        );
+        $detailMonthRange = $this->monthRangeFromKey($detailMonthKey);
+        $detailDateOptions = $this->buildDateOptionsForRange($detailMonthRange['start'], $detailMonthRange['end']);
+        $detailSelectedDate = $this->resolveRequestedDate($request->query('detail_date'));
+        if (
+            $detailSelectedDate
+            && (
+                $detailSelectedDate->lt($detailMonthRange['start']->copy()->startOfDay())
+                || $detailSelectedDate->gt($detailMonthRange['end']->copy()->startOfDay())
+            )
+        ) {
+            $detailSelectedDate = null;
+        }
+        $detailDateValue = $detailSelectedDate?->toDateString();
+        $detailScopeStart = $detailSelectedDate?->copy()->startOfDay() ?? $detailMonthRange['start']->copy();
+        $detailScopeEnd = $detailSelectedDate?->copy()->endOfDay() ?? $detailMonthRange['end']->copy();
+        $detailScopeLabel = $detailSelectedDate?->format('M j, Y') ?? (string) $detailMonthRange['label'];
+
+        $dailyMonthKey = $this->resolveSelectedMonthKey(
+            $request->query('daily_month'),
+            $monthlyReportRows,
+            now()->format('Y-m')
+        );
+        $dailyMonthRange = $this->monthRangeFromKey($dailyMonthKey);
+        if ($detailFilterApplied) {
+            $dailyMonthKey = $detailMonthKey;
+            $dailyMonthRange = $detailMonthRange;
+        }
+
+        $dailyDateOptions = $this->buildDateOptionsForRange($dailyMonthRange['start'], $dailyMonthRange['end']);
+        $dailySelectedDate = $this->resolveRequestedDate($request->query('daily_date'));
+        if ($detailFilterApplied && $detailSelectedDate) {
+            $dailySelectedDate = $detailSelectedDate->copy();
+        }
+        if (
+            ! $dailySelectedDate
+            || $dailySelectedDate->lt($dailyMonthRange['start']->copy()->startOfDay())
+            || $dailySelectedDate->gt($dailyMonthRange['end']->copy()->startOfDay())
+        ) {
+            $today = now()->startOfDay();
+            if (
+                $today->gte($dailyMonthRange['start']->copy()->startOfDay())
+                && $today->lte($dailyMonthRange['end']->copy()->startOfDay())
+            ) {
+                $dailySelectedDate = $today;
+            } else {
+                $dailySelectedDate = $dailyMonthRange['end']->copy()->startOfDay();
+            }
+        }
+        $dailySelectedDateValue = $dailySelectedDate->toDateString();
+
+        $kpiScopedTickets = clone $scopedTickets;
+        if ($detailFilterApplied) {
+            $kpiScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+        }
+
+        $totalTickets = (clone $kpiScopedTickets)->count();
+        $resolvedTicketsCount = (clone $kpiScopedTickets)
             ->whereIn('status', Ticket::CLOSED_STATUSES)
             ->count();
 
         $stats = [
             'total_tickets' => $totalTickets,
-            'open_tickets' => (clone $scopedTickets)->open()->count(),
+            'open_tickets' => (clone $kpiScopedTickets)->open()->count(),
             'closed_tickets' => $resolvedTicketsCount,
-            'unassigned_open_tickets' => (clone $scopedTickets)
+            'unassigned_open_tickets' => (clone $kpiScopedTickets)
                 ->open()
                 ->whereNull('assigned_to')
                 ->count(),
-            'urgent_open_tickets' => (clone $scopedTickets)
+            'urgent_open_tickets' => (clone $kpiScopedTickets)
                 ->open()
                 ->where('priority', 'urgent')
                 ->count(),
             'resolution_rate' => $totalTickets > 0
                 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1)
                 : 0,
-            'average_resolution_minutes' => $this->averageResolutionMinutes((clone $scopedTickets)),
+            'average_resolution_minutes' => $this->averageResolutionMinutes((clone $kpiScopedTickets)),
         ];
 
         $periodStatusSummary = $this->buildStatusBreakdownForPeriod(
@@ -108,15 +169,37 @@ class ReportController extends Controller
             'backlog_end' => $backlogThisPeriod,
         ];
 
+        $mixScopeStart = $detailFilterApplied ? $detailScopeStart : $selectedPeriodStart;
+        $mixScopeEnd = $detailFilterApplied ? $detailScopeEnd : $selectedPeriodEnd;
+        $mixScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
+        $mixStatusSummary = $this->buildStatusBreakdownForPeriod(
+            clone $scopedTickets,
+            $mixScopeStart,
+            $mixScopeEnd
+        );
+        $mixTotalCreated = (clone $scopedTickets)
+            ->whereBetween('created_at', [$mixScopeStart, $mixScopeEnd])
+            ->count();
+        $ticketsBreakdownOverview = [
+            'label' => $mixScopeLabel,
+            'start' => $mixScopeStart->toDateString(),
+            'end' => $mixScopeEnd->toDateString(),
+            'total_created' => $mixTotalCreated,
+            'in_progress' => (int) ($mixStatusSummary['in_progress'] ?? 0),
+            'pending' => (int) ($mixStatusSummary['pending'] ?? 0),
+            'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
+            'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
+        ];
+
         $categoryBreakdownBuckets = $this->buildCategoryBucketsForPeriod(
             clone $scopedTickets,
-            $selectedPeriodStart,
-            $selectedPeriodEnd
+            $mixScopeStart,
+            $mixScopeEnd
         );
         $priorityBreakdownBuckets = $this->buildPriorityBucketsForPeriod(
             clone $scopedTickets,
-            $selectedPeriodStart,
-            $selectedPeriodEnd
+            $mixScopeStart,
+            $mixScopeEnd
         );
 
         $volumeSeries = [
@@ -128,11 +211,42 @@ class ReportController extends Controller
                 'key' => $row['month_key'],
             ])->values(),
         ];
-        $dailyTicketStatistics = $this->buildDailyTicketStatisticsForPeriod(
+        $dailySelectedStats = $this->buildDailyTicketStatisticsForDate(
             clone $scopedTickets,
-            $selectedPeriodStart,
-            $selectedPeriodEnd
+            $dailySelectedDate
         );
+
+        $detailStatusSummary = $this->buildStatusBreakdownForPeriod(
+            clone $scopedTickets,
+            $detailScopeStart,
+            $detailScopeEnd
+        );
+        $detailSlaMetrics = $this->buildSlaMetricsForPeriod(
+            clone $scopedTickets,
+            $detailScopeStart,
+            $detailScopeEnd
+        );
+        $detailMajorIssueSummary = $this->buildMajorIssueSummary(
+            clone $scopedTickets,
+            $detailScopeStart,
+            $detailScopeEnd
+        );
+        $detailTotalCreated = (clone $scopedTickets)
+            ->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd])
+            ->count();
+        $detailOverview = [
+            'label' => $detailScopeLabel,
+            'mode' => $detailSelectedDate ? 'day' : 'month',
+            'start' => $detailScopeStart->toDateString(),
+            'end' => $detailScopeEnd->toDateString(),
+            'total_created' => $detailTotalCreated,
+            'in_progress' => (int) ($detailStatusSummary['in_progress'] ?? 0),
+            'pending' => (int) ($detailStatusSummary['pending'] ?? 0),
+            'resolved' => (int) ($detailStatusSummary['resolved'] ?? 0),
+            'closed' => (int) ($detailStatusSummary['closed'] ?? 0),
+            'backlog_end' => $this->countOpenTicketsAtCutoff(clone $scopedTickets, $detailScopeEnd),
+            'sla_compliance_rate' => (float) ($detailSlaMetrics['rate'] ?? 0),
+        ];
 
         $ticketsByStatus = (clone $scopedTickets)
             ->selectRaw('status, COUNT(*) as count')
@@ -178,8 +292,6 @@ class ReportController extends Controller
             ])
             ->reverse()
             ->values();
-        $monthlyReportRowsDescending = $monthlyReportRows->reverse()->values();
-
         $trendStart = Carbon::now()->startOfDay()->subDays(29);
         $trendEnd = Carbon::now()->startOfDay();
 
@@ -199,7 +311,12 @@ class ReportController extends Controller
             ]);
         }
 
-        $topTechnicianRows = (clone $scopedTickets)
+        $topTechnicianScopedTickets = clone $scopedTickets;
+        if ($detailFilterApplied) {
+            $topTechnicianScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+        }
+
+        $topTechnicianRows = (clone $topTechnicianScopedTickets)
             ->whereNotNull('assigned_to')
             ->whereHas('assignedUser', function ($query) {
                 $query->visibleDirectory();
@@ -237,7 +354,6 @@ class ReportController extends Controller
             'topTechnicians',
             'monthlyReportRows',
             'monthlyGraphPoints',
-            'monthlyReportRowsDescending',
             'monthOptions',
             'selectedMonthKey',
             'selectedMonthRow',
@@ -250,7 +366,17 @@ class ReportController extends Controller
             'categoryBreakdownBuckets',
             'priorityBreakdownBuckets',
             'volumeSeries',
-            'dailyTicketStatistics',
+            'detailFilterApplied',
+            'ticketsBreakdownOverview',
+            'dailyMonthKey',
+            'dailySelectedDateValue',
+            'dailyDateOptions',
+            'dailySelectedStats',
+            'detailMonthKey',
+            'detailDateValue',
+            'detailDateOptions',
+            'detailOverview',
+            'detailMajorIssueSummary',
             'previousMonthRow'
         ));
     }
@@ -410,22 +536,44 @@ class ReportController extends Controller
             ->count();
     }
 
-    private function resolveSelectedMonthKey(mixed $requestedMonth, Collection $monthlyReportRows): string
+    private function resolveSelectedMonthKey(
+        mixed $requestedMonth,
+        Collection $monthlyReportRows,
+        mixed $preferredFallbackMonth = null
+    ): string
     {
         $availableMonths = $monthlyReportRows->pluck('month_key')->all();
         $fallbackMonth = ! empty($availableMonths)
             ? (string) end($availableMonths)
             : now()->format('Y-m');
 
-        if (! is_string($requestedMonth)) {
-            return $fallbackMonth;
+        $preferredFallback = $this->normalizeMonthKey($preferredFallbackMonth);
+        if ($preferredFallback && in_array($preferredFallback, $availableMonths, true)) {
+            $fallbackMonth = $preferredFallback;
         }
 
-        $normalized = trim($requestedMonth);
+        $normalized = $this->normalizeMonthKey($requestedMonth);
+        if (! $normalized) {
+            return $fallbackMonth;
+        }
 
         return in_array($normalized, $availableMonths, true)
             ? $normalized
             : $fallbackMonth;
+    }
+
+    private function normalizeMonthKey(mixed $monthKey): ?string
+    {
+        if (! is_string($monthKey)) {
+            return null;
+        }
+
+        $normalized = trim($monthKey);
+        if (! preg_match('/^\d{4}-\d{2}$/', $normalized)) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     private function monthRangeFromKey(string $monthKey): array
@@ -756,51 +904,60 @@ class ReportController extends Controller
         return $series;
     }
 
-    private function buildDailyTicketStatisticsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): Collection
+    private function buildDailyTicketStatisticsForDate(Builder $scopedTickets, Carbon $date): array
     {
-        $receivedCounts = (clone $scopedTickets)
-            ->selectRaw('DATE(created_at) as stat_date, COUNT(*) as count')
-            ->whereBetween('created_at', [$start, $end])
-            ->groupBy('stat_date')
-            ->pluck('count', 'stat_date');
+        $start = $date->copy()->startOfDay();
+        $end = $date->copy()->endOfDay();
 
-        $inProgressCounts = (clone $scopedTickets)
-            ->selectRaw('DATE(created_at) as stat_date, COUNT(*) as count')
+        $received = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->count();
+
+        $inProgress = (clone $scopedTickets)
             ->whereBetween('created_at', [$start, $end])
             ->where('status', 'in_progress')
-            ->groupBy('stat_date')
-            ->pluck('count', 'stat_date');
+            ->count();
 
-        $resolvedCounts = [];
-        $resolvedTickets = (clone $scopedTickets)
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('resolved_at', [$start, $end])
-                    ->orWhereBetween('closed_at', [$start, $end]);
-            })
-            ->get(['resolved_at', 'closed_at']);
+        return [
+            'date' => $start->toDateString(),
+            'label' => $start->format('M j, Y'),
+            'received' => $received,
+            'in_progress' => $inProgress,
+            'resolved' => $this->countResolvedTicketsWithinRange(clone $scopedTickets, $start, $end),
+        ];
+    }
 
-        foreach ($resolvedTickets as $ticket) {
-            $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
-            if (! $completedAt) {
-                continue;
-            }
-
-            $dateKey = $completedAt->toDateString();
-            $resolvedCounts[$dateKey] = ($resolvedCounts[$dateKey] ?? 0) + 1;
+    private function resolveRequestedDate(mixed $requestedDate): ?Carbon
+    {
+        if (! is_string($requestedDate)) {
+            return null;
         }
 
-        $rows = collect();
-        for ($cursor = $start->copy()->startOfDay(); $cursor->lte($end); $cursor->addDay()) {
-            $dateKey = $cursor->toDateString();
-            $rows->push([
-                'date' => $dateKey,
+        $normalized = trim($requestedDate);
+        if ($normalized === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $normalized)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function buildDateOptionsForRange(Carbon $start, Carbon $end): Collection
+    {
+        $options = collect();
+        $rangeStart = $start->copy()->startOfDay();
+        $rangeEnd = $end->copy()->startOfDay();
+
+        for ($cursor = $rangeStart->copy(); $cursor->lte($rangeEnd); $cursor->addDay()) {
+            $options->push([
+                'value' => $cursor->toDateString(),
                 'label' => $cursor->format('M j, Y'),
-                'received' => (int) ($receivedCounts[$dateKey] ?? 0),
-                'in_progress' => (int) ($inProgressCounts[$dateKey] ?? 0),
-                'resolved' => (int) ($resolvedCounts[$dateKey] ?? 0),
             ]);
         }
 
-        return $rows->reverse()->values();
+        return $options->reverse()->values();
     }
 }
