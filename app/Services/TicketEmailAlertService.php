@@ -19,7 +19,7 @@ class TicketEmailAlertService
         }
 
         $sentCount = $this->sendAlertToUsers(
-            $this->superUserRecipients(),
+            $this->newTicketSuperUserRecipients(),
             $ticket,
             'New Ticket Received: '.$ticket->ticket_number,
             'A new support ticket has been received.',
@@ -240,6 +240,16 @@ class TicketEmailAlertService
         }
 
         return $notifiedTickets;
+    }
+
+    private function newTicketSuperUserRecipients(): Collection
+    {
+        return User::query()
+            ->where('role', User::ROLE_SUPER_USER)
+            ->where('is_active', true)
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->get(['id', 'name', 'email', 'role', 'is_active']);
     }
 
     private function superUserRecipients(): Collection

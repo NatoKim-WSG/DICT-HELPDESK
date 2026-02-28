@@ -133,7 +133,7 @@
                                 );
                             $canDelete = false;
 
-                            if ($user->id !== $currentUser->id && ! $isTargetShadow) {
+                            if ($user->id !== $currentUser->id && ! $isTargetShadow && ! $user->is_profile_locked) {
                                 if ($isCurrentShadow) {
                                     $canDelete = true;
                                 } elseif ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetAdmin) {
@@ -233,6 +233,10 @@
                                     @elseif($isTargetAdmin && ! $isCurrentShadow)
                                         <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
                                             Protected
+                                        </span>
+                                    @elseif($user->is_profile_locked)
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
+                                            Locked
                                         </span>
                                     @endif
                                 </div>

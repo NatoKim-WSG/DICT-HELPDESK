@@ -492,6 +492,11 @@ class UserManagementController extends Controller
                 ->with('error', 'You cannot delete your own account.');
         }
 
+        if ($user->is_profile_locked) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Locked users cannot be deleted. Unlock the profile first.');
+        }
+
         if ($user->isShadow()) {
             if (! $currentUser->isShadow()) {
                 return redirect()->route('admin.users.index')

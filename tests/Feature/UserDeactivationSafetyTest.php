@@ -14,6 +14,41 @@ class UserDeactivationSafetyTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_destroy_user_route_cannot_delete_locked_user(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User',
+            'email' => 'super-user-locked-delete@example.com',
+            'phone' => '09110001111',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $lockedClient = User::create([
+            'name' => 'Locked Client',
+            'email' => 'locked-client@example.com',
+            'phone' => '09110002222',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+            'is_profile_locked' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->delete(route('admin.users.destroy', $lockedClient));
+
+        $response->assertRedirect(route('admin.users.index'));
+        $response->assertSessionHas('error', 'Locked users cannot be deleted. Unlock the profile first.');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $lockedClient->id,
+            'email' => 'locked-client@example.com',
+        ]);
+    }
+
     public function test_destroy_user_route_deletes_user_and_preserves_ticket_history(): void
     {
         $superUser = User::create([

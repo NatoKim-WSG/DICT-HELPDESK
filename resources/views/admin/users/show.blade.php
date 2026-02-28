@@ -245,7 +245,9 @@
                     $targetRole = $user->normalizedRole();
                     $canModifyProtectedRole = $currentViewer->isShadow() || $targetRole !== \App\Models\User::ROLE_ADMIN;
                     $canToggleAccount = $targetRole !== \App\Models\User::ROLE_SHADOW && $canModifyProtectedRole;
-                    $canDeleteAccount = $targetRole !== \App\Models\User::ROLE_SHADOW && $canModifyProtectedRole;
+                    $canDeleteAccount = $targetRole !== \App\Models\User::ROLE_SHADOW
+                        && $canModifyProtectedRole
+                        && ! $user->is_profile_locked;
                 @endphp
                 <div class="bg-white shadow sm:rounded-lg">
                     <div class="px-4 py-5 sm:px-6">

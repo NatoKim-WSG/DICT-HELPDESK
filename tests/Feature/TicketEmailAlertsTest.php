@@ -30,11 +30,13 @@ class TicketEmailAlertsTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_super_users_receive_email_when_client_creates_ticket(): void
+    public function test_only_super_user_receives_email_when_client_creates_ticket(): void
     {
         Mail::fake();
 
         $superUser = $this->createUser('Super Alerts', 'super-alerts@example.com', User::ROLE_SUPER_USER);
+        $admin = $this->createUser('Admin Alerts', 'admin-alerts@example.com', User::ROLE_ADMIN);
+        $shadow = $this->createUser('Shadow Alerts', 'shadow-alerts@example.com', User::ROLE_SHADOW);
         $client = $this->createUser('Client Alerts', 'client-alerts@example.com', User::ROLE_CLIENT, 'DICT');
         $category = $this->createCategory();
 
@@ -61,6 +63,16 @@ class TicketEmailAlertsTest extends TestCase
             return $mail->hasTo($superUser->email)
                 && str_starts_with($mail->subjectLine, 'New Ticket Received:')
                 && $mail->ticket->is($ticket);
+        });
+
+        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($admin) {
+            return $mail->hasTo($admin->email)
+                && str_starts_with($mail->subjectLine, 'New Ticket Received:');
+        });
+
+        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($shadow) {
+            return $mail->hasTo($shadow->email)
+                && str_starts_with($mail->subjectLine, 'New Ticket Received:');
         });
     }
 
