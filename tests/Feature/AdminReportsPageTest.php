@@ -75,6 +75,69 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Monthly Statistics Detail');
     }
 
+    public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Daily Reports Super', 'daily-reports-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Daily Reports Client', 'daily-reports-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $inProgressTicket = Ticket::create([
+            'name' => 'In Progress Requester',
+            'contact_number' => '09180000011',
+            'email' => 'in-progress-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'In progress ticket for daily stats',
+            'description' => 'Counts as received and in progress.',
+            'priority' => 'high',
+            'status' => 'in_progress',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::query()->whereKey($inProgressTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 24, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 24, 10, 0, 0),
+        ]);
+
+        $resolvedTicket = Ticket::create([
+            'name' => 'Resolved Requester',
+            'contact_number' => '09180000012',
+            'email' => 'resolved-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Resolved ticket for daily stats',
+            'description' => 'Counts as resolved on target day.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 24, 15, 30, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::query()->whereKey($resolvedTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 20, 8, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 24, 15, 30, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Daily Ticket Statistics');
+        $response->assertViewHas('dailyTicketStatistics', function ($dailyRows) {
+            $targetRow = collect($dailyRows)->firstWhere('date', '2026-02-24');
+
+            return is_array($targetRow)
+                && (int) $targetRow['received'] === 1
+                && (int) $targetRow['in_progress'] === 1
+                && (int) $targetRow['resolved'] === 1;
+        });
+    }
+
     public function test_client_cannot_open_reports_page(): void
     {
         config(['legal.require_acceptance' => false]);

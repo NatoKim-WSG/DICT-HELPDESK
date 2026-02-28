@@ -128,6 +128,11 @@ class ReportController extends Controller
                 'key' => $row['month_key'],
             ])->values(),
         ];
+        $dailyTicketStatistics = $this->buildDailyTicketStatisticsForPeriod(
+            clone $scopedTickets,
+            $selectedPeriodStart,
+            $selectedPeriodEnd
+        );
 
         $ticketsByStatus = (clone $scopedTickets)
             ->selectRaw('status, COUNT(*) as count')
@@ -245,6 +250,7 @@ class ReportController extends Controller
             'categoryBreakdownBuckets',
             'priorityBreakdownBuckets',
             'volumeSeries',
+            'dailyTicketStatistics',
             'previousMonthRow'
         ));
     }
@@ -748,5 +754,53 @@ class ReportController extends Controller
         }
 
         return $series;
+    }
+
+    private function buildDailyTicketStatisticsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): Collection
+    {
+        $receivedCounts = (clone $scopedTickets)
+            ->selectRaw('DATE(created_at) as stat_date, COUNT(*) as count')
+            ->whereBetween('created_at', [$start, $end])
+            ->groupBy('stat_date')
+            ->pluck('count', 'stat_date');
+
+        $inProgressCounts = (clone $scopedTickets)
+            ->selectRaw('DATE(created_at) as stat_date, COUNT(*) as count')
+            ->whereBetween('created_at', [$start, $end])
+            ->where('status', 'in_progress')
+            ->groupBy('stat_date')
+            ->pluck('count', 'stat_date');
+
+        $resolvedCounts = [];
+        $resolvedTickets = (clone $scopedTickets)
+            ->where(function ($query) use ($start, $end) {
+                $query->whereBetween('resolved_at', [$start, $end])
+                    ->orWhereBetween('closed_at', [$start, $end]);
+            })
+            ->get(['resolved_at', 'closed_at']);
+
+        foreach ($resolvedTickets as $ticket) {
+            $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
+            if (! $completedAt) {
+                continue;
+            }
+
+            $dateKey = $completedAt->toDateString();
+            $resolvedCounts[$dateKey] = ($resolvedCounts[$dateKey] ?? 0) + 1;
+        }
+
+        $rows = collect();
+        for ($cursor = $start->copy()->startOfDay(); $cursor->lte($end); $cursor->addDay()) {
+            $dateKey = $cursor->toDateString();
+            $rows->push([
+                'date' => $dateKey,
+                'label' => $cursor->format('M j, Y'),
+                'received' => (int) ($receivedCounts[$dateKey] ?? 0),
+                'in_progress' => (int) ($inProgressCounts[$dateKey] ?? 0),
+                'resolved' => (int) ($resolvedCounts[$dateKey] ?? 0),
+            ]);
+        }
+
+        return $rows->reverse()->values();
     }
 }

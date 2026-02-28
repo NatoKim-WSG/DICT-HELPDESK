@@ -485,6 +485,35 @@
                     </table>
                 </div>
             </div>
+
+            <div class="panel order-7 overflow-hidden">
+                <div class="border-b border-slate-100 px-5 py-4">
+                    <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
+                    <p class="mt-1 text-xs text-slate-500">{{ $periodOverview['label'] }} daily counts (received, in progress, resolved).</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="reports-month-table min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50/90">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Date</th>
+                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Received</th>
+                                <th class="px-4 py-3 text-left font-semibold text-slate-600">In Progress</th>
+                                <th class="px-4 py-3 text-left font-semibold text-slate-600">Resolved</th>
+                            </tr>
+                        </thead>
+                        <tbody class="app-table-body reports-month-table-body divide-y divide-slate-100 bg-white">
+                            @foreach($dailyTicketStatistics as $dailyRow)
+                                <tr>
+                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $dailyRow['label'] }}</td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['received'] }}</td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['in_progress'] }}</td>
+                                    <td class="px-4 py-3 text-slate-600">{{ $dailyRow['resolved'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <div class="space-y-8">
