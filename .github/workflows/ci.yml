@@ -30,6 +30,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Validate Composer config
+        run: composer validate --strict
+
+      - name: Audit PHP dependencies
+        run: composer audit --no-interaction --locked
+
       - name: Prepare environment
         run: |
           cp .env.example .env
@@ -40,6 +46,9 @@ jobs:
 
       - name: Run test suite
         run: php artisan test
+
+      - name: Lint PHP syntax
+        run: find app config routes database -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Install Node dependencies
         run: npm ci
