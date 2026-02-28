@@ -193,38 +193,44 @@
                         <p class="mt-1 text-sm text-gray-500">Shadow-only credential tools for this account.</p>
                     </div>
                     <div class="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-3">
-                        <div>
-                            <label for="managedUserPassword" class="text-sm font-medium text-gray-700">Current Login Password</label>
-                            <div class="mt-2 flex items-center gap-2">
-                                <input
-                                    id="managedUserPassword"
-                                    type="password"
-                                    readonly
-                                    value="{{ ($knownManagedPassword ?? null) ?: 'Password is not currently recoverable for this account.' }}"
-                                    class="block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
-                                >
-                                <button
-                                    type="button"
-                                    id="toggleManagedUserPassword"
-                                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                                    aria-pressed="false"
-                                    {{ empty($knownManagedPassword) ? 'disabled' : '' }}
-                                >
-                                    Show
-                                </button>
+                        @if(!empty($revealedManagedPassword))
+                            <div>
+                                <label for="managedUserPassword" class="text-sm font-medium text-gray-700">Temporary Login Password (One-Time Reveal)</label>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <input
+                                        id="managedUserPassword"
+                                        type="password"
+                                        readonly
+                                        value="{{ $revealedManagedPassword }}"
+                                        class="block w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
+                                    >
+                                    <button
+                                        type="button"
+                                        id="toggleManagedUserPassword"
+                                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                        aria-pressed="false"
+                                    >
+                                        Show
+                                    </button>
+                                </div>
+                                <p class="mt-2 text-xs text-rose-700">Copy this temporary password now. It will not be shown again.</p>
                             </div>
-                        </div>
-
-                        @if(!empty($knownManagedPassword) && ($isUsingManagedDefaultPassword ?? false))
-                            <p class="text-xs text-emerald-700">This user currently uses the managed default password.</p>
-                        @elseif(!empty($knownManagedPassword))
-                            <p class="text-xs text-sky-700">This user has a custom password and it is available for Shadow review.</p>
+                        @elseif($activeCredentialHandoff)
+                            <p class="text-xs text-sky-700">
+                                A temporary password is ready and expires at {{ optional($activeCredentialHandoff->expires_at)->format('M j, Y g:i A') }}.
+                            </p>
+                            <form method="POST" action="{{ route('admin.users.password.reveal-temporary', $user) }}">
+                                @csrf
+                                <button type="submit" class="inline-flex items-center rounded-md border border-sky-300 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-50">
+                                    Reveal Temporary Password
+                                </button>
+                            </form>
                         @else
-                            <p class="text-xs text-amber-700">This user has a custom password that was set before password reveal tracking. Reset to managed default to establish a known login password.</p>
+                            <p class="text-xs text-amber-700">No active temporary password is available for this account.</p>
                             <form method="POST" action="{{ route('admin.users.password.reset-default', $user) }}">
                                 @csrf
                                 <button type="submit" class="inline-flex items-center rounded-md border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-50">
-                                    Reset To Managed Default
+                                    Issue Temporary Password
                                 </button>
                             </form>
                         @endif

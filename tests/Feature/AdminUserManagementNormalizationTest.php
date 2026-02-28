@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Support\DefaultPasswordResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -359,12 +360,11 @@ class AdminUserManagementNormalizationTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Password Access');
-        $response->assertSee('Current Login Password');
-        $response->assertSee(DefaultPasswordResolver::user());
-        $response->assertSee('managed default password');
+        $response->assertSee('No active temporary password is available for this account.');
+        $response->assertSee('Issue Temporary Password');
     }
 
-    public function test_shadow_user_can_reset_managed_user_password_to_default(): void
+    public function test_shadow_user_can_issue_temporary_password_handoff(): void
     {
         $shadow = User::create([
             'name' => 'Shadow Reset',
@@ -389,13 +389,18 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response = $this->actingAs($shadow)->post(route('admin.users.password.reset-default', $client));
 
         $response->assertRedirect(route('admin.users.show', $client));
-        $response->assertSessionHas('success', 'Password access is now available for this account.');
+        $response->assertSessionHas('success', 'Temporary password issued. Reveal it once before it expires.');
 
         $client->refresh();
-        $this->assertTrue(Hash::check(DefaultPasswordResolver::user(), $client->password));
+        $this->assertFalse(Hash::check('custompass123', $client->password));
+        $this->assertDatabaseHas('credential_handoffs', [
+            'target_user_id' => $client->id,
+            'issued_by_user_id' => $shadow->id,
+            'consumed_at' => null,
+        ]);
     }
 
-    public function test_shadow_user_can_view_custom_password_when_reveal_value_exists(): void
+    public function test_shadow_user_can_reveal_temporary_password_once(): void
     {
         $shadow = User::create([
             'name' => 'Shadow Custom Reveal',
@@ -414,15 +419,26 @@ class AdminUserManagementNormalizationTest extends TestCase
             'department' => 'DICT',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('custompass123'),
-            'password_reveal' => 'custompass123',
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($shadow)->get(route('admin.users.show', $client));
+        $this->actingAs($shadow)->post(route('admin.users.password.reset-default', $client))
+            ->assertRedirect(route('admin.users.show', $client));
 
-        $response->assertOk();
-        $response->assertSee('custompass123');
-        $response->assertSee('custom password and it is available for Shadow review');
+        $revealResponse = $this->actingAs($shadow)->post(route('admin.users.password.reveal-temporary', $client));
+        $revealResponse->assertRedirect(route('admin.users.show', $client));
+        $revealResponse->assertSessionHas('managed_password_reveal');
+
+        $handoff = CredentialHandoff::query()
+            ->where('target_user_id', $client->id)
+            ->first();
+
+        $this->assertNotNull($handoff);
+        $this->assertNotNull($handoff->consumed_at);
+
+        $secondReveal = $this->actingAs($shadow)->post(route('admin.users.password.reveal-temporary', $client));
+        $secondReveal->assertRedirect(route('admin.users.show', $client));
+        $secondReveal->assertSessionHas('error', 'No active temporary password is available for this account.');
     }
 
     public function test_non_shadow_user_cannot_reset_managed_user_password(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Services\SystemLogService;
 use Illuminate\Http\Request;
@@ -182,7 +183,9 @@ class AuthController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
-            $updateData['password_reveal'] = (string) $request->password;
+            CredentialHandoff::query()
+                ->where('target_user_id', $user->id)
+                ->delete();
         }
 
         $user->fill($updateData);
@@ -195,7 +198,7 @@ class AuthController extends Controller
         $changedFields = array_keys($user->getDirty());
         $nonSensitiveChangedFields = array_values(array_filter(
             $changedFields,
-            static fn (string $field): bool => ! in_array($field, ['password', 'password_reveal'], true)
+            static fn (string $field): bool => $field !== 'password'
         ));
 
         $user->save();

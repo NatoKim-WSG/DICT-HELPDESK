@@ -57,7 +57,7 @@ class TicketEmailAlertsTest extends TestCase
         $ticket = Ticket::query()->where('subject', 'Email alert on new ticket')->firstOrFail();
         $this->assertNotNull($ticket->super_users_notified_new_at);
 
-        Mail::assertSent(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
             return $mail->hasTo($superUser->email)
                 && str_starts_with($mail->subjectLine, 'New Ticket Received:')
                 && $mail->ticket->is($ticket);
@@ -85,7 +85,7 @@ class TicketEmailAlertsTest extends TestCase
         $this->assertNotNull($ticket->assigned_at);
         $this->assertNotNull($ticket->technical_user_notified_assignment_at);
 
-        Mail::assertSent(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
             return $mail->hasTo($technical->email)
                 && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
                 && $mail->ticket->is($ticket);
@@ -111,7 +111,7 @@ class TicketEmailAlertsTest extends TestCase
         $ticket->refresh();
         $this->assertNotNull($ticket->super_users_notified_unchecked_at);
 
-        Mail::assertSent(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
             return $mail->hasTo($superUser->email)
                 && str_starts_with($mail->subjectLine, 'Unchecked Ticket Alert (50 Minutes):')
                 && $mail->ticket->is($ticket);
@@ -140,7 +140,7 @@ class TicketEmailAlertsTest extends TestCase
         $ticket->refresh();
         $this->assertNotNull($ticket->super_users_notified_unassigned_sla_at);
 
-        Mail::assertSent(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
             return $mail->hasTo($superUser->email)
                 && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Unassigned):')
                 && $mail->ticket->is($ticket);
@@ -166,7 +166,7 @@ class TicketEmailAlertsTest extends TestCase
         $ticket->refresh();
         $this->assertNotNull($ticket->technical_user_notified_sla_at);
 
-        Mail::assertSent(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
             return $mail->hasTo($technical->email)
                 && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):')
                 && $mail->ticket->is($ticket);

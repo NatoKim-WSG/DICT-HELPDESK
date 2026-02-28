@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CredentialHandoff;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
@@ -162,7 +163,6 @@ class UserManagementController extends Controller
             'department' => $department,
             'role' => $persistedRole,
             'password' => Hash::make($resolvedPassword),
-            'password_reveal' => $resolvedPassword,
             'is_active' => true,
             'is_profile_locked' => false,
         ]);
@@ -204,18 +204,15 @@ class UserManagementController extends Controller
         $statisticsLinks = $this->buildUserStatisticsLinks($user, $statistics['show_assigned']);
         $recentTickets = $this->recentTicketsForUser($user);
         $canRevealManagedPassword = $currentUser->isShadow() && ! $user->isShadow() && $user->id !== $currentUser->id;
-        $defaultManagedPassword = $canRevealManagedPassword ? DefaultPasswordResolver::user() : null;
-        $isUsingManagedDefaultPassword = $canRevealManagedPassword
-            ? Hash::check((string) $defaultManagedPassword, (string) $user->password)
-            : false;
-        $knownManagedPassword = null;
+        $activeCredentialHandoff = null;
         if ($canRevealManagedPassword) {
-            if (is_string($user->password_reveal) && trim($user->password_reveal) !== '') {
-                $knownManagedPassword = $user->password_reveal;
-            } elseif ($isUsingManagedDefaultPassword) {
-                $knownManagedPassword = $defaultManagedPassword;
-            }
+            $activeCredentialHandoff = CredentialHandoff::query()
+                ->where('target_user_id', $user->id)
+                ->whereNull('consumed_at')
+                ->where('expires_at', '>', now())
+                ->first();
         }
+        $revealedManagedPassword = session('managed_password_reveal');
 
         return view('admin.users.show', compact(
             'user',
@@ -223,9 +220,8 @@ class UserManagementController extends Controller
             'statisticsLinks',
             'recentTickets',
             'canRevealManagedPassword',
-            'defaultManagedPassword',
-            'isUsingManagedDefaultPassword',
-            'knownManagedPassword'
+            'activeCredentialHandoff',
+            'revealedManagedPassword'
         ));
     }
 
@@ -252,28 +248,94 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to update your own password.');
         }
 
-        $defaultPassword = DefaultPasswordResolver::user();
-        $alreadyDefault = Hash::check($defaultPassword, (string) $user->password);
+        $temporaryPassword = $this->generateTemporaryManagedPassword();
+        $expiresAt = now()->addMinutes(10);
 
-        if (! $alreadyDefault) {
-            $user->forceFill([
-                'password' => Hash::make($defaultPassword),
-                'password_reveal' => $defaultPassword,
-            ])->save();
+        $user->forceFill([
+            'password' => Hash::make($temporaryPassword),
+        ])->save();
 
-            $this->systemLogs->record(
-                'user.password.reset_default',
-                'Reset a user password to the managed default.',
-                [
-                    'category' => 'security',
-                    'target_type' => User::class,
-                    'target_id' => $user->id,
-                ]
-            );
-        }
+        CredentialHandoff::query()->updateOrCreate(
+            ['target_user_id' => $user->id],
+            [
+                'issued_by_user_id' => $currentUser->id,
+                'temporary_password' => $temporaryPassword,
+                'expires_at' => $expiresAt,
+                'revealed_at' => null,
+                'consumed_at' => null,
+            ]
+        );
+
+        $this->systemLogs->record(
+            'user.password.handoff_issued',
+            'Issued a one-time managed password handoff.',
+            [
+                'category' => 'security',
+                'target_type' => User::class,
+                'target_id' => $user->id,
+                'metadata' => [
+                    'expires_at' => $expiresAt->toIso8601String(),
+                ],
+            ]
+        );
 
         return redirect()->route('admin.users.show', $user)
-            ->with('success', 'Password access is now available for this account.');
+            ->with('success', 'Temporary password issued. Reveal it once before it expires.');
+    }
+
+    public function revealManagedUserPassword(User $user)
+    {
+        $currentUser = auth()->user();
+
+        if (! $currentUser->isShadow()) {
+            abort(403, 'Access denied. Insufficient permissions.');
+        }
+
+        if ($this->isSystemReplacementUser($user)) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'System archive users cannot be modified.');
+        }
+
+        if ($user->isShadow()) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('error', 'Shadow account passwords cannot be revealed from user management.');
+        }
+
+        if ($user->id === $currentUser->id) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('error', 'Use Account Settings to update your own password.');
+        }
+
+        $handoff = CredentialHandoff::query()
+            ->where('target_user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (! $handoff) {
+            return redirect()->route('admin.users.show', $user)
+                ->with('error', 'No active temporary password is available for this account.');
+        }
+
+        $temporaryPassword = (string) $handoff->temporary_password;
+        $handoff->forceFill([
+            'revealed_at' => $handoff->revealed_at ?? now(),
+            'consumed_at' => now(),
+        ])->save();
+
+        $this->systemLogs->record(
+            'user.password.handoff_revealed',
+            'Revealed a one-time managed password handoff.',
+            [
+                'category' => 'security',
+                'target_type' => User::class,
+                'target_id' => $user->id,
+            ]
+        );
+
+        return redirect()->route('admin.users.show', $user)
+            ->with('managed_password_reveal', $temporaryPassword)
+            ->with('success', 'Temporary password revealed once. Copy it now; it cannot be viewed again.');
     }
 
     public function edit(User $user)
@@ -378,7 +440,9 @@ class UserManagementController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
-            $updateData['password_reveal'] = (string) $request->password;
+            CredentialHandoff::query()
+                ->where('target_user_id', $user->id)
+                ->delete();
         }
 
         $user->fill($updateData);
@@ -391,7 +455,7 @@ class UserManagementController extends Controller
         $changedFields = array_keys($user->getDirty());
         $nonSensitiveChangedFields = array_values(array_filter(
             $changedFields,
-            static fn (string $field): bool => ! in_array($field, ['password', 'password_reveal'], true)
+            static fn (string $field): bool => $field !== 'password'
         ));
 
         $user->save();
@@ -604,7 +668,7 @@ class UserManagementController extends Controller
 
     private function applySegmentScope($query, string $segment, User $currentUser): void
     {
-        if ($segment === 'clients') {
+        if ($segment === 'clients' || ! $this->canManageStaffAccounts($currentUser)) {
             $query->where('role', User::ROLE_CLIENT);
 
             return;
@@ -624,8 +688,6 @@ class UserManagementController extends Controller
 
             return;
         }
-
-        $query->where('role', User::ROLE_TECHNICAL);
     }
 
     private function availableRolesFilterForSegment(string $segment, User $currentUser): array
@@ -751,6 +813,11 @@ class UserManagementController extends Controller
                 'is_active' => false,
             ]
         );
+    }
+
+    private function generateTemporaryManagedPassword(): string
+    {
+        return strtoupper(Str::random(4)).'-'.Str::random(8);
     }
 
     private function canManageStaffAccounts(User $currentUser): bool

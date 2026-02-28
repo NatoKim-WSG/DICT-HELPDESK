@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -343,6 +344,9 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         Route::post('/users/{user}/password/reset-default', [UserManagementController::class, 'resetManagedUserPassword'])
             ->middleware(['throttle:20,1', 'role:shadow'])
             ->name('users.password.reset-default');
+        Route::post('/users/{user}/password/reveal-temporary', [UserManagementController::class, 'revealManagedUserPassword'])
+            ->middleware(['throttle:20,1', 'role:shadow'])
+            ->name('users.password.reveal-temporary');
     });
 });
 
@@ -387,13 +391,21 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
             abort(404);
         }
 
+        $downloadName = (string) ($attachment->original_filename ?: $attachment->filename ?: 'attachment');
+        try {
+            $contentDisposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $downloadName);
+        } catch (\Throwable) {
+            $fallbackName = preg_replace('/[^A-Za-z0-9._-]/', '_', $downloadName) ?: 'attachment';
+            $contentDisposition = 'inline; filename="'.$fallbackName.'"';
+        }
+
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
             if (is_resource($stream)) {
                 fclose($stream);
             }
         }, 200, [
-            'Content-Disposition' => 'inline; filename="'.$attachment->original_filename.'"',
+            'Content-Disposition' => $contentDisposition,
             'Content-Type' => $attachment->mime_type,
             'X-Content-Type-Options' => 'nosniff',
         ]);

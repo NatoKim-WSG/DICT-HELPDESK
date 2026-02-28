@@ -19,7 +19,6 @@ class ShadowSeeder extends Seeder
             'department' => 'Administration',
             'role' => User::ROLE_SHADOW,
             'password' => Hash::make($shadowPassword),
-            'password_reveal' => $shadowPassword,
             'is_active' => true,
             'email_verified_at' => '2026-02-25 06:59:18',
         ]);

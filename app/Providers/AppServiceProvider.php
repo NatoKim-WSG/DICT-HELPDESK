@@ -8,6 +8,7 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -17,6 +18,8 @@ class AppServiceProvider extends ServiceProvider
     private const HEADER_NOTIFICATION_TICKET_WINDOW = 120;
 
     private const HEADER_NOTIFICATION_RENDER_LIMIT = 5;
+
+    private const HEADER_NOTIFICATION_CACHE_TTL_SECONDS = 20;
 
     /**
      * Register any application services.
@@ -44,33 +47,60 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            if (! $user->canAccessAdminTickets()) {
-                $tickets = Ticket::where('user_id', $user->id)
-                    ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at'])
-                    ->with('user:id,name')
-                    ->latest('updated_at')
-                    ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
-                    ->get();
+            $payloadResolver = function () use ($user): array {
+                $tickets = $this->headerNotificationTicketsForUser($user);
+                $notifications = $this->buildNotificationsForUser($user, $tickets)
+                    ->sortByDesc('activity_ts')
+                    ->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)
+                    ->values()
+                    ->all();
+
+                return [
+                    'notifications' => $notifications,
+                    'unread_count' => (int) collect($notifications)->where('is_viewed', false)->count(),
+                ];
+            };
+
+            if (app()->environment('testing')) {
+                $payload = $payloadResolver();
             } else {
-                $notificationsQuery = Ticket::query()
-                    ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at', 'assigned_to'])
-                    ->with('user:id,name')
-                    ->open()
-                    ->latest('updated_at');
-
-                if ($user->isTechnician()) {
-                    $notificationsQuery->where('assigned_to', $user->id);
-                }
-
-                $tickets = $notificationsQuery
-                    ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
-                    ->get();
+                $cacheKey = 'header_notifications:user:'.$user->id;
+                $payload = Cache::remember(
+                    $cacheKey,
+                    now()->addSeconds(self::HEADER_NOTIFICATION_CACHE_TTL_SECONDS),
+                    $payloadResolver
+                );
             }
 
-            $notifications = $this->buildNotificationsForUser($user, $tickets);
-            $view->with('headerNotifications', $notifications->sortByDesc('activity_ts')->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)->values());
-            $view->with('headerNotificationUnreadCount', (int) $notifications->where('is_viewed', false)->count());
+            $view->with('headerNotifications', collect($payload['notifications'] ?? []));
+            $view->with('headerNotificationUnreadCount', (int) ($payload['unread_count'] ?? 0));
         });
+    }
+
+    private function headerNotificationTicketsForUser(User $user): Collection
+    {
+        if (! $user->canAccessAdminTickets()) {
+            return Ticket::where('user_id', $user->id)
+                ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at'])
+                ->with('user:id,name')
+                ->latest('updated_at')
+                ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
+                ->get();
+        }
+
+        $notificationsQuery = Ticket::query()
+            ->select(['id', 'user_id', 'subject', 'created_at', 'updated_at', 'assigned_to'])
+            ->with('user:id,name')
+            ->open()
+            ->latest('updated_at');
+
+        if ($user->isTechnician()) {
+            $notificationsQuery->where('assigned_to', $user->id);
+        }
+
+        return $notificationsQuery
+            ->limit(self::HEADER_NOTIFICATION_TICKET_WINDOW)
+            ->get();
     }
 
     private function buildNotificationsForUser(User $user, Collection $tickets): Collection

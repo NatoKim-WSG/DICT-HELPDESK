@@ -72,9 +72,21 @@ class Ticket extends Model
 
         static::creating(function ($ticket) {
             if (empty($ticket->ticket_number)) {
-                $ticket->ticket_number = 'TK-'.strtoupper(Str::random(8));
+                $ticket->ticket_number = self::generateUniqueTicketNumber();
             }
         });
+    }
+
+    private static function generateUniqueTicketNumber(int $maxAttempts = 20): string
+    {
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            $candidate = 'TK-'.strtoupper(Str::random(8));
+            if (! self::query()->where('ticket_number', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        return 'TK-'.strtoupper(Str::random(12));
     }
 
     public function user()

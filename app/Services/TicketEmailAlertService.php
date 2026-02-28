@@ -273,7 +273,7 @@ class TicketEmailAlertService
 
         foreach ($recipients as $recipient) {
             try {
-                Mail::to($recipient->email)->send(new TicketAlertMail(
+                Mail::to($recipient->email)->queue(new TicketAlertMail(
                     ticket: $ticket,
                     subjectLine: $subject,
                     headline: $headline,
