@@ -55,9 +55,9 @@ class SetSecurityHeaders
                 static fn (string $value): bool => $value !== ''
             ));
 
-            $parts[] = $directiveName . (empty($tokens) ? '' : ' ' . implode(' ', $tokens));
+            $parts[] = $directiveName.(empty($tokens) ? '' : ' '.implode(' ', $tokens));
         }
 
-        return implode('; ', $parts) . ';';
+        return implode('; ', $parts).';';
     }
 }
