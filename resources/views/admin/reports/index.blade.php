@@ -8,7 +8,8 @@
     $periodChangePrefix = $periodChange > 0 ? '+' : '';
     $periodChangeTone = $periodChange > 0 ? 'text-emerald-600' : ($periodChange < 0 ? 'text-rose-600' : 'text-slate-600');
     $slaRate = (float) ($periodOverview['sla_compliance_rate'] ?? 0);
-    $monthlyPerformanceSeries = $monthlyGraphPoints->values();
+    $monthlyPerformanceSeries = ($monthlyPerformanceGraphPoints ?? $monthlyGraphPoints)->values();
+    $monthlyPerformanceFocusMonthKey = $monthlyPerformanceFocusMonthKey ?? $selectedMonthKey;
     $monthlyCountMax = max(1, (int) $monthlyPerformanceSeries->max(fn ($point) => max((int) $point['received'], (int) $point['resolved'])));
     $averageResolutionMinutes = (int) ($stats['average_resolution_minutes'] ?? 0);
     $averageResolutionLabel = $averageResolutionMinutes >= 60
@@ -23,7 +24,7 @@
     $plotWidth = max(1, $chartWidth - $paddingLeft - $paddingRight);
     $plotHeight = max(1, $chartHeight - $paddingTop - $paddingBottom);
     $step = $monthlyPerformanceSeries->count() > 0 ? ($plotWidth / $monthlyPerformanceSeries->count()) : $plotWidth;
-    $selectedPerformancePoint = $monthlyPerformanceSeries->firstWhere('key', $selectedMonthKey)
+    $selectedPerformancePoint = $monthlyPerformanceSeries->firstWhere('key', $monthlyPerformanceFocusMonthKey)
         ?? $monthlyPerformanceSeries->last();
 
     $pieInProgress = (int) ($ticketsBreakdownOverview['in_progress'] ?? 0);
@@ -428,13 +429,13 @@
                         <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                         <div>
                             <label for="monthly-focus-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Focus Month</label>
-                            <select id="monthly-focus-month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
-                                @foreach($monthOptions as $option)
-                                    <option value="{{ $option['key'] }}" {{ $selectedMonthKey === $option['key'] ? 'selected' : '' }}>
-                                        {{ $option['label'] }}
-                                    </option>
-                                @endforeach
-                            </select>
+                                <select id="monthly-focus-month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
+                                    @foreach($monthOptions as $option)
+                                        <option value="{{ $option['key'] }}" {{ $monthlyPerformanceFocusMonthKey === $option['key'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
                         </div>
                         <noscript>
                             <button type="submit" class="btn-secondary py-2">Apply</button>

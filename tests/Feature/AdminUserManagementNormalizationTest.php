@@ -254,6 +254,70 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response->assertSee('Password changes for client accounts are restricted to admins.', false);
     }
 
+    public function test_edit_client_page_defaults_back_and_cancel_to_clients_segment(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin Client Back',
+            'email' => 'super-admin-client-back@example.com',
+            'phone' => '091000000111',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Segment Back',
+            'email' => 'client-segment-back@example.com',
+            'phone' => '091000000112',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.users.edit', $client));
+
+        $response->assertOk();
+        $response->assertSee('name="return_to" value="/admin/users/clients"', false);
+        $response->assertSee('href="/admin/users/clients"', false);
+    }
+
+    public function test_update_client_from_clients_segment_redirects_back_to_clients_segment(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin Client Return',
+            'email' => 'super-admin-client-return@example.com',
+            'phone' => '091000000113',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Return',
+            'email' => 'client-return@example.com',
+            'phone' => '091000000114',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $client), [
+            'name' => 'Client Return Updated',
+            'email' => 'client-return@example.com',
+            'phone' => '091000000114',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+            'return_to' => '/admin/users/clients',
+        ]);
+
+        $response->assertRedirect('/admin/users/clients');
+    }
+
     public function test_staff_index_keeps_role_hierarchy_and_sorts_names_alphabetically_within_role_group(): void
     {
         $superAdmin = User::create([

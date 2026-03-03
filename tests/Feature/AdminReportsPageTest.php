@@ -559,6 +559,73 @@ class AdminReportsPageTest extends TestCase
         });
     }
 
+    public function test_details_filter_scopes_monthly_performance_chart_data(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Monthly Scope Super', 'monthly-scope-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Monthly Scope Client', 'monthly-scope-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $inScopeJanuary = Ticket::create([
+            'name' => 'In Scope January',
+            'contact_number' => '09180000034',
+            'email' => 'in-scope-january@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'January ticket',
+            'description' => 'Should count in monthly performance after details filter.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 1, 15, 14, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($inScopeJanuary->id)->update([
+            'created_at' => Carbon::create(2026, 1, 15, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 1, 15, 14, 0, 0),
+        ]);
+
+        $outOfScopeFebruary = Ticket::create([
+            'name' => 'Out of Scope February',
+            'contact_number' => '09180000035',
+            'email' => 'out-of-scope-february@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'February ticket',
+            'description' => 'Must not count when detail month is January.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 10, 13, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($outOfScopeFebruary->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 10, 13, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+            'detail_month' => '2026-01',
+            'detail_date' => '',
+            'apply_details_filter' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('monthlyPerformanceFocusMonthKey', '2026-01');
+        $response->assertViewHas('monthlyPerformanceGraphPoints', function ($points) {
+            $rows = collect($points);
+            $january = $rows->firstWhere('key', '2026-01');
+            $february = $rows->firstWhere('key', '2026-02');
+
+            return (int) ($january['received'] ?? 0) === 1
+                && (int) ($january['resolved'] ?? 0) === 1
+                && (int) ($february['received'] ?? 0) === 0
+                && (int) ($february['resolved'] ?? 0) === 0;
+        });
+    }
+
     public function test_client_cannot_open_reports_page(): void
     {
         config(['legal.require_acceptance' => false]);

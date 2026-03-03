@@ -4,6 +4,9 @@
 
 @section('content')
 <div class="mx-auto max-w-[1460px]">
+    @php
+        $listReturnTo = request()->getRequestUri();
+    @endphp
     <div class="mb-6">
         <div class="md:flex md:items-center md:justify-between">
             <div class="flex-1 min-w-0">
@@ -205,7 +208,7 @@
                                         View
                                     </a>
                                     @if($canEdit)
-                                        <a href="{{ route('admin.users.edit', $user) }}"
+                                        <a href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => $listReturnTo]) }}"
                                            class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-600 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-900">
                                             Edit
                                         </a>

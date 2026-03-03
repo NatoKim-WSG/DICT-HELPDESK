@@ -338,7 +338,7 @@ class UserManagementController extends Controller
             ->with('success', 'Temporary password revealed once. Copy it now; it cannot be viewed again.');
     }
 
-    public function edit(User $user)
+    public function edit(Request $request, User $user)
     {
         $currentUser = auth()->user();
 
@@ -359,14 +359,20 @@ class UserManagementController extends Controller
 
         $availableRoles = $this->availableRolesFor($currentUser);
         $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
+        $returnTo = $this->resolveManagedUserReturnUrl($request->query('return_to'), $user);
 
-        return view('admin.users.edit', compact('user', 'availableRoles', 'canEditPassword'));
+        return view('admin.users.edit', compact('user', 'availableRoles', 'canEditPassword', 'returnTo'));
     }
 
     public function update(Request $request, User $user)
     {
         $currentUser = auth()->user();
         $stayOnEdit = $request->boolean('stay_on_edit');
+        $returnToInput = $request->input('return_to');
+        $hasReturnTo = is_string($returnToInput) && trim($returnToInput) !== '';
+        $returnTo = $hasReturnTo
+            ? $this->resolveManagedUserReturnUrl($returnToInput, $user)
+            : route('admin.users.index', absolute: false);
 
         if ($this->isSystemReplacementUser($user)) {
             return redirect()->route('admin.users.index')
@@ -449,7 +455,7 @@ class UserManagementController extends Controller
         $user->fill($updateData);
 
         if (! $user->isDirty()) {
-            return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'No changes were detected.');
+            return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'No changes were detected.', $returnTo, $hasReturnTo);
         }
 
         $changedFields = array_keys($user->getDirty());
@@ -473,7 +479,7 @@ class UserManagementController extends Controller
             ]
         );
 
-        return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'User updated successfully.');
+        return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'User updated successfully.', $returnTo, $hasReturnTo);
     }
 
     public function destroy(User $user)
@@ -846,15 +852,62 @@ class UserManagementController extends Controller
         return ! $this->isManageableByNonSuperAdmin($targetUser);
     }
 
-    private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message)
+    private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message, string $returnTo, bool $hasReturnTo)
     {
         if ($stayOnEdit) {
-            return redirect()->route('admin.users.edit', $user)
+            $routeParameters = ['user' => $user];
+            if ($hasReturnTo) {
+                $routeParameters['return_to'] = $returnTo;
+            }
+
+            return redirect()->route('admin.users.edit', $routeParameters)
                 ->with('success', $message);
         }
 
-        return redirect()->route('admin.users.index')
+        return redirect()->to($returnTo)
             ->with('success', $message);
+    }
+
+    private function resolveManagedUserReturnUrl(mixed $candidate, User $targetUser): string
+    {
+        $default = $targetUser->isClient()
+            ? route('admin.users.clients', absolute: false)
+            : route('admin.users.index', absolute: false);
+
+        if (! is_string($candidate)) {
+            return $default;
+        }
+
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return $default;
+        }
+
+        $parsed = parse_url($candidate);
+        if ($parsed === false) {
+            return $default;
+        }
+
+        if (
+            isset($parsed['scheme'])
+            || isset($parsed['host'])
+            || isset($parsed['port'])
+            || isset($parsed['user'])
+            || isset($parsed['pass'])
+        ) {
+            return $default;
+        }
+
+        $path = '/'.ltrim((string) ($parsed['path'] ?? ''), '/');
+        if (! in_array($path, ['/admin/users', '/admin/users/clients'], true)) {
+            return $default;
+        }
+
+        $query = isset($parsed['query']) && $parsed['query'] !== ''
+            ? '?'.$parsed['query']
+            : '';
+
+        return $path.$query;
     }
 }
 

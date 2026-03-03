@@ -6,7 +6,7 @@
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
     <div class="mb-8">
         <div class="flex items-center">
-            <a href="{{ route('admin.users.index') }}" class="text-gray-500 hover:text-gray-700 mr-4">
+            <a href="{{ $returnTo ?? route('admin.users.index', absolute: false) }}" class="text-gray-500 hover:text-gray-700 mr-4">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                 </svg>
@@ -23,6 +23,7 @@
             @csrf
             @method('PUT')
             <input type="hidden" name="stay_on_edit" value="1">
+            <input type="hidden" name="return_to" value="{{ $returnTo ?? route('admin.users.index', absolute: false) }}">
             <div class="px-4 py-5 sm:p-6">
                 <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
                     <!-- Name -->
@@ -256,7 +257,7 @@
             </div>
 
             <div class="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
-                <a href="{{ route('admin.users.index') }}" class="btn-secondary">Cancel</a>
+                <a href="{{ $returnTo ?? route('admin.users.index', absolute: false) }}" class="btn-secondary">Cancel</a>
                 <button type="submit" class="btn-primary" data-loading-text="Saving...">Update User</button>
             </div>
         </form>

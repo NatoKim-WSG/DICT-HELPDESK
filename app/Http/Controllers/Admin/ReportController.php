@@ -272,6 +272,15 @@ class ReportController extends Controller
             'sla_compliance_rate' => (float) ($detailSlaMetrics['rate'] ?? 0),
         ];
 
+        $monthlyPerformanceScopedTickets = clone $scopedTickets;
+        if ($detailFilterApplied) {
+            $monthlyPerformanceScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+        }
+        [, $monthlyPerformanceGraphPoints] = $this->buildMonthlyReportData(clone $monthlyPerformanceScopedTickets);
+        $monthlyPerformanceFocusMonthKey = $detailFilterApplied
+            ? $detailMonthKey
+            : $selectedMonthKey;
+
         $ticketsByStatus = (clone $scopedTickets)
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -399,6 +408,8 @@ class ReportController extends Controller
             'topTechnicians',
             'monthlyReportRows',
             'monthlyGraphPoints',
+            'monthlyPerformanceGraphPoints',
+            'monthlyPerformanceFocusMonthKey',
             'monthOptions',
             'selectedMonthKey',
             'selectedMonthRow',
