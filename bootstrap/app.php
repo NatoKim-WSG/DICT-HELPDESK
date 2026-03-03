@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
+        // Logout CSRF mismatches can occur behind proxies or stale pages; allow logout to proceed.
+        $middleware->validateCsrfTokens(except: [
+            'logout',
+        ]);
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,

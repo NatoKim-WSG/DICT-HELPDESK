@@ -339,7 +339,7 @@
                                 @if($canAccessAccountSettings)
                                     <a href="{{ route('account.settings') }}" class="app-menu-link block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Account Settings</a>
                                 @endif
-                                <form method="POST" action="{{ route('logout') }}">
+                                <form method="POST" action="{{ route('logout', absolute: false) }}">
                                     @csrf
                                     <button type="submit" class="app-menu-link block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Sign out</button>
                                 </form>

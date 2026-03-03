@@ -499,7 +499,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                            <p class="mt-1 text-xs text-slate-500">Select a date to view received, in-progress, and resolved tickets.</p>
+                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view received, in-progress, and resolved tickets.</p>
                         </div>
                         <form method="GET" action="{{ route('admin.reports.index') }}" class="flex flex-wrap items-end gap-2" data-submit-feedback>
                             <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
@@ -521,6 +521,9 @@
                             <div>
                                 <label for="daily-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Day</label>
                                 <select id="daily-date" name="daily_date" class="form-input min-w-[190px] py-2 text-sm" onchange="this.form.submit()">
+                                    <option value="all" {{ $dailySelectedDateValue === 'all' ? 'selected' : '' }}>
+                                        All days in {{ $monthOptions->firstWhere('key', $dailyMonthKey)['label'] ?? 'selected month' }}
+                                    </option>
                                     @foreach($dailyDateOptions as $option)
                                         <option value="{{ $option['value'] }}" {{ $dailySelectedDateValue === $option['value'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
@@ -588,7 +591,7 @@
                     <div class="sm:col-span-2">
                         <div class="flex items-center gap-2">
                             <button type="submit" name="apply_details_filter" value="1" class="btn-primary py-2 text-sm">Filter</button>
-                            <a href="{{ route('admin.reports.index', ['month' => $selectedMonthKey, 'daily_month' => $dailyMonthKey, 'daily_date' => $dailySelectedDateValue, 'detail_month' => $detailMonthKey]) }}" class="btn-secondary py-2 text-sm">Clear</a>
+                            <a href="{{ route('admin.reports.index', $detailClearParams) }}" class="btn-secondary py-2 text-sm">Clear</a>
                         </div>
                     </div>
                 </form>

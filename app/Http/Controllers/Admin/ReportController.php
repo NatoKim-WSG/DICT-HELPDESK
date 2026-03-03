@@ -69,14 +69,24 @@ class ReportController extends Controller
         }
 
         $dailyDateOptions = $this->buildDateOptionsForRange($dailyMonthRange['start'], $dailyMonthRange['end']);
-        $dailySelectedDate = $this->resolveRequestedDate($request->query('daily_date'));
+        $requestedDailyDate = is_string($request->query('daily_date'))
+            ? trim((string) $request->query('daily_date'))
+            : '';
+        $dailyAllDaysSelected = $requestedDailyDate === 'all';
+        $dailySelectedDate = $dailyAllDaysSelected
+            ? null
+            : $this->resolveRequestedDate($request->query('daily_date'));
         if ($detailFilterApplied && $detailSelectedDate) {
             $dailySelectedDate = $detailSelectedDate->copy();
+            $dailyAllDaysSelected = false;
         }
         if (
-            ! $dailySelectedDate
-            || $dailySelectedDate->lt($dailyMonthRange['start']->copy()->startOfDay())
-            || $dailySelectedDate->gt($dailyMonthRange['end']->copy()->startOfDay())
+            ! $dailyAllDaysSelected
+            && (
+                ! $dailySelectedDate
+                || $dailySelectedDate->lt($dailyMonthRange['start']->copy()->startOfDay())
+                || $dailySelectedDate->gt($dailyMonthRange['end']->copy()->startOfDay())
+            )
         ) {
             $today = now()->startOfDay();
             if (
@@ -88,7 +98,9 @@ class ReportController extends Controller
                 $dailySelectedDate = $dailyMonthRange['end']->copy()->startOfDay();
             }
         }
-        $dailySelectedDateValue = $dailySelectedDate->toDateString();
+        $dailySelectedDateValue = $dailyAllDaysSelected
+            ? 'all'
+            : $dailySelectedDate->toDateString();
 
         $kpiScopedTickets = clone $scopedTickets;
         if ($detailFilterApplied) {
@@ -216,10 +228,17 @@ class ReportController extends Controller
                 'key' => $row['month_key'],
             ])->values(),
         ];
-        $dailySelectedStats = $this->buildDailyTicketStatisticsForDate(
-            clone $scopedTickets,
-            $dailySelectedDate
-        );
+        $dailySelectedStats = $dailyAllDaysSelected
+            ? $this->buildDailyTicketStatisticsForRange(
+                clone $scopedTickets,
+                $dailyMonthRange['start']->copy()->startOfDay(),
+                $dailyMonthRange['end']->copy()->endOfDay(),
+                (string) $dailyMonthRange['label']
+            )
+            : $this->buildDailyTicketStatisticsForDate(
+                clone $scopedTickets,
+                $dailySelectedDate
+            );
 
         $detailStatusSummary = $this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
@@ -297,6 +316,27 @@ class ReportController extends Controller
             ])
             ->reverse()
             ->values();
+        $detailResetMonthKey = $this->resolveSelectedMonthKey(
+            now()->format('Y-m'),
+            $monthlyReportRows,
+            $selectedMonthKey
+        );
+        $detailResetMonthRange = $this->monthRangeFromKey($detailResetMonthKey);
+        $detailResetDate = now()->startOfDay();
+        if (
+            $detailResetDate->lt($detailResetMonthRange['start']->copy()->startOfDay())
+            || $detailResetDate->gt($detailResetMonthRange['end']->copy()->startOfDay())
+        ) {
+            $detailResetDate = $detailResetMonthRange['end']->copy()->startOfDay();
+        }
+        $detailClearParams = [
+            'month' => $detailResetMonthKey,
+            'daily_month' => $detailResetMonthKey,
+            'daily_date' => $detailResetDate->toDateString(),
+            'detail_month' => $detailResetMonthKey,
+            'detail_date' => $detailResetDate->toDateString(),
+            'apply_details_filter' => 1,
+        ];
         $trendStart = Carbon::now()->startOfDay()->subDays(29);
         $trendEnd = Carbon::now()->startOfDay();
 
@@ -383,7 +423,8 @@ class ReportController extends Controller
             'detailOverview',
             'detailMajorIssueSummary',
             'previousMonthRow',
-            'ticketHistoryScope'
+            'ticketHistoryScope',
+            'detailClearParams'
         ));
     }
 
@@ -925,8 +966,34 @@ class ReportController extends Controller
             ->count();
 
         return [
+            'mode' => 'day',
             'date' => $start->toDateString(),
             'label' => $start->format('M j, Y'),
+            'received' => $received,
+            'in_progress' => $inProgress,
+            'resolved' => $this->countResolvedTicketsWithinRange(clone $scopedTickets, $start, $end),
+        ];
+    }
+
+    private function buildDailyTicketStatisticsForRange(
+        Builder $scopedTickets,
+        Carbon $start,
+        Carbon $end,
+        string $rangeLabel
+    ): array {
+        $received = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->count();
+
+        $inProgress = (clone $scopedTickets)
+            ->whereBetween('created_at', [$start, $end])
+            ->where('status', 'in_progress')
+            ->count();
+
+        return [
+            'mode' => 'month',
+            'date' => null,
+            'label' => 'All days in '.$rangeLabel,
             'received' => $received,
             'in_progress' => $inProgress,
             'resolved' => $this->countResolvedTicketsWithinRange(clone $scopedTickets, $start, $end),

@@ -194,6 +194,107 @@ class AdminReportsPageTest extends TestCase
         });
     }
 
+    public function test_daily_ticket_statistics_can_show_month_totals_when_all_days_is_selected(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Daily All Super', 'daily-all-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Daily All Client', 'daily-all-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $inProgressTicket = Ticket::create([
+            'name' => 'All Days In Progress',
+            'contact_number' => '09180000015',
+            'email' => 'all-days-in-progress@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'All days in progress',
+            'description' => 'Counted in month received and in progress.',
+            'priority' => 'medium',
+            'status' => 'in_progress',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($inProgressTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 5, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 5, 10, 0, 0),
+        ]);
+
+        $openTicket = Ticket::create([
+            'name' => 'All Days Open',
+            'contact_number' => '09180000016',
+            'email' => 'all-days-open@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'All days open',
+            'description' => 'Counted in month received.',
+            'priority' => 'low',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($openTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 18, 11, 30, 0),
+            'updated_at' => Carbon::create(2026, 2, 18, 11, 30, 0),
+        ]);
+
+        $resolvedTicket = Ticket::create([
+            'name' => 'All Days Resolved',
+            'contact_number' => '09180000017',
+            'email' => 'all-days-resolved@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Resolved in selected month',
+            'description' => 'Counts in month resolved total.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 14, 14, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($resolvedTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 30, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 14, 14, 0, 0),
+        ]);
+
+        $closedTicket = Ticket::create([
+            'name' => 'All Days Closed',
+            'contact_number' => '09180000018',
+            'email' => 'all-days-closed@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed in selected month',
+            'description' => 'Counts in month resolved total via closed_at.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'resolved_at' => null,
+            'closed_at' => Carbon::create(2026, 2, 20, 16, 30, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($closedTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 20, 8, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 20, 16, 30, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+            'daily_month' => '2026-02',
+            'daily_date' => 'all',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('dailySelectedDateValue', 'all');
+        $response->assertViewHas('dailySelectedStats', function (array $dailyStats) {
+            return ($dailyStats['mode'] ?? null) === 'month'
+                && $dailyStats['date'] === null
+                && str_contains((string) ($dailyStats['label'] ?? ''), 'All days in Feb 2026')
+                && (int) $dailyStats['received'] === 2
+                && (int) $dailyStats['in_progress'] === 1
+                && (int) $dailyStats['resolved'] === 2;
+        });
+    }
+
     public function test_reports_page_right_side_detail_filter_can_target_specific_day(): void
     {
         config(['legal.require_acceptance' => false]);
@@ -330,6 +431,32 @@ class AdminReportsPageTest extends TestCase
             return $detailOverview['mode'] === 'month'
                 && $detailOverview['start'] === '2026-01-01'
                 && (int) $detailOverview['total_created'] === 1;
+        });
+    }
+
+    public function test_detail_filter_clear_params_reset_to_current_day_scope(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Detail Clear Super', 'detail-clear-super@example.com', User::ROLE_SUPER_USER);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-01',
+            'daily_month' => '2026-01',
+            'daily_date' => 'all',
+            'detail_month' => '2026-01',
+            'detail_date' => '',
+            'apply_details_filter' => 1,
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('detailClearParams', function (array $params) {
+            return ($params['month'] ?? null) === '2026-02'
+                && ($params['daily_month'] ?? null) === '2026-02'
+                && ($params['daily_date'] ?? null) === '2026-02-25'
+                && ($params['detail_month'] ?? null) === '2026-02'
+                && ($params['detail_date'] ?? null) === '2026-02-25'
+                && (int) ($params['apply_details_filter'] ?? 0) === 1;
         });
     }
 
