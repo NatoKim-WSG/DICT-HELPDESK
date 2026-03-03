@@ -3,6 +3,21 @@
 @section('title', 'My Tickets - DICT Helpdesk')
 
 @section('content')
+@php
+    $activeTab = $activeTab ?? 'tickets';
+    $selectedStatus = $selectedStatus ?? 'all';
+    $isHistoryTab = $activeTab === 'history';
+    $tabQuery = request()->except(['tab', 'page']);
+    $ticketsTabUrl = route('client.tickets.index', array_merge($tabQuery, ['tab' => 'tickets']));
+    $historyTabUrl = route('client.tickets.index', array_merge($tabQuery, ['tab' => 'history']));
+    $clearUrl = route('client.tickets.index', ['tab' => $activeTab]);
+    $panelTitle = $isHistoryTab ? 'History' : 'Tickets';
+    $panelDescription = $isHistoryTab ? 'Closed and resolved tickets.' : 'All of your support requests.';
+    $emptyTitle = $isHistoryTab ? 'No history tickets found' : 'No tickets found';
+    $emptyDescription = $isHistoryTab
+        ? 'Resolved and closed tickets will appear here.'
+        : 'Try adjusting your filters.';
+@endphp
 <div class="mx-auto max-w-[1460px]">
     <div class="mb-6">
         <h1 class="font-display text-4xl font-semibold text-slate-900">My Tickets</h1>
@@ -10,11 +25,23 @@
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="border-b border-slate-200 px-5 pt-4 sm:px-6">
-            <div class="border-b border-slate-200 pb-3">
-                <h2 class="text-sm font-semibold text-slate-900">Tickets</h2>
+            <div class="flex items-center gap-6 border-b border-slate-200 pb-3">
+                <a href="{{ $ticketsTabUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $isHistoryTab ? 'border-transparent text-slate-400 hover:text-slate-600' : 'border-[#0f8d88] text-slate-900' }}">
+                    Tickets
+                </a>
+                <a href="{{ $historyTabUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $isHistoryTab ? 'border-[#0f8d88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">
+                    History
+                </a>
+            </div>
+
+            <div class="pt-3">
+                <h2 class="text-sm font-semibold text-slate-900">{{ $panelTitle }}</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ $panelDescription }}</p>
             </div>
 
             <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-4" data-submit-feedback data-search-history-form data-search-history-key="client-ticket-filters">
+                <input type="hidden" name="tab" value="{{ $activeTab }}">
+
                 <div class="relative md:col-span-2">
                     <label for="search" class="sr-only">Search</label>
                     <input
@@ -33,12 +60,18 @@
                 <div>
                     <label for="status" class="sr-only">Status</label>
                     <select id="status" name="status" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="">All statuses</option>
-                        <option value="open" {{ in_array(request('status'), ['open', 'open_group'], true) ? 'selected' : '' }}>Open</option>
-                        <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
-                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
-                        <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
+                        @if($isHistoryTab)
+                            <option value="all" {{ $selectedStatus === 'all' ? 'selected' : '' }}>All history statuses</option>
+                            <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
+                            <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }}>Closed</option>
+                        @else
+                            <option value="all" {{ $selectedStatus === 'all' ? 'selected' : '' }}>All statuses</option>
+                            <option value="open" {{ in_array($selectedStatus, ['open', 'open_group'], true) ? 'selected' : '' }}>Open</option>
+                            <option value="in_progress" {{ $selectedStatus === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                            <option value="pending" {{ $selectedStatus === 'pending' ? 'selected' : '' }}>Pending</option>
+                            <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
+                            <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }}>Closed</option>
+                        @endif
                     </select>
                 </div>
 
@@ -55,7 +88,7 @@
 
                 <div class="flex items-center gap-2 md:col-span-4">
                     <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-3 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
-                    <a href="{{ route('client.tickets.index') }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
+                    <a href="{{ $clearUrl }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
         </div>
@@ -92,8 +125,8 @@
                 </a>
             @empty
                 <div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center">
-                    <p class="text-base font-semibold text-slate-700">No tickets found</p>
-                    <p class="mt-1 text-sm text-slate-500">Try adjusting your filters.</p>
+                    <p class="text-base font-semibold text-slate-700">{{ $emptyTitle }}</p>
+                    <p class="mt-1 text-sm text-slate-500">{{ $emptyDescription }}</p>
                 </div>
             @endforelse
         </div>
@@ -155,8 +188,8 @@
                     @empty
                         <tr>
                             <td colspan="5" class="px-6 py-14 text-center">
-                                <p class="text-base font-semibold text-slate-700">No tickets found</p>
-                                <p class="mt-1 text-sm text-slate-500">Try adjusting your filters.</p>
+                                <p class="text-base font-semibold text-slate-700">{{ $emptyTitle }}</p>
+                                <p class="mt-1 text-sm text-slate-500">{{ $emptyDescription }}</p>
                             </td>
                         </tr>
                     @endforelse

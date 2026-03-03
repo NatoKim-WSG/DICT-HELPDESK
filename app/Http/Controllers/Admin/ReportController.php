@@ -172,6 +172,11 @@ class ReportController extends Controller
         $mixScopeStart = $detailFilterApplied ? $detailScopeStart : $selectedPeriodStart;
         $mixScopeEnd = $detailFilterApplied ? $detailScopeEnd : $selectedPeriodEnd;
         $mixScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
+        $ticketHistoryScope = [
+            'created_from' => $mixScopeStart->toDateString(),
+            'created_to' => $mixScopeEnd->toDateString(),
+            'report_scope' => $mixScopeLabel,
+        ];
         $mixStatusSummary = $this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $mixScopeStart,
@@ -377,7 +382,8 @@ class ReportController extends Controller
             'detailDateOptions',
             'detailOverview',
             'detailMajorIssueSummary',
-            'previousMonthRow'
+            'previousMonthRow',
+            'ticketHistoryScope'
         ));
     }
 

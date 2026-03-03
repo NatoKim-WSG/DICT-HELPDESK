@@ -39,7 +39,12 @@ class DashboardController extends Controller
             'client_users' => User::query()->where('role', User::ROLE_CLIENT)->count(),
         ];
 
-        $recentTickets = (clone $scopedTickets)->with(['user', 'category', 'assignedUser'])
+        $recentStart = now()->subDays(10)->startOfDay();
+        $recentEnd = now()->endOfDay();
+
+        $recentTickets = (clone $scopedTickets)
+            ->whereBetween('created_at', [$recentStart, $recentEnd])
+            ->with(['user', 'category', 'assignedUser'])
             ->latest()
             ->take(20)
             ->get();

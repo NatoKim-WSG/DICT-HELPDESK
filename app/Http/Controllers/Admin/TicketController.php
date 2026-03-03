@@ -12,6 +12,7 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,7 @@ class TicketController extends Controller
             $selectedStatus = 'all';
         }
         $includeClosed = $request->boolean('include_closed');
+        $createdDateRange = $this->resolveCreatedDateRange($request);
 
         $query = $this->scopedTicketQueryForCurrentUser()
             ->with(['user', 'category', 'assignedUser']);
@@ -103,9 +105,15 @@ class TicketController extends Controller
                     ->orWhereHas('user', function ($userQuery) use ($pattern) {
                         $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
                             ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
-                    });
+                });
             });
         });
+        if ($createdDateRange !== null) {
+            $query->whereBetween('created_at', [
+                $createdDateRange['start'],
+                $createdDateRange['end'],
+            ]);
+        }
 
         $liveSnapshotToken = $this->buildTicketListSnapshotToken(clone $query);
         if ($request->boolean('heartbeat')) {
@@ -170,7 +178,8 @@ class TicketController extends Controller
             'accountOptions',
             'activeTab',
             'liveSnapshotToken',
-            'ticketSeenTimestamps'
+            'ticketSeenTimestamps',
+            'createdDateRange'
         ));
     }
 
@@ -178,7 +187,7 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        TicketUserState::markSeen($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
         $agents = $this->activeAssignableAgents();
@@ -217,7 +226,7 @@ class TicketController extends Controller
         $newAssignedTo = $request->filled('assigned_to') ? $request->integer('assigned_to') : null;
 
         if ($previousAssignedTo === $newAssignedTo) {
-            return redirect()->back()->with('success', 'No changes were detected.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
         $ticket->update([
@@ -246,7 +255,7 @@ class TicketController extends Controller
             $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
         }
 
-        return redirect()->back()->with('success', 'Ticket assignment updated successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket assignment updated successfully!');
     }
 
     public function updateStatus(Request $request, Ticket $ticket)
@@ -269,7 +278,14 @@ class TicketController extends Controller
         $newAssignedTo = $this->determineReviewerAssignee($nextStatus, $previousAssignedTo);
 
         if ($previousStatus === $nextStatus) {
-            return redirect()->back()->with('success', 'No changes were detected.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
+        }
+
+        if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
+            $closeGateError = $this->closeStatusGateErrorForTicket($ticket);
+            if ($closeGateError !== null) {
+                return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
+            }
         }
 
         $updateData = ['status' => $nextStatus];
@@ -300,7 +316,7 @@ class TicketController extends Controller
             ]
         );
 
-        return redirect()->back()->with('success', 'Ticket status updated successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
     }
 
     public function updatePriority(Request $request, Ticket $ticket)
@@ -310,7 +326,7 @@ class TicketController extends Controller
         $request->validate(['priority' => 'required|in:'.implode(',', Ticket::PRIORITIES)]);
 
         if ($ticket->priority === $request->priority) {
-            return redirect()->back()->with('success', 'No changes were detected.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
         $previousPriority = $ticket->priority;
@@ -331,7 +347,7 @@ class TicketController extends Controller
             ]
         );
 
-        return redirect()->back()->with('success', 'Ticket priority updated successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket priority updated successfully!');
     }
 
     public function reply(Request $request, Ticket $ticket)
@@ -349,7 +365,7 @@ class TicketController extends Controller
         $replyToId = $request->integer('reply_to_id') ?: null;
 
         if (! $this->replyTargetExistsForTicket($ticket, $replyToId)) {
-            return redirect()->back()->with('error', 'Invalid reply target.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Invalid reply target.');
         }
 
         $replyTarget = null;
@@ -385,7 +401,7 @@ class TicketController extends Controller
             ]);
         }
 
-        return redirect()->back()->with('success', 'Reply added successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Reply added successfully!');
     }
 
     public function updateReply(Request $request, Ticket $ticket, TicketReply $reply): JsonResponse
@@ -447,7 +463,7 @@ class TicketController extends Controller
         $incomingDueDateLabel = \Illuminate\Support\Carbon::parse($request->due_date)->format('Y-m-d H:i');
         $existingDueDateLabel = optional($ticket->due_date)->format('Y-m-d H:i');
         if ($existingDueDateLabel === $incomingDueDateLabel) {
-            return redirect()->back()->with('success', 'No changes were detected.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
         $previousDueDate = optional($ticket->due_date)->toDateTimeString();
@@ -468,7 +484,7 @@ class TicketController extends Controller
             ]
         );
 
-        return redirect()->back()->with('success', 'Due date set successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Due date set successfully!');
     }
 
     public function quickUpdate(Request $request, Ticket $ticket)
@@ -508,7 +524,14 @@ class TicketController extends Controller
             && $previousStatus === $nextStatus
             && strtolower($previousPriority) === strtolower($nextPriority)
         ) {
-            return redirect()->back()->with('success', 'No changes were detected.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
+        }
+
+        if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
+            $closeGateError = $this->closeStatusGateErrorForTicket($ticket);
+            if ($closeGateError !== null) {
+                return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
+            }
         }
 
         $this->applyLifecycleTimestamps($ticket, $updateData);
@@ -541,10 +564,10 @@ class TicketController extends Controller
             $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment($ticket->fresh(['assignedUser']));
         }
 
-        return redirect()->back()->with('success', 'Ticket updated successfully.');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket updated successfully.');
     }
 
-    public function destroy(Ticket $ticket)
+    public function destroy(Request $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
 
@@ -576,6 +599,11 @@ class TicketController extends Controller
             ]
         );
 
+        $returnPath = $this->returnPathFromRequest($request);
+        if ($returnPath !== null) {
+            return redirect()->to($returnPath)->with('success', 'Ticket deleted successfully.');
+        }
+
         return redirect()->route('admin.tickets.index')->with('success', 'Ticket deleted successfully.');
     }
 
@@ -599,7 +627,7 @@ class TicketController extends Controller
             ->values();
 
         if ($selectedIds->isEmpty()) {
-            return redirect()->back()->with('error', 'No tickets selected.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'No tickets selected.');
         }
 
         $action = $request->string('action')->toString();
@@ -608,19 +636,19 @@ class TicketController extends Controller
             ->get();
 
         if ($tickets->isEmpty()) {
-            return redirect()->back()->with('error', 'Selected tickets were not found.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Selected tickets were not found.');
         }
 
         if ($tickets->count() !== $selectedIds->count()) {
-            return redirect()->back()->with('error', 'One or more selected tickets are not accessible to your account.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'One or more selected tickets are not accessible to your account.');
         }
 
         if ($action === 'delete' && ! $this->canDeleteTickets()) {
-            return redirect()->back()->with('error', 'Only admins can run delete actions.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Only admins can run delete actions.');
         }
 
         if ($action === 'merge' && ! $this->canRunDestructiveAction()) {
-            return redirect()->back()->with('error', 'Only super users or admins can run merge actions.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Only super users or admins can run merge actions.');
         }
 
         if ($action === 'delete') {
@@ -648,12 +676,12 @@ class TicketController extends Controller
                 ]
             );
 
-            return redirect()->back()->with('success', 'Selected tickets deleted successfully.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected tickets deleted successfully.');
         }
 
         if ($action === 'assign') {
             if (! $request->filled('assigned_to')) {
-                return redirect()->back()->with('error', 'Please choose a technical user.');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a technical user.');
             }
 
             $newAssignedTo = $request->integer('assigned_to');
@@ -682,18 +710,26 @@ class TicketController extends Controller
                 ]
             );
 
-            return redirect()->back()->with('success', 'Selected tickets assigned successfully.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected tickets assigned successfully.');
         }
 
         if ($action === 'status') {
             if (! $request->filled('status')) {
-                return redirect()->back()->with('error', 'Please choose a status.');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a status.');
             }
 
             $newStatus = $request->string('status')->toString();
             $closeReason = trim($request->string('close_reason')->toString());
             if ($newStatus === 'closed' && $closeReason === '') {
-                return redirect()->back()->with('error', 'Please provide a reason before closing ticket(s).');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Please provide a reason before closing ticket(s).');
+            }
+            if ($newStatus === 'closed') {
+                foreach ($tickets as $candidateTicket) {
+                    $closeGateError = $this->closeStatusGateErrorForTicket($candidateTicket);
+                    if ($closeGateError !== null) {
+                        return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
+                    }
+                }
             }
 
             $tickets->each(function (Ticket $ticket) use ($newStatus, $closeReason) {
@@ -735,12 +771,12 @@ class TicketController extends Controller
                 ]
             );
 
-            return redirect()->back()->with('success', 'Selected ticket statuses updated.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket statuses updated.');
         }
 
         if ($action === 'priority') {
             if (! $request->filled('priority')) {
-                return redirect()->back()->with('error', 'Please choose a priority.');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a priority.');
             }
 
             Ticket::whereIn('id', $selectedIds)->update(['priority' => $request->string('priority')->toString()]);
@@ -757,12 +793,12 @@ class TicketController extends Controller
                 ]
             );
 
-            return redirect()->back()->with('success', 'Selected ticket priorities updated.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket priorities updated.');
         }
 
         if ($action === 'merge') {
             if ($selectedIds->count() < 2) {
-                return redirect()->back()->with('error', 'Select at least two tickets to merge.');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Select at least two tickets to merge.');
             }
 
             $orderedTickets = Ticket::whereIn('id', $selectedIds)->orderBy('created_at')->get();
@@ -809,7 +845,100 @@ class TicketController extends Controller
             return redirect()->route('admin.tickets.show', $primary)->with('success', 'Tickets merged successfully.');
         }
 
-        return redirect()->back()->with('error', 'Invalid bulk action.');
+        return $this->redirectBackOrReturnTo($request)->with('error', 'Invalid bulk action.');
+    }
+
+    private function closeStatusGateErrorForTicket(Ticket $ticket): ?string
+    {
+        if (! $this->requiresCloseDelayForCurrentActor()) {
+            return null;
+        }
+
+        if (! $ticket->resolved_at) {
+            return "Ticket {$ticket->ticket_number} must be resolved first. Super users and technical users can close tickets only after 24 hours from resolution.";
+        }
+
+        $closeAvailableAt = $ticket->resolved_at->copy()->addDay();
+        if (now()->lt($closeAvailableAt)) {
+            return "Ticket {$ticket->ticket_number} can be closed on ".$closeAvailableAt->format('M j, Y \\a\\t g:i A').'.';
+        }
+
+        return null;
+    }
+
+    private function requiresCloseDelayForCurrentActor(): bool
+    {
+        $actor = auth()->user();
+        if (! $actor) {
+            return false;
+        }
+
+        return in_array($actor->normalizedRole(), [User::ROLE_TECHNICAL, User::ROLE_SUPER_USER], true);
+    }
+
+    private function resolveCreatedDateRange(Request $request): ?array
+    {
+        $fromDate = $this->parseCreatedDate($request->query('created_from'));
+        $toDate = $this->parseCreatedDate($request->query('created_to'));
+        if (! $fromDate && ! $toDate) {
+            return null;
+        }
+
+        $startDate = $fromDate ?? $toDate;
+        $endDate = $toDate ?? $fromDate;
+        if (! $startDate || ! $endDate) {
+            return null;
+        }
+
+        if ($startDate->gt($endDate)) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
+        return [
+            'start' => $startDate->copy()->startOfDay(),
+            'end' => $endDate->copy()->endOfDay(),
+            'from' => $startDate->toDateString(),
+            'to' => $endDate->toDateString(),
+            'label' => trim((string) $request->query('report_scope')),
+        ];
+    }
+
+    private function parseCreatedDate(mixed $rawDate): ?Carbon
+    {
+        if (! is_string($rawDate)) {
+            return null;
+        }
+
+        $normalized = trim($rawDate);
+        if ($normalized === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $normalized)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function returnPathFromRequest(Request $request): ?string
+    {
+        $returnTo = trim($request->string('return_to')->toString());
+        if ($returnTo === '' || ! str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//')) {
+            return null;
+        }
+
+        return $returnTo;
+    }
+
+    private function redirectBackOrReturnTo(Request $request)
+    {
+        $returnPath = $this->returnPathFromRequest($request);
+        if ($returnPath !== null) {
+            return redirect()->to($returnPath);
+        }
+
+        return redirect()->back();
     }
 
     private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists

@@ -8,7 +8,6 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -18,8 +17,6 @@ class AppServiceProvider extends ServiceProvider
     private const HEADER_NOTIFICATION_TICKET_WINDOW = 120;
 
     private const HEADER_NOTIFICATION_RENDER_LIMIT = 5;
-
-    private const HEADER_NOTIFICATION_CACHE_TTL_SECONDS = 20;
 
     /**
      * Register any application services.
@@ -47,7 +44,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $payloadResolver = function () use ($user): array {
+            $payload = (function () use ($user): array {
                 $tickets = $this->headerNotificationTicketsForUser($user);
                 $notifications = $this->buildNotificationsForUser($user, $tickets)
                     ->sortByDesc('activity_ts')
@@ -59,18 +56,7 @@ class AppServiceProvider extends ServiceProvider
                     'notifications' => $notifications,
                     'unread_count' => (int) collect($notifications)->where('is_viewed', false)->count(),
                 ];
-            };
-
-            if (app()->environment('testing')) {
-                $payload = $payloadResolver();
-            } else {
-                $cacheKey = 'header_notifications:user:'.$user->id;
-                $payload = Cache::remember(
-                    $cacheKey,
-                    now()->addSeconds(self::HEADER_NOTIFICATION_CACHE_TTL_SECONDS),
-                    $payloadResolver
-                );
-            }
+            })();
 
             $view->with('headerNotifications', collect($payload['notifications'] ?? []));
             $view->with('headerNotificationUnreadCount', (int) ($payload['unread_count'] ?? 0));

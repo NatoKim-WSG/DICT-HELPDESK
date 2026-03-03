@@ -366,6 +366,7 @@ class UserManagementController extends Controller
     public function update(Request $request, User $user)
     {
         $currentUser = auth()->user();
+        $stayOnEdit = $request->boolean('stay_on_edit');
 
         if ($this->isSystemReplacementUser($user)) {
             return redirect()->route('admin.users.index')
@@ -448,8 +449,7 @@ class UserManagementController extends Controller
         $user->fill($updateData);
 
         if (! $user->isDirty()) {
-            return redirect()->route('admin.users.index')
-                ->with('success', 'No changes were detected.');
+            return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'No changes were detected.');
         }
 
         $changedFields = array_keys($user->getDirty());
@@ -473,8 +473,7 @@ class UserManagementController extends Controller
             ]
         );
 
-        return redirect()->route('admin.users.index')
-            ->with('success', 'User updated successfully.');
+        return $this->redirectAfterManagedUserUpdate($user, $stayOnEdit, 'User updated successfully.');
     }
 
     public function destroy(User $user)
@@ -845,6 +844,17 @@ class UserManagementController extends Controller
         }
 
         return ! $this->isManageableByNonSuperAdmin($targetUser);
+    }
+
+    private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message)
+    {
+        if ($stayOnEdit) {
+            return redirect()->route('admin.users.edit', $user)
+                ->with('success', $message);
+        }
+
+        return redirect()->route('admin.users.index')
+            ->with('success', $message);
     }
 }
 

@@ -77,6 +77,42 @@ class NoOpUpdateGuardTest extends TestCase
         $this->assertSame('NoOp Client', $client->name);
     }
 
+    public function test_user_management_update_with_stay_on_edit_keeps_edit_page_open(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'NoOp Stay Super Admin',
+            'email' => 'noop-stay-super-admin@example.com',
+            'phone' => '09130000012',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'NoOp Stay Client',
+            'email' => 'noop-stay-client@example.com',
+            'phone' => '09130000013',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $client), [
+            'name' => 'NoOp Stay Client',
+            'email' => 'noop-stay-client@example.com',
+            'phone' => '09130000013',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+            'stay_on_edit' => 1,
+        ]);
+
+        $response->assertRedirect(route('admin.users.edit', $client));
+        $response->assertSessionHas('success', 'No changes were detected.');
+    }
+
     public function test_admin_ticket_status_update_does_not_save_when_status_is_unchanged(): void
     {
         [$staff, $ticket] = $this->seedStaffAndTicket();

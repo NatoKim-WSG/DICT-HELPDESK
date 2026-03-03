@@ -8,6 +8,7 @@
     $isHistoryTab = $tab === 'history';
     $canDeleteTickets = auth()->user()->isSuperAdmin();
     $canRunDestructiveAction = auth()->user()->isAdminLevel();
+    $requiresDelayedClose = in_array(auth()->user()->normalizedRole(), [\App\Models\User::ROLE_TECHNICAL, \App\Models\User::ROLE_SUPER_USER], true);
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
@@ -59,6 +60,13 @@
 
             <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-8" data-submit-feedback data-search-history-form data-search-history-key="admin-ticket-filters">
                 <input type="hidden" name="tab" value="{{ $tab }}">
+                @if($createdDateRange)
+                    <input type="hidden" name="created_from" value="{{ $createdDateRange['from'] }}">
+                    <input type="hidden" name="created_to" value="{{ $createdDateRange['to'] }}">
+                    @if(!empty($createdDateRange['label']))
+                        <input type="hidden" name="report_scope" value="{{ $createdDateRange['label'] }}">
+                    @endif
+                @endif
                 <div class="relative xl:col-span-2">
                     <label for="search" class="sr-only">Search</label>
                     <input
@@ -138,60 +146,75 @@
                     <a href="{{ route('admin.tickets.index', ['tab' => $tab]) }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
             </form>
+            @if($createdDateRange)
+                <div class="pb-4">
+                    <p class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        Report scope: {{ !empty($createdDateRange['label']) ? $createdDateRange['label'] : ($createdDateRange['from'].' to '.$createdDateRange['to']) }}
+                    </p>
+                </div>
+            @endif
 
             <form id="bulk-action-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="hidden pb-4 lg:block" data-submit-feedback>
                 @csrf
+                <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
-                        <select id="bulk-action-select" name="action" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                            <option value="assign">Assign technical</option>
-                            <option value="status">Update status</option>
-                            <option value="priority">Update priority</option>
-                            @if($canRunDestructiveAction)
-                                <option value="merge">Merge tickets</option>
-                            @endif
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
+                            <select id="bulk-action-select" name="action" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <option value="assign">Assign technical</option>
+                                <option value="status">Update status</option>
+                                <option value="priority">Update priority</option>
+                                @if($canRunDestructiveAction)
+                                    <option value="merge">Merge tickets</option>
+                                @endif
+                                @if($canDeleteTickets)
+                                    <option value="delete">Delete tickets</option>
+                                @endif
+                            </select>
+
+                            <div id="bulk-assign-wrap" class="hidden">
+                                <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
+                                <select id="bulk-assigned-to" name="assigned_to" data-enhanced-select class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                    <option value="">Choose technical</option>
+                                    @foreach($agents as $agent)
+                                        <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div id="bulk-status-wrap" class="hidden">
+                                <label for="bulk-status" class="sr-only">Status</label>
+                                <select id="bulk-status" name="status" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                    <option value="open">Open</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="closed">Closed</option>
+                                </select>
+                            </div>
+
+                            <div id="bulk-priority-wrap" class="hidden">
+                                <label for="bulk-priority" class="sr-only">Priority</label>
+                                <select id="bulk-priority" name="priority" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+
+                            <textarea id="bulk-close-reason" name="close_reason" rows="1" class="hidden h-10 min-w-[230px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Close reason (required for closed status)"></textarea>
+                            <input type="hidden" name="tab" value="{{ $tab }}">
+                            <div id="bulk-selected-ids"></div>
+                        </div>
+                        <div class="ml-auto flex flex-wrap items-center gap-2">
+                            <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" data-loading-text="Applying..." disabled>Apply</button>
+                            <button id="bulk-clear-selection" type="button" class="btn-secondary h-10 px-4">Clear selection</button>
                             @if($canDeleteTickets)
-                                <option value="delete">Delete tickets</option>
+                                <button id="bulk-delete-submit" type="button" class="btn-danger h-10 px-4" disabled>Delete selected</button>
                             @endif
-                        </select>
-
-                        <div id="bulk-assign-wrap" class="hidden">
-                            <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
-                            <select id="bulk-assigned-to" name="assigned_to" data-enhanced-select class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                <option value="">Choose technical</option>
-                                @foreach($agents as $agent)
-                                    <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
-                                @endforeach
-                            </select>
                         </div>
-
-                        <div id="bulk-status-wrap" class="hidden">
-                            <label for="bulk-status" class="sr-only">Status</label>
-                            <select id="bulk-status" name="status" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                <option value="open">Open</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="pending">Pending</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="closed">Closed</option>
-                            </select>
-                        </div>
-
-                        <div id="bulk-priority-wrap" class="hidden">
-                            <label for="bulk-priority" class="sr-only">Priority</label>
-                            <select id="bulk-priority" name="priority" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
-                        </div>
-
-                        <textarea id="bulk-close-reason" name="close_reason" rows="1" class="hidden h-10 min-w-[230px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Close reason (required for closed status)"></textarea>
-                        <input type="hidden" name="tab" value="{{ $tab }}">
-                        <div id="bulk-selected-ids"></div>
-                        <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" data-loading-text="Applying..." disabled>Apply</button>
-                        <button id="bulk-clear-selection" type="button" class="btn-secondary h-10 px-4">Clear selection</button>
                     </div>
                 </div>
             </form>
@@ -273,6 +296,7 @@
                             @if(in_array($ticket->status, ['resolved', 'closed'], true))
                                 <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
                                     @csrf
+                                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                                     <input type="hidden" name="status" value="in_progress">
                                     <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
                                 </form>
@@ -285,6 +309,8 @@
                                 data-assigned-to="{{ $ticket->assigned_to }}"
                                 data-status="{{ $ticket->status }}"
                                 data-priority="{{ $ticket->priority }}"
+                                data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
+                                data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                             >
                                 Edit
                             </button>
@@ -403,6 +429,7 @@
                                     @if(in_array($ticket->status, ['resolved', 'closed'], true))
                                         <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
                                             @csrf
+                                            <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                                             <input type="hidden" name="status" value="in_progress">
                                             <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
                                         </form>
@@ -415,6 +442,8 @@
                                         data-assigned-to="{{ $ticket->assigned_to }}"
                                         data-status="{{ $ticket->status }}"
                                         data-priority="{{ $ticket->priority }}"
+                                        data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
+                                        data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                                     >
                                         Edit
                                     </button>
@@ -451,6 +480,7 @@
             </div>
             <form id="assign-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                 @csrf
+                <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
                     <label for="assign-modal-select" class="form-label">Technical User</label>
                     <select id="assign-modal-select" name="assigned_to" class="form-input">
@@ -479,6 +509,7 @@
             </div>
             <form id="edit-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                 @csrf
+                <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
                     <label for="edit-modal-assigned" class="form-label">Technical User</label>
                     <select id="edit-modal-assigned" name="assigned_to" class="form-input">
@@ -508,6 +539,7 @@
                         placeholder="Provide a reason for closing this ticket..."
                     ></textarea>
                 </div>
+                <p id="edit-modal-close-hint" class="hidden text-xs text-amber-700"></p>
                 <div>
                     <label for="edit-modal-priority" class="form-label">Priority</label>
                     <select id="edit-modal-priority" name="priority" class="form-input">
@@ -550,6 +582,7 @@
                 <form id="delete-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                     @csrf
                     @method('DELETE')
+                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                     <p class="text-sm text-slate-600">This action cannot be undone.</p>
                     <div class="flex justify-end gap-2">
                         <button type="button" class="btn-secondary" data-modal-close="delete">Cancel</button>
@@ -579,6 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const editStatusSelect = document.getElementById('edit-modal-status');
     const editCloseReasonWrap = document.getElementById('edit-modal-close-reason-wrap');
     const editCloseReasonInput = document.getElementById('edit-modal-close-reason');
+    const editCloseHint = document.getElementById('edit-modal-close-hint');
     const editPrioritySelect = document.getElementById('edit-modal-priority');
     const editDeleteButton = document.getElementById('edit-modal-delete-btn');
     const deleteForm = document.getElementById('delete-ticket-form');
@@ -600,6 +634,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const bulkSummary = document.getElementById('bulk-selection-summary');
     const bulkSubmitButton = document.getElementById('bulk-action-submit');
     const bulkClearButton = document.getElementById('bulk-clear-selection');
+    const bulkDeleteButton = document.getElementById('bulk-delete-submit');
     let snapshotToken = initialSnapshotToken;
 
     const selectedTicketIds = function () {
@@ -615,6 +650,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (bulkSubmitButton) {
             bulkSubmitButton.disabled = selectedCount === 0;
+        }
+        if (bulkDeleteButton) {
+            bulkDeleteButton.disabled = selectedCount === 0;
         }
     };
 
@@ -728,6 +766,27 @@ document.addEventListener('DOMContentLoaded', function () {
             if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
             if (editCloseReasonInput) editCloseReasonInput.value = '';
             if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
+            if (editStatusSelect) {
+                const closeAllowed = button.dataset.canCloseNow === '1';
+                const closedOption = editStatusSelect.querySelector('option[value="closed"]');
+                if (closedOption) {
+                    closedOption.disabled = !closeAllowed;
+                    closedOption.textContent = closeAllowed ? 'Closed' : 'Closed (after 24h)';
+                }
+                if (!closeAllowed && editStatusSelect.value === 'closed') {
+                    editStatusSelect.value = button.dataset.status || 'resolved';
+                }
+                if (editCloseHint) {
+                    if (closeAllowed) {
+                        editCloseHint.classList.add('hidden');
+                        editCloseHint.textContent = '';
+                    } else {
+                        const closeAvailableAt = button.dataset.closeAvailableAt || 'the 24-hour window after resolution';
+                        editCloseHint.classList.remove('hidden');
+                        editCloseHint.textContent = 'Close is available on ' + closeAvailableAt + '.';
+                    }
+                }
+            }
             syncEditCloseReasonVisibility();
 
             if (editDeleteButton) {
@@ -768,6 +827,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 checkbox.checked = false;
             });
             syncBulkSelection();
+        });
+    }
+
+    if (bulkDeleteButton && bulkActionForm && bulkActionSelect) {
+        bulkDeleteButton.addEventListener('click', function () {
+            if (selectedTicketIds().length === 0) {
+                window.alert('Select at least one ticket before deleting.');
+                return;
+            }
+
+            bulkActionSelect.value = 'delete';
+            syncBulkActionFields();
+            bulkActionForm.requestSubmit();
         });
     }
 

@@ -10,6 +10,14 @@
     };
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
     $supportCompanyLogo = asset('images/iOne Logo.png');
+    $actor = auth()->user();
+    $requiresDelayedClose = $actor && in_array($actor->normalizedRole(), [
+        \App\Models\User::ROLE_TECHNICAL,
+        \App\Models\User::ROLE_SUPER_USER,
+    ], true);
+    $closeAvailableAt = $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay() : null;
+    $canCloseNow = ! $requiresDelayedClose || ($closeAvailableAt && now()->gte($closeAvailableAt));
+    $showDelayedCloseAction = $requiresDelayedClose && $ticket->status !== 'closed';
 @endphp
 <style>
 #admin-conversation-thread {
@@ -374,6 +382,7 @@
                     @if(in_array($ticket->status, ['resolved', 'closed'], true))
                         <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
                             @csrf
+                            <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                             <input type="hidden" name="status" value="in_progress">
                             <button type="submit" class="btn-secondary w-full">Revert to In Progress</button>
                         </form>
@@ -382,6 +391,7 @@
                     <!-- Assign Ticket -->
                     <form action="{{ route('admin.tickets.assign', $ticket) }}" method="POST">
                         @csrf
+                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                         <div>
                             <label for="assigned_to" class="form-label">Assign To</label>
                             <select name="assigned_to" id="assigned_to" class="form-input">
@@ -400,6 +410,7 @@
                     <!-- Update Status -->
                     <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
                         @csrf
+                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                         @php $selectedStatus = old('status', $ticket->status); @endphp
                         <div>
                             <label for="status" class="form-label">Status</label>
@@ -408,7 +419,9 @@
                                 <option value="in_progress" {{ $selectedStatus === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                                 <option value="pending" {{ $selectedStatus === 'pending' ? 'selected' : '' }}>Pending</option>
                                 <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
-                                <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }}>Closed</option>
+                                <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }} {{ $requiresDelayedClose && !$canCloseNow ? 'disabled' : '' }}>
+                                    Closed{{ $requiresDelayedClose && !$canCloseNow ? ' (after 24h)' : '' }}
+                                </option>
                             </select>
                             <div id="status-close-reason-wrap" class="mt-2 hidden">
                                 <label for="status_close_reason" class="form-label">Close Reason <span class="text-rose-500">*</span></label>
@@ -423,13 +436,46 @@
                                     <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
                                 @enderror
                             </div>
+                            @if($requiresDelayedClose && !$canCloseNow)
+                                <p class="mt-2 text-xs text-amber-700">
+                                    Close is available on {{ $closeAvailableAt ? $closeAvailableAt->format('M j, Y \a\t g:i A') : 'the 24-hour window after resolution' }}.
+                                </p>
+                            @endif
                             <button type="submit" class="mt-2 btn-secondary w-full">Update Status</button>
                         </div>
                     </form>
 
+                    @if($showDelayedCloseAction)
+                        <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                            <input type="hidden" name="status" value="closed">
+                            <div>
+                                <label for="timed_close_reason" class="form-label">Close Ticket (24h Rule)</label>
+                                <textarea
+                                    id="timed_close_reason"
+                                    name="close_reason"
+                                    rows="3"
+                                    class="form-input"
+                                    placeholder="Provide a reason for closing this ticket..."
+                                    required
+                                >{{ old('status') === 'closed' ? old('close_reason') : '' }}</textarea>
+                                @if($canCloseNow)
+                                    <button type="submit" class="mt-2 btn-danger w-full">Close Ticket</button>
+                                @else
+                                    <button type="submit" class="mt-2 btn-danger w-full opacity-60 cursor-not-allowed" disabled>Close Ticket</button>
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        You can close this ticket on {{ $closeAvailableAt ? $closeAvailableAt->format('M j, Y \a\t g:i A') : 'the next allowed schedule' }}.
+                                    </p>
+                                @endif
+                            </div>
+                        </form>
+                    @endif
+
                     <!-- Update Priority -->
                     <form action="{{ route('admin.tickets.priority', $ticket) }}" method="POST">
                         @csrf
+                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                         <div>
                             <label for="priority" class="form-label">Priority</label>
                             <select name="priority" id="priority" class="form-input">
@@ -445,6 +491,7 @@
                     <!-- Set Due Date -->
                     <form action="{{ route('admin.tickets.due-date', $ticket) }}" method="POST" data-submit-feedback>
                         @csrf
+                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                         <div>
                             <label for="due_date" class="form-label">Due Date</label>
                             <input type="datetime-local" name="due_date" id="due_date"

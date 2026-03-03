@@ -61,6 +61,20 @@ class TicketUserState extends Model
         return $state;
     }
 
+    public static function markSeenAndDismiss(
+        Ticket $ticket,
+        int $userId,
+        Carbon $seenAt
+    ): self {
+        $state = static::markSeen($ticket, $userId, $seenAt);
+        if (! $state->dismissed_at || $state->dismissed_at->lt($state->last_seen_at)) {
+            $state->dismissed_at = $state->last_seen_at;
+            $state->save();
+        }
+
+        return $state;
+    }
+
     public function hasViewedActivity(Carbon $activityAt): bool
     {
         return $this->last_seen_at !== null && $this->last_seen_at->gte($activityAt);

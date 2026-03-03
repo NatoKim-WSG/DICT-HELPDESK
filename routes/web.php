@@ -68,9 +68,6 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
     Route::post('/tickets/{ticket}/resolve', [ClientTicketController::class, 'resolve'])
         ->middleware('throttle:15,1')
         ->name('tickets.resolve');
-    Route::post('/tickets/{ticket}/close', [ClientTicketController::class, 'close'])
-        ->middleware('throttle:15,1')
-        ->name('tickets.close');
     Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])
         ->middleware('throttle:15,1')
         ->name('tickets.rate');
@@ -139,11 +136,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
         }
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
-        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
-        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
-            $state->dismissed_at = $seenAt;
-            $state->save();
-        }
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
         return response()->json([
             'ok' => true,
@@ -157,11 +150,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
         }
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
-        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
-        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
-            $state->dismissed_at = $seenAt;
-            $state->save();
-        }
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
         return redirect()->route('client.tickets.show', $ticket);
     })->name('notifications.open');
@@ -283,11 +272,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         }
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
-        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
-        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
-            $state->dismissed_at = $seenAt;
-            $state->save();
-        }
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
         return response()->json([
             'ok' => true,
@@ -302,11 +287,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         }
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
-        $state = TicketUserState::markSeen($ticket, (int) auth()->id(), $seenAt);
-        if (! $state->dismissed_at || $state->dismissed_at->lt($seenAt)) {
-            $state->dismissed_at = $seenAt;
-            $state->save();
-        }
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
         return redirect()->route('admin.tickets.show', $ticket);
     })->name('notifications.open');

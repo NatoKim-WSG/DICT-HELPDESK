@@ -27,13 +27,32 @@ class TicketController extends Controller
 
     public function index(Request $request)
     {
+        $activeTab = $request->string('tab')->toString();
+        if (! in_array($activeTab, ['tickets', 'history'], true)) {
+            $activeTab = 'tickets';
+        }
+
+        $allowedStatuses = $activeTab === 'history'
+            ? array_merge(['all'], Ticket::CLOSED_STATUSES)
+            : array_merge(['all', 'open_group'], Ticket::STATUSES);
+
+        $selectedStatus = trim($request->string('status')->toString());
+        if ($selectedStatus === '') {
+            $selectedStatus = 'all';
+        }
+        if (! in_array($selectedStatus, $allowedStatuses, true)) {
+            $selectedStatus = 'all';
+        }
+
         $query = auth()->user()->tickets()
             ->with(['category', 'assignedUser']);
 
-        $selectedStatus = $request->string('status')->toString();
+        if ($activeTab === 'history') {
+            $query->whereIn('status', Ticket::CLOSED_STATUSES);
+        }
 
         $query
-            ->when($request->filled('status') && $selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
+            ->when($selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
                 if (in_array($selectedStatus, ['open', 'open_group'], true)) {
                     $builder->whereIn('status', Ticket::OPEN_STATUSES);
 
@@ -62,9 +81,9 @@ class TicketController extends Controller
             ]);
         }
 
-        $tickets = $query->latest()->paginate(10);
+        $tickets = $query->latest()->paginate(10)->withQueryString();
 
-        return view('client.tickets.index', compact('tickets', 'liveSnapshotToken'));
+        return view('client.tickets.index', compact('tickets', 'liveSnapshotToken', 'activeTab', 'selectedStatus'));
     }
 
     public function create()
@@ -137,7 +156,7 @@ class TicketController extends Controller
     {
         $this->assertTicketOwner($ticket);
 
-        TicketUserState::markSeen($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
+        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
 
@@ -265,46 +284,6 @@ class TicketController extends Controller
             'message' => 'Message deleted',
             'reply' => $this->formatReplyForChat($reply->fresh(['user', 'attachments', 'replyTo'])),
         ]);
-    }
-
-    public function close(Request $request, Ticket $ticket)
-    {
-        $this->assertTicketOwner($ticket);
-
-        $request->validate([
-            'close_reason' => 'required|string|max:1000',
-        ]);
-
-        TicketReply::create([
-            'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
-            'message' => "Client closed the ticket as unresolved.\nReason: ".$request->close_reason,
-            'is_internal' => false,
-        ]);
-
-        $previousStatus = $ticket->status;
-        $ticket->update([
-            'status' => 'closed',
-            'resolved_at' => null,
-            'closed_at' => now(),
-        ]);
-        $this->systemLogs->record(
-            'ticket.closed_by_client',
-            'Client closed a ticket.',
-            [
-                'category' => 'ticket',
-                'target_type' => Ticket::class,
-                'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_status' => $previousStatus,
-                    'new_status' => 'closed',
-                ],
-                'request' => $request,
-            ]
-        );
-
-        return redirect()->back()->with('success', 'Ticket closed successfully with your reason.');
     }
 
     public function resolve(Ticket $ticket)

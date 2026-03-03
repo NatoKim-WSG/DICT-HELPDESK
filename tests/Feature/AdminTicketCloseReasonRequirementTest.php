@@ -83,6 +83,76 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         $this->assertSame('open', $ticket->status);
     }
 
+    public function test_technical_user_cannot_close_ticket_before_24_hour_resolution_window(): void
+    {
+        [, $ticket] = $this->seedAdminAndTicket();
+
+        $technical = User::create([
+            'name' => 'Close Window Technical',
+            'email' => 'close-window-technical@example.com',
+            'phone' => '09130000077',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $ticket->update([
+            'status' => 'resolved',
+            'resolved_at' => now()->subHours(23),
+            'assigned_to' => $technical->id,
+        ]);
+
+        $response = $this->actingAs($technical)
+            ->from(route('admin.tickets.show', $ticket))
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'closed',
+                'close_reason' => 'Attempting close too early.',
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.show', $ticket));
+        $response->assertSessionHas('error');
+
+        $ticket->refresh();
+        $this->assertSame('resolved', $ticket->status);
+        $this->assertNull($ticket->closed_at);
+    }
+
+    public function test_super_user_can_close_ticket_after_24_hours_from_resolution(): void
+    {
+        [, $ticket] = $this->seedAdminAndTicket();
+
+        $superUser = User::create([
+            'name' => 'Close Window Super',
+            'email' => 'close-window-super@example.com',
+            'phone' => '09130000078',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $ticket->update([
+            'status' => 'resolved',
+            'resolved_at' => now()->subHours(25),
+            'assigned_to' => null,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->from(route('admin.tickets.show', $ticket))
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'closed',
+                'close_reason' => '24-hour window completed.',
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.show', $ticket));
+        $response->assertSessionMissing('error');
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
+    }
+
     /**
      * @return array{0: User, 1: Ticket}
      */
@@ -93,7 +163,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
             'email' => 'super-user-close-reason@example.com',
             'phone' => '09130000001',
             'department' => 'iOne',
-            'role' => User::ROLE_SUPER_USER,
+            'role' => User::ROLE_ADMIN,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);

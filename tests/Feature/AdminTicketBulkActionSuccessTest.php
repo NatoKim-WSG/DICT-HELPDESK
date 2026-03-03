@@ -42,6 +42,11 @@ class AdminTicketBulkActionSuccessTest extends TestCase
     public function test_super_user_can_bulk_close_tickets_with_reason(): void
     {
         [$superUser, , , $ticketOne, $ticketTwo] = $this->seedBulkActionContext();
+        Ticket::query()->whereIn('id', [$ticketOne->id, $ticketTwo->id])->update([
+            'status' => 'resolved',
+            'resolved_at' => now()->subHours(26),
+            'closed_at' => null,
+        ]);
 
         $response = $this->actingAs($superUser)
             ->from(route('admin.tickets.index'))

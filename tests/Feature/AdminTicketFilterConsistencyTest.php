@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -217,6 +218,63 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $response->assertOk();
         $response->assertSee(route('admin.tickets.show', $antipoloTicket), false);
         $response->assertDontSee(route('admin.tickets.show', $marikinaTicket), false);
+    }
+
+    public function test_admin_ticket_filter_by_created_date_range_matches_report_drill_down_scope(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Date Range Client', 'date-range-client@example.com');
+
+        $matchingTicket = Ticket::create([
+            'name' => 'Matching Requester',
+            'contact_number' => '09110000111',
+            'email' => 'matching-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Matching date scope',
+            'description' => 'Ticket in requested report scope.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($matchingTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 12, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 12, 9, 0, 0),
+        ]);
+
+        $outsideTicket = Ticket::create([
+            'name' => 'Outside Requester',
+            'contact_number' => '09110000112',
+            'email' => 'outside-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Outside date scope',
+            'description' => 'Ticket out of requested report scope.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($outsideTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 18, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 18, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+            'status' => 'resolved',
+            'created_from' => '2026-02-12',
+            'created_to' => '2026-02-12',
+            'report_scope' => 'Feb 12, 2026',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.tickets.show', $matchingTicket), false);
+        $response->assertDontSee(route('admin.tickets.show', $outsideTicket), false);
     }
 
     private function createSupportUser(): User

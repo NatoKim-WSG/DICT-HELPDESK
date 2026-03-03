@@ -123,6 +123,9 @@
     $priorityPieTotal = max(0, (int) collect($priorityPieSlices)->sum('count'));
     $categoryPieSegments = $buildPieSegments($categoryPieSlices, $categoryPieTotal);
     $priorityPieSegments = $buildPieSegments($priorityPieSlices, $priorityPieTotal);
+    $ticketHistoryScopeParams = collect($ticketHistoryScope ?? [])
+        ->filter(fn ($value) => $value !== null && $value !== '')
+        ->all();
 @endphp
 
 <div class="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-8">
@@ -254,8 +257,8 @@
                                     };
                                     $statusTab = in_array($statusFilter, ['resolved', 'closed'], true) ? 'history' : 'tickets';
                                     $statusLink = $statusFilter
-                                        ? route('admin.tickets.index', ['tab' => $statusTab, 'status' => $statusFilter, 'include_closed' => 1])
-                                        : route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
+                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => $statusTab, 'status' => $statusFilter, 'include_closed' => 1]))
+                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1]));
                                 @endphp
                                 <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
@@ -317,11 +320,11 @@
                                 @php
                                     $sliceShare = $categoryPieTotal > 0 ? ($slice['count'] / $categoryPieTotal) * 100 : 0;
                                     $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
-                                    $categoryLink = route('admin.tickets.index', [
+                                    $categoryLink = route('admin.tickets.index', array_merge($ticketHistoryScopeParams, [
                                         'tab' => 'tickets',
                                         'include_closed' => 1,
                                         'category_bucket' => $categoryBucket,
-                                    ]);
+                                    ]));
                                 @endphp
                                 <a href="{{ $categoryLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
@@ -390,8 +393,8 @@
                                         default => null,
                                     };
                                     $priorityLink = $priorityFilter
-                                        ? route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1, 'priority' => $priorityFilter])
-                                        : route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
+                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1, 'priority' => $priorityFilter]))
+                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1]));
                                 @endphp
                                 <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">

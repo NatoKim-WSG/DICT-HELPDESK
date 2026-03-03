@@ -22,6 +22,7 @@
         <form action="{{ route('admin.users.update', $user) }}" method="POST" class="space-y-6" data-submit-feedback>
             @csrf
             @method('PUT')
+            <input type="hidden" name="stay_on_edit" value="1">
             <div class="px-4 py-5 sm:p-6">
                 <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
                     <!-- Name -->

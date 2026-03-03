@@ -464,12 +464,6 @@
                         </button>
                     @endif
 
-                    @if(!in_array($ticket->status, ['closed']))
-                        <!-- Close Ticket -->
-                        <button type="button" id="open-close-ticket-modal" class="btn-secondary w-full">
-                            Close Ticket
-                        </button>
-                    @endif
                 </div>
             </div>
         </div>
@@ -494,36 +488,6 @@
                 <div class="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
                     <button type="button" id="resolve-ticket-cancel" class="btn-secondary sm:min-w-[110px]">Cancel</button>
                     <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[160px] disabled:cursor-not-allowed disabled:opacity-60" data-loading-text="Resolving..." disabled>Confirm Resolve</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-@endif
-
-@if(!in_array($ticket->status, ['closed']))
-<div id="close-ticket-modal" class="app-modal-root fixed inset-0 z-50 {{ $errors->has('close_reason') ? '' : 'hidden' }}">
-    <div class="app-modal-overlay absolute inset-0 bg-black bg-opacity-60" data-close-ticket-overlay="true"></div>
-    <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="app-modal-panel w-full max-w-lg bg-white rounded-lg shadow-xl">
-            <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-base font-medium text-gray-900">Close Ticket as Unresolved</h3>
-                <p class="mt-1 text-sm text-gray-600">Please provide a reason before closing this ticket.</p>
-            </div>
-            <form action="{{ route('client.tickets.close', $ticket) }}" method="POST" class="p-4 space-y-4" data-submit-feedback>
-                @csrf
-                <div>
-                    <label for="close_reason" class="form-label">Reason <span class="text-red-600">*</span></label>
-                    <textarea name="close_reason" id="close_reason" rows="4" required
-                              class="form-input @error('close_reason') border-red-500 @enderror"
-                              placeholder="Why are you closing this ticket unresolved?">{{ old('close_reason') }}</textarea>
-                    @error('close_reason')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="close-ticket-cancel" class="btn-secondary">Cancel</button>
-                    <button type="submit" class="btn-danger" data-loading-text="Closing...">Close Ticket</button>
                 </div>
             </form>
         </div>
@@ -576,12 +540,6 @@ document.addEventListener('DOMContentLoaded', function () {
         syncResolveConfirmState();
     }
 
-    const closeModal = document.getElementById('close-ticket-modal');
-    window.ModalKit.bindById('close-ticket-modal', {
-        openButtons: ['#open-close-ticket-modal'],
-        closeButtons: ['#close-ticket-cancel'],
-        initialOpen: closeModal ? !closeModal.classList.contains('hidden') : false,
-    });
 });
 </script>
 

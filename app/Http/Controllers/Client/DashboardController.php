@@ -28,7 +28,11 @@ class DashboardController extends Controller
             'urgent_tickets' => (clone $ticketQuery)->byPriority('urgent')->open()->count(),
         ];
 
+        $recentStart = now()->subDays(10)->startOfDay();
+        $recentEnd = now()->endOfDay();
+
         $recentTickets = (clone $ticketQuery)
+            ->whereBetween('created_at', [$recentStart, $recentEnd])
             ->with(['category', 'assignedUser'])
             ->latest()
             ->take(5)
