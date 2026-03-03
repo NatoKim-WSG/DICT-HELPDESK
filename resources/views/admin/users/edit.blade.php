@@ -3,7 +3,7 @@
 @section('title', 'Edit User - iOne Resources Inc.')
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-edit-page>
     <div class="mb-8">
         <div class="flex items-center">
             <a href="{{ $returnTo ?? route('admin.users.index', absolute: false) }}" class="text-gray-500 hover:text-gray-700 mr-4">
@@ -253,6 +253,28 @@
                             </p>
                         </div>
                     @endif
+
+                    @if($user->isClient() && auth()->user()->isShadow())
+                        <div class="sm:col-span-2 xl:col-span-3">
+                            <label for="client_notes" class="block text-sm font-medium text-gray-700">
+                                Client Notes
+                            </label>
+                            <div class="mt-1">
+                                <textarea
+                                    name="client_notes"
+                                    id="client_notes"
+                                    rows="4"
+                                    data-profile-edit-lockable
+                                    class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('client_notes') border-red-300 @enderror"
+                                    placeholder="Internal notes for this client account"
+                                >{{ old('client_notes', $user->client_notes) }}</textarea>
+                            </div>
+                            <p class="mt-2 text-sm text-gray-500">Shadow-only note visible on the client's User Details page.</p>
+                            @error('client_notes')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -264,133 +286,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const roleSelect = document.getElementById('role');
-    const departmentSelect = document.getElementById('department');
-    const departmentHidden = document.getElementById('department_hidden');
-    const hint = document.getElementById('department-role-hint');
-    const profileLockInput = document.getElementById('is_profile_locked');
-    const profileLockToggle = document.getElementById('profile-lock-toggle');
-    const profileLockStateLabel = document.getElementById('profile-lock-state-label');
-    const profileLockIconLocked = document.getElementById('profile-lock-icon-locked');
-    const profileLockIconUnlocked = document.getElementById('profile-lock-icon-unlocked');
-    const profileEditLockedBanner = document.getElementById('profile-edit-locked-banner');
-    const lockableFields = document.querySelectorAll('[data-profile-edit-lockable]');
-
-    if (!roleSelect || !departmentSelect || !departmentHidden || !profileLockInput || !profileLockToggle) return;
-
-    const syncDepartmentByRole = function () {
-        const role = roleSelect.value;
-        const isInternal = role === 'shadow' || role === 'admin' || role === 'super_user' || role === 'technical';
-
-        if (isInternal) {
-            departmentSelect.value = 'iOne';
-            departmentSelect.disabled = true;
-            departmentHidden.value = 'iOne';
-            departmentHidden.disabled = false;
-            hint.textContent = 'Internal users are automatically assigned to iOne.';
-            return;
-        }
-
-        departmentSelect.disabled = false;
-        departmentHidden.value = '';
-        departmentHidden.disabled = true;
-        hint.textContent = 'Select the client department.';
-    };
-
-    const applyProfileLockState = function () {
-        const isLocked = profileLockInput.value === '1';
-
-        profileLockToggle.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
-        profileLockToggle.classList.add('border-gray-300');
-        profileLockToggle.classList.remove('border-rose-300', 'bg-rose-50', 'border-emerald-300', 'bg-emerald-50');
-
-        if (profileLockStateLabel) {
-            profileLockStateLabel.textContent = isLocked ? 'Locked' : 'Unlocked';
-        }
-
-        if (profileLockIconLocked) {
-            profileLockIconLocked.classList.toggle('hidden', !isLocked);
-        }
-
-        if (profileLockIconUnlocked) {
-            profileLockIconUnlocked.classList.toggle('hidden', isLocked);
-        }
-
-        if (profileEditLockedBanner) {
-            profileEditLockedBanner.classList.toggle('hidden', !isLocked);
-        }
-
-        lockableFields.forEach(function (field) {
-            const isTextLike = field.matches('input[type="text"], input[type="email"], input[type="password"], input[type="tel"]');
-
-            if (isTextLike) {
-                field.readOnly = isLocked;
-                field.classList.toggle('bg-gray-100', isLocked);
-                field.classList.toggle('cursor-not-allowed', isLocked);
-                return;
-            }
-
-            if (!field.dataset.profileLockTabIndex) {
-                field.dataset.profileLockTabIndex = String(field.tabIndex);
-            }
-
-            if (isLocked) {
-                field.classList.add('pointer-events-none', 'opacity-60');
-                field.setAttribute('aria-disabled', 'true');
-                field.tabIndex = -1;
-                return;
-            }
-
-            field.classList.remove('pointer-events-none', 'opacity-60');
-            field.removeAttribute('aria-disabled');
-            field.tabIndex = Number(field.dataset.profileLockTabIndex || 0);
-        });
-    };
-
-    profileLockToggle.addEventListener('click', function () {
-        profileLockInput.value = profileLockInput.value === '1' ? '0' : '1';
-        applyProfileLockState();
-        syncDepartmentByRole();
-    });
-
-    roleSelect.addEventListener('change', syncDepartmentByRole);
-    syncDepartmentByRole();
-    applyProfileLockState();
-
-    const revealTimers = new Map();
-    const peekButtons = document.querySelectorAll('[data-peek-password-for]');
-
-    peekButtons.forEach(function (button) {
-        const targetId = button.getAttribute('data-peek-password-for');
-        const input = targetId ? document.getElementById(targetId) : null;
-
-        if (!input) return;
-
-        button.addEventListener('click', function () {
-            input.setAttribute('type', 'text');
-            button.disabled = true;
-            button.classList.add('opacity-60');
-
-            const existingTimer = revealTimers.get(input);
-            if (existingTimer) {
-                clearTimeout(existingTimer);
-            }
-
-            const timer = window.setTimeout(function () {
-                input.setAttribute('type', 'password');
-                button.disabled = false;
-                button.classList.remove('opacity-60');
-                revealTimers.delete(input);
-            }, 500);
-
-            revealTimers.set(input, timer);
-        });
-    });
-});
-</script>
-@endpush
-

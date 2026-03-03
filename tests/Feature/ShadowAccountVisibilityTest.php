@@ -79,4 +79,3 @@ class ShadowAccountVisibilityTest extends TestCase
         ]);
     }
 }
-

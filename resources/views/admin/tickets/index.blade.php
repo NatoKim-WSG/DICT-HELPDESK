@@ -6,6 +6,7 @@
 @php
     $tab = $activeTab ?? 'tickets';
     $isHistoryTab = $tab === 'history';
+    $closedRevertWindowDays = 7;
     $canDeleteTickets = auth()->user()->isSuperAdmin();
     $canRunDestructiveAction = auth()->user()->isAdminLevel();
     $requiresDelayedClose = in_array(auth()->user()->normalizedRole(), [\App\Models\User::ROLE_TECHNICAL, \App\Models\User::ROLE_SUPER_USER], true);
@@ -14,7 +15,14 @@
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
 @endphp
-<div class="mx-auto max-w-[1460px]">
+<div class="mx-auto max-w-[1460px]"
+    data-admin-tickets-index-page
+    data-route-base="{{ route('admin.tickets.index', absolute: false) }}"
+    data-snapshot-token="{{ $liveSnapshotToken ?? '' }}"
+    data-assign-route-template="{{ route('admin.tickets.assign', ['ticket' => '__TICKET__'], absolute: false) }}"
+    data-status-route-template="{{ route('admin.tickets.status', ['ticket' => '__TICKET__'], absolute: false) }}"
+    data-quick-update-route-template="{{ route('admin.tickets.quick-update', ['ticket' => '__TICKET__'], absolute: false) }}"
+    data-delete-route-template="{{ route('admin.tickets.destroy', ['ticket' => '__TICKET__'], absolute: false) }}">
     <div class="mb-6">
         <h1 class="font-display text-4xl font-semibold text-slate-900">Tickets</h1>
     </div>
@@ -47,8 +55,6 @@
                                 <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
                                 <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                                 <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                                <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
-                                <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
                             @endif
                         </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,6 +222,7 @@
                             @endif
                         </div>
                     </div>
+                    <p id="bulk-action-feedback" class="mt-2 hidden rounded-lg border px-3 py-2 text-xs font-semibold"></p>
                 </div>
             </form>
         </div>
@@ -230,6 +237,9 @@
                     $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
                         && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
                     $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
+                    $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
+                    $canRevertTicket = $ticket->status === 'resolved'
+                        || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
                 @endphp
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
@@ -294,12 +304,25 @@
 
                         <div class="flex items-center gap-2">
                             @if(in_array($ticket->status, ['resolved', 'closed'], true))
-                                <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
-                                    @csrf
-                                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                                    <input type="hidden" name="status" value="in_progress">
-                                    <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
-                                </form>
+                                @if($canRevertTicket)
+                                    <button
+                                        type="button"
+                                        class="js-open-revert-modal inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                                        data-ticket-id="{{ $ticket->id }}"
+                                        data-ticket-number="{{ $ticket->ticket_number }}"
+                                    >
+                                        Revert
+                                    </button>
+                                @else
+                                    <button
+                                        type="button"
+                                        class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400"
+                                        disabled
+                                        title="Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days."
+                                    >
+                                        Revert expired
+                                    </button>
+                                @endif
                             @endif
                             <button
                                 type="button"
@@ -309,6 +332,7 @@
                                 data-assigned-to="{{ $ticket->assigned_to }}"
                                 data-status="{{ $ticket->status }}"
                                 data-priority="{{ $ticket->priority }}"
+                                data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
                                 data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
                                 data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                             >
@@ -355,6 +379,9 @@
                             $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
                                 && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
                             $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
+                            $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
+                            $canRevertTicket = $ticket->status === 'resolved'
+                                || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
                         @endphp
 
                         <tr class="admin-ticket-row transition hover:bg-slate-50">
@@ -427,12 +454,25 @@
                             <td class="px-6 py-5 text-center align-top">
                                 <div class="flex flex-col items-center gap-2">
                                     @if(in_array($ticket->status, ['resolved', 'closed'], true))
-                                        <form method="POST" action="{{ route('admin.tickets.status', $ticket) }}">
-                                            @csrf
-                                            <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                                            <input type="hidden" name="status" value="in_progress">
-                                            <button type="submit" class="inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Revert</button>
-                                        </form>
+                                        @if($canRevertTicket)
+                                            <button
+                                                type="button"
+                                                class="js-open-revert-modal inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                                                data-ticket-id="{{ $ticket->id }}"
+                                                data-ticket-number="{{ $ticket->ticket_number }}"
+                                            >
+                                                Revert
+                                            </button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400"
+                                                disabled
+                                                title="Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days."
+                                            >
+                                                Revert expired
+                                            </button>
+                                        @endif
                                     @endif
                                     <button
                                         type="button"
@@ -442,6 +482,7 @@
                                         data-assigned-to="{{ $ticket->assigned_to }}"
                                         data-status="{{ $ticket->status }}"
                                         data-priority="{{ $ticket->priority }}"
+                                        data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
                                         data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
                                         data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                                     >
@@ -471,7 +512,7 @@
 </div>
 
 <div id="assign-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
-    <div class="app-modal-overlay absolute inset-0 bg-black/60" data-modal-overlay="assign"></div>
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="assign"></div>
     <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
         <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
@@ -493,6 +534,32 @@
                 <div class="flex justify-end gap-2">
                     <button type="button" class="btn-secondary" data-modal-close="assign">Cancel</button>
                     <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="revert-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="revert"></div>
+    <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+        <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="border-b border-slate-200 px-5 py-4">
+                <h3 class="text-base font-semibold text-slate-900">Confirm Revert</h3>
+                <p id="revert-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
+            </div>
+            <form id="revert-ticket-form" method="POST" class="space-y-4 px-5 py-4">
+                @csrf
+                <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                <input type="hidden" name="status" value="in_progress">
+                <p class="text-sm text-slate-600">This will move the ticket back to <strong>In Progress</strong>.</p>
+                <label for="revert-confirm-checkbox" class="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+                    <input id="revert-confirm-checkbox" type="checkbox" class="ticket-checkbox mt-0.5" required>
+                    <span>I confirm that this ticket should be reverted to In Progress.</span>
+                </label>
+                <div class="flex justify-end gap-2">
+                    <button type="button" class="btn-secondary" data-modal-close="revert">Cancel</button>
+                    <button id="revert-submit-btn" type="submit" class="btn-primary disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100" disabled>Confirm Revert</button>
                 </div>
             </form>
         </div>
@@ -572,7 +639,7 @@
 
 @if($canDeleteTickets)
     <div id="delete-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
-        <div class="app-modal-overlay absolute inset-0 bg-black/60" data-modal-overlay="delete"></div>
+        <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="delete"></div>
         <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
             <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <div class="border-b border-slate-200 px-5 py-4">
@@ -592,336 +659,56 @@
             </div>
         </div>
     </div>
+
+    <div id="bulk-delete-confirm-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+        <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="bulk-delete"></div>
+        <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+            <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="border-b border-slate-200 px-5 py-4">
+                    <h3 class="text-base font-semibold text-slate-900">Delete Selected Tickets</h3>
+                    <p class="mt-1 text-sm text-slate-500">This action cannot be undone.</p>
+                </div>
+                <div class="space-y-4 px-5 py-4">
+                    <label for="bulk-delete-confirm-checkbox" class="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+                        <input id="bulk-delete-confirm-checkbox" type="checkbox" class="ticket-checkbox mt-0.5">
+                        <span>I understand that the selected tickets will be permanently deleted.</span>
+                    </label>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="btn-secondary" data-modal-close="bulk-delete">Cancel</button>
+                        <button id="bulk-delete-confirm-submit" type="button" class="btn-danger disabled:cursor-not-allowed disabled:opacity-60" disabled>
+                            Delete Selected
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endif
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const statusView = document.getElementById('admin-status-view');
-    const selectAll = document.getElementById('select-all-tickets');
-    const rowCheckboxes = Array.from(document.querySelectorAll('.js-ticket-checkbox'));
-    const routeBase = @json(route('admin.tickets.index'));
-    const initialSnapshotToken = @json($liveSnapshotToken ?? '');
-    const assignForm = document.getElementById('assign-ticket-form');
-    const assignModal = document.getElementById('assign-ticket-modal');
-    const assignTicketText = document.getElementById('assign-modal-ticket');
-    const assignSelect = document.getElementById('assign-modal-select');
-    const editForm = document.getElementById('edit-ticket-form');
-    const editModal = document.getElementById('edit-ticket-modal');
-    const editTicketText = document.getElementById('edit-modal-ticket');
-    const editAssignedSelect = document.getElementById('edit-modal-assigned');
-    const editStatusSelect = document.getElementById('edit-modal-status');
-    const editCloseReasonWrap = document.getElementById('edit-modal-close-reason-wrap');
-    const editCloseReasonInput = document.getElementById('edit-modal-close-reason');
-    const editCloseHint = document.getElementById('edit-modal-close-hint');
-    const editPrioritySelect = document.getElementById('edit-modal-priority');
-    const editDeleteButton = document.getElementById('edit-modal-delete-btn');
-    const deleteForm = document.getElementById('delete-ticket-form');
-    const deleteModal = document.getElementById('delete-ticket-modal');
-    const deleteTicketText = document.getElementById('delete-modal-ticket');
-    const assignRouteTemplate = @json(route('admin.tickets.assign', ['ticket' => '__TICKET__']));
-    const quickUpdateRouteTemplate = @json(route('admin.tickets.quick-update', ['ticket' => '__TICKET__']));
-    const deleteRouteTemplate = @json(route('admin.tickets.destroy', ['ticket' => '__TICKET__']));
-    const bulkActionForm = document.getElementById('bulk-action-form');
-    const bulkActionSelect = document.getElementById('bulk-action-select');
-    const bulkAssignWrap = document.getElementById('bulk-assign-wrap');
-    const bulkAssignedTo = document.getElementById('bulk-assigned-to');
-    const bulkStatusWrap = document.getElementById('bulk-status-wrap');
-    const bulkStatus = document.getElementById('bulk-status');
-    const bulkPriorityWrap = document.getElementById('bulk-priority-wrap');
-    const bulkPriority = document.getElementById('bulk-priority');
-    const bulkCloseReason = document.getElementById('bulk-close-reason');
-    const bulkSelectedIds = document.getElementById('bulk-selected-ids');
-    const bulkSummary = document.getElementById('bulk-selection-summary');
-    const bulkSubmitButton = document.getElementById('bulk-action-submit');
-    const bulkClearButton = document.getElementById('bulk-clear-selection');
-    const bulkDeleteButton = document.getElementById('bulk-delete-submit');
-    let snapshotToken = initialSnapshotToken;
+@if($canRunDestructiveAction)
+    <div id="merge-confirm-modal" class="app-modal-root fixed inset-0 z-50 hidden">
+        <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="merge"></div>
+        <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+            <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="border-b border-slate-200 px-5 py-4">
+                    <h3 class="text-base font-semibold text-slate-900">Merge Selected Tickets</h3>
+                    <p class="mt-1 text-sm text-slate-500">Selected tickets will be merged into the oldest selected ticket.</p>
+                </div>
+                <div class="space-y-4 px-5 py-4">
+                    <label for="merge-confirm-checkbox" class="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+                        <input id="merge-confirm-checkbox" type="checkbox" class="ticket-checkbox mt-0.5">
+                        <span>I confirm that I want to merge the selected tickets.</span>
+                    </label>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" class="btn-secondary" data-modal-close="merge">Cancel</button>
+                        <button id="merge-confirm-submit" type="button" class="btn-primary disabled:cursor-not-allowed disabled:opacity-60" disabled>
+                            Confirm Merge
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
 
-    const selectedTicketIds = function () {
-        return rowCheckboxes
-            .filter(function (checkbox) { return checkbox.checked; })
-            .map(function (checkbox) { return checkbox.value; });
-    };
-
-    const syncBulkSelection = function () {
-        const selectedCount = selectedTicketIds().length;
-        if (bulkSummary) {
-            bulkSummary.textContent = selectedCount + ' selected';
-        }
-        if (bulkSubmitButton) {
-            bulkSubmitButton.disabled = selectedCount === 0;
-        }
-        if (bulkDeleteButton) {
-            bulkDeleteButton.disabled = selectedCount === 0;
-        }
-    };
-
-    const resetBulkFieldRequirements = function () {
-        if (bulkAssignedTo) bulkAssignedTo.required = false;
-        if (bulkStatus) bulkStatus.required = false;
-        if (bulkPriority) bulkPriority.required = false;
-        if (bulkCloseReason) bulkCloseReason.required = false;
-    };
-
-    const syncBulkActionFields = function () {
-        if (!bulkActionSelect) return;
-
-        const action = bulkActionSelect.value || '';
-        if (bulkAssignWrap) bulkAssignWrap.classList.toggle('hidden', action !== 'assign');
-        if (bulkStatusWrap) bulkStatusWrap.classList.toggle('hidden', action !== 'status');
-        if (bulkPriorityWrap) bulkPriorityWrap.classList.toggle('hidden', action !== 'priority');
-
-        resetBulkFieldRequirements();
-
-        if (action === 'assign' && bulkAssignedTo) {
-            bulkAssignedTo.required = true;
-        }
-        if (action === 'status' && bulkStatus) {
-            bulkStatus.required = true;
-        }
-        if (action === 'priority' && bulkPriority) {
-            bulkPriority.required = true;
-        }
-
-        const requiresCloseReason = action === 'status' && bulkStatus && bulkStatus.value === 'closed';
-        if (bulkCloseReason) {
-            bulkCloseReason.classList.toggle('hidden', !requiresCloseReason);
-            bulkCloseReason.required = requiresCloseReason;
-            if (!requiresCloseReason) {
-                bulkCloseReason.value = '';
-            }
-        }
-    };
-
-    if (statusView) {
-        statusView.addEventListener('change', function () {
-            const params = new URLSearchParams(window.location.search);
-            params.set('status', statusView.value);
-            params.delete('page');
-            window.location.href = routeBase + '?' + params.toString();
-        });
-    }
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            rowCheckboxes.forEach(function (checkbox) {
-                checkbox.checked = selectAll.checked;
-            });
-            syncBulkSelection();
-        });
-    }
-
-    rowCheckboxes.forEach(function (checkbox) {
-        checkbox.addEventListener('change', function () {
-            if (!selectAll) return;
-            selectAll.checked = rowCheckboxes.length > 0 && rowCheckboxes.every(function (item) { return item.checked; });
-            syncBulkSelection();
-        });
-    });
-
-    const assignModalController = window.ModalKit ? window.ModalKit.bind(assignModal) : null;
-    const editModalController = window.ModalKit ? window.ModalKit.bind(editModal) : null;
-    const deleteModalController = window.ModalKit && deleteModal ? window.ModalKit.bind(deleteModal) : null;
-
-    const syncEditCloseReasonVisibility = function () {
-        if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
-        const isClosed = editStatusSelect.value === 'closed';
-        editCloseReasonWrap.classList.toggle('hidden', !isClosed);
-        editCloseReasonInput.required = isClosed;
-        if (!isClosed) {
-            editCloseReasonInput.value = '';
-        }
-    };
-
-    if (editStatusSelect) {
-        editStatusSelect.addEventListener('change', syncEditCloseReasonVisibility);
-    }
-
-    document.querySelectorAll('.js-open-assign-modal').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const ticketId = button.dataset.ticketId;
-            if (!ticketId || !assignForm) return;
-
-            assignForm.action = assignRouteTemplate.replace('__TICKET__', ticketId);
-            if (assignTicketText) {
-                assignTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
-            }
-            if (assignSelect) {
-                assignSelect.value = button.dataset.assignedTo || '';
-            }
-            if (assignModalController) assignModalController.open();
-        });
-    });
-
-    document.querySelectorAll('.js-open-edit-modal').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const ticketId = button.dataset.ticketId;
-            if (!ticketId || !editForm) return;
-
-            editForm.action = quickUpdateRouteTemplate.replace('__TICKET__', ticketId);
-            if (editTicketText) {
-                editTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
-            }
-            if (editAssignedSelect) editAssignedSelect.value = button.dataset.assignedTo || '';
-            if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
-            if (editCloseReasonInput) editCloseReasonInput.value = '';
-            if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
-            if (editStatusSelect) {
-                const closeAllowed = button.dataset.canCloseNow === '1';
-                const closedOption = editStatusSelect.querySelector('option[value="closed"]');
-                if (closedOption) {
-                    closedOption.disabled = !closeAllowed;
-                    closedOption.textContent = closeAllowed ? 'Closed' : 'Closed (after 24h)';
-                }
-                if (!closeAllowed && editStatusSelect.value === 'closed') {
-                    editStatusSelect.value = button.dataset.status || 'resolved';
-                }
-                if (editCloseHint) {
-                    if (closeAllowed) {
-                        editCloseHint.classList.add('hidden');
-                        editCloseHint.textContent = '';
-                    } else {
-                        const closeAvailableAt = button.dataset.closeAvailableAt || 'the 24-hour window after resolution';
-                        editCloseHint.classList.remove('hidden');
-                        editCloseHint.textContent = 'Close is available on ' + closeAvailableAt + '.';
-                    }
-                }
-            }
-            syncEditCloseReasonVisibility();
-
-            if (editDeleteButton) {
-                editDeleteButton.dataset.ticketId = ticketId;
-                editDeleteButton.dataset.ticketNumber = button.dataset.ticketNumber || '';
-            }
-            if (editModalController) editModalController.open();
-        });
-    });
-
-    if (editDeleteButton) {
-        editDeleteButton.addEventListener('click', function () {
-            const ticketId = editDeleteButton.dataset.ticketId;
-            if (!ticketId || !deleteForm) return;
-            deleteForm.action = deleteRouteTemplate.replace('__TICKET__', ticketId);
-            if (deleteTicketText) {
-                deleteTicketText.textContent = 'Ticket #' + (editDeleteButton.dataset.ticketNumber || '');
-            }
-            if (editModalController) editModalController.close();
-            if (deleteModalController) deleteModalController.open();
-        });
-    }
-
-    if (bulkActionSelect) {
-        bulkActionSelect.addEventListener('change', syncBulkActionFields);
-    }
-
-    if (bulkStatus) {
-        bulkStatus.addEventListener('change', syncBulkActionFields);
-    }
-
-    if (bulkClearButton) {
-        bulkClearButton.addEventListener('click', function () {
-            if (selectAll) {
-                selectAll.checked = false;
-            }
-            rowCheckboxes.forEach(function (checkbox) {
-                checkbox.checked = false;
-            });
-            syncBulkSelection();
-        });
-    }
-
-    if (bulkDeleteButton && bulkActionForm && bulkActionSelect) {
-        bulkDeleteButton.addEventListener('click', function () {
-            if (selectedTicketIds().length === 0) {
-                window.alert('Select at least one ticket before deleting.');
-                return;
-            }
-
-            bulkActionSelect.value = 'delete';
-            syncBulkActionFields();
-            bulkActionForm.requestSubmit();
-        });
-    }
-
-    if (bulkActionForm) {
-        bulkActionForm.addEventListener('submit', function (event) {
-            const selectedIds = selectedTicketIds();
-            if (selectedIds.length === 0) {
-                event.preventDefault();
-                window.alert('Select at least one ticket before applying a bulk action.');
-                return;
-            }
-
-            if (bulkSelectedIds) {
-                bulkSelectedIds.innerHTML = '';
-                selectedIds.forEach(function (id) {
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'selected_ids[]';
-                    hiddenInput.value = id;
-                    bulkSelectedIds.appendChild(hiddenInput);
-                });
-            }
-
-            const action = bulkActionSelect ? bulkActionSelect.value : '';
-            if (action === 'delete') {
-                if (!window.confirm('Delete selected tickets? This action cannot be undone.')) {
-                    event.preventDefault();
-                    return;
-                }
-            }
-
-            if (action === 'merge') {
-                if (!window.confirm('Merge selected tickets into the oldest selected ticket?')) {
-                    event.preventDefault();
-                    return;
-                }
-            }
-        });
-    }
-
-    const hasOpenModal = function () {
-        return [assignModal, editModal, deleteModal].some(function (modal) {
-            return modal && !modal.classList.contains('hidden');
-        });
-    };
-
-    const pollTicketListSnapshot = async function () {
-        if (!snapshotToken || document.hidden || hasOpenModal()) return;
-
-        const params = new URLSearchParams(window.location.search);
-        params.set('heartbeat', '1');
-
-        try {
-            const response = await fetch(routeBase + '?' + params.toString(), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            if (!response.ok) return;
-
-            const payload = await response.json();
-            if (!payload || !payload.token) return;
-
-            if (payload.token !== snapshotToken) {
-                window.location.reload();
-                return;
-            }
-
-            snapshotToken = payload.token;
-        } catch (error) {
-        }
-    };
-
-    if (snapshotToken) {
-        window.setInterval(pollTicketListSnapshot, 10000);
-    }
-
-    syncEditCloseReasonVisibility();
-    syncBulkActionFields();
-    syncBulkSelection();
-});
-</script>
 @endsection

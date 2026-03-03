@@ -129,7 +129,7 @@
         ->all();
 @endphp
 
-<div class="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-8" data-admin-reports-page>
     <div class="panel mb-6 overflow-hidden">
         <div class="flex flex-col gap-5 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -148,7 +148,7 @@
                     <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                     <div>
                         <label for="month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reporting Period</label>
-                        <select id="month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
+                        <select id="month" name="month" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">
                             @foreach($monthOptions as $option)
                                 <option value="{{ $option['key'] }}" {{ $selectedMonthKey === $option['key'] ? 'selected' : '' }}>
                                     {{ $option['label'] }}
@@ -258,8 +258,8 @@
                                     };
                                     $statusTab = in_array($statusFilter, ['resolved', 'closed'], true) ? 'history' : 'tickets';
                                     $statusLink = $statusFilter
-                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => $statusTab, 'status' => $statusFilter, 'include_closed' => 1]))
-                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1]));
+                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => $statusTab, 'status' => $statusFilter]))
+                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets']));
                                 @endphp
                                 <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
@@ -323,7 +323,6 @@
                                     $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
                                     $categoryLink = route('admin.tickets.index', array_merge($ticketHistoryScopeParams, [
                                         'tab' => 'tickets',
-                                        'include_closed' => 1,
                                         'category_bucket' => $categoryBucket,
                                     ]));
                                 @endphp
@@ -394,8 +393,8 @@
                                         default => null,
                                     };
                                     $priorityLink = $priorityFilter
-                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1, 'priority' => $priorityFilter]))
-                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'include_closed' => 1]));
+                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'priority' => $priorityFilter]))
+                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets']));
                                 @endphp
                                 <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
@@ -429,7 +428,7 @@
                         <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                         <div>
                             <label for="monthly-focus-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Focus Month</label>
-                                <select id="monthly-focus-month" name="month" onchange="this.form.submit()" class="form-input min-w-[190px] py-2 text-sm">
+                                <select id="monthly-focus-month" name="month" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">
                                     @foreach($monthOptions as $option)
                                         <option value="{{ $option['key'] }}" {{ $monthlyPerformanceFocusMonthKey === $option['key'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
@@ -511,7 +510,7 @@
                             @endif
                             <div>
                                 <label for="daily-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
-                                <select id="daily-month" name="daily_month" class="form-input min-w-[170px] py-2 text-sm" onchange="this.form.submit()">
+                                <select id="daily-month" name="daily_month" data-auto-submit-change class="form-input min-w-[170px] py-2 text-sm">
                                     @foreach($monthOptions as $option)
                                         <option value="{{ $option['key'] }}" {{ $dailyMonthKey === $option['key'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
@@ -521,7 +520,7 @@
                             </div>
                             <div>
                                 <label for="daily-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Day</label>
-                                <select id="daily-date" name="daily_date" class="form-input min-w-[190px] py-2 text-sm" onchange="this.form.submit()">
+                                <select id="daily-date" name="daily_date" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">
                                     <option value="all" {{ $dailySelectedDateValue === 'all' ? 'selected' : '' }}>
                                         All days in {{ $monthOptions->firstWhere('key', $dailyMonthKey)['label'] ?? 'selected month' }}
                                     </option>
@@ -680,152 +679,3 @@
 </div>
 @endsection
 
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const modal = document.getElementById('volume-chart-modal');
-    const modalTitle = document.getElementById('volume-chart-modal-title');
-    const modalContent = document.getElementById('volume-chart-modal-content');
-    const openButtons = document.querySelectorAll('.js-open-volume-chart');
-
-    if (!modal || !modalTitle || !modalContent || openButtons.length === 0) {
-        return;
-    }
-
-    const syncModalTheme = function () {
-        const hasDarkTheme = Array.from(document.querySelectorAll('.theme-dark')).some(function (node) {
-            return node !== modal && !modal.contains(node);
-        });
-        modal.classList.toggle('theme-dark', hasDarkTheme);
-    };
-
-    // Keep modal fixed to viewport even if the page container is transformed.
-    if (modal.parentElement !== document.body) {
-        document.body.appendChild(modal);
-    }
-    syncModalTheme();
-
-    const modalController = window.ModalKit ? window.ModalKit.bind(modal) : null;
-    const sourceChartHeight = 192; // h-48
-    const enlargedChartHeight = 416; // h-[26rem]
-    const barScale = enlargedChartHeight / sourceChartHeight;
-
-    const fallbackOpen = function () {
-        modal.classList.remove('hidden');
-        requestAnimationFrame(function () {
-            modal.classList.add('is-open');
-        });
-    };
-
-    const fallbackClose = function () {
-        modal.classList.remove('is-open');
-        window.setTimeout(function () {
-            modal.classList.add('hidden');
-            modalContent.innerHTML = '';
-        }, 180);
-    };
-    const closeModal = function () {
-        if (modalController) {
-            modalController.close();
-            window.setTimeout(function () {
-                modalContent.innerHTML = '';
-            }, 180);
-            return;
-        }
-
-        fallbackClose();
-    };
-
-    const tuneModalChartLayout = function (clone) {
-        const chartArea = clone.querySelector('.h-48');
-        if (chartArea) {
-            chartArea.classList.remove('h-48', 'overflow-x-auto');
-            chartArea.classList.add('h-[26rem]', 'overflow-hidden');
-        }
-
-        const pieCharts = clone.querySelectorAll('.js-total-pie-chart');
-        pieCharts.forEach(function (pie) {
-            pie.classList.remove('h-40', 'w-40', 'h-44', 'w-44');
-            pie.classList.add('h-72', 'w-72');
-        });
-
-            const charts = clone.querySelectorAll('.js-volume-bars');
-            charts.forEach(function (chart) {
-                chart.classList.remove('min-w-[760px]', 'min-w-[720px]', 'pb-6');
-                chart.classList.add('w-full', 'min-w-0', 'justify-between', 'pb-10');
-
-                const groups = chart.querySelectorAll('.group');
-                groups.forEach(function (group) {
-                    group.classList.remove('min-w-[16px]', 'min-w-[34px]');
-                    group.classList.add('flex-1', 'min-w-0');
-                });
-
-                const bars = chart.querySelectorAll('.js-volume-bar');
-                bars.forEach(function (bar) {
-                    const originalHeight = Number.parseFloat(bar.style.height || '0');
-                    if (!Number.isFinite(originalHeight) || originalHeight <= 0) {
-                        return;
-                    }
-                    const scaledHeight = Math.round(originalHeight * barScale);
-                    bar.style.height = `${Math.min(340, Math.max(8, scaledHeight))}px`;
-                });
-
-                const labels = chart.querySelectorAll('span.text-\\[10px\\]');
-                labels.forEach(function (label) {
-                    label.classList.add('text-xs');
-                });
-            });
-        };
-
-    openButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-            const sourceId = button.dataset.chartSource || '';
-            const source = document.getElementById(sourceId);
-            if (!source) {
-                return;
-            }
-
-            syncModalTheme();
-            modalTitle.textContent = button.dataset.chartTitle || 'Volume Chart';
-            modalContent.innerHTML = '';
-
-            const clone = source.cloneNode(true);
-            clone.removeAttribute('id');
-            tuneModalChartLayout(clone);
-
-            modalContent.appendChild(clone);
-
-            if (modalController) {
-                modalController.open();
-                return;
-            }
-
-            fallbackOpen();
-        });
-    });
-
-    const closeButtons = modal.querySelectorAll('[data-modal-close="volume-chart"]');
-    closeButtons.forEach(function (button) {
-        button.addEventListener('click', closeModal);
-    });
-
-    modal.addEventListener('click', function (event) {
-        if (modal.classList.contains('hidden')) {
-            return;
-        }
-
-        if (event.target.closest('.app-modal-panel')) {
-            return;
-        }
-
-        closeModal();
-    });
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
-        }
-    });
-});
-</script>
-@endpush

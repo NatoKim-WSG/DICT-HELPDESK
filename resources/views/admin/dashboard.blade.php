@@ -3,9 +3,12 @@
 @section('title', ($dashboardTitle ?? 'Support Dashboard') . ' - iOne Resources Inc.')
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8"
+    data-admin-dashboard-page
+    data-heartbeat-url="{{ route('admin.dashboard', absolute: false) }}"
+    data-snapshot-token="{{ $liveSnapshotToken ?? '' }}">
     @php
-        $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'include_closed' => 1]);
+        $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
         $openTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
         $attentionTicketsUrl = route('admin.tickets.index', ['tab' => 'attention']);
         $urgentTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'priority' => 'urgent']);
@@ -179,46 +182,4 @@
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const initialToken = @json($liveSnapshotToken ?? '');
-    if (!initialToken) return;
-
-    const heartbeatUrl = new URL(@json(route('admin.dashboard')), window.location.origin);
-    heartbeatUrl.searchParams.set('heartbeat', '1');
-    let activeToken = initialToken;
-    let checking = false;
-
-    const pollSnapshot = async function () {
-        if (checking || document.hidden) return;
-        checking = true;
-
-        try {
-            const response = await fetch(heartbeatUrl.toString(), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-
-            if (!response.ok) return;
-            const payload = await response.json();
-            if (!payload || !payload.token) return;
-
-            if (payload.token !== activeToken) {
-                window.location.reload();
-                return;
-            }
-
-            activeToken = payload.token;
-        } catch (error) {
-        } finally {
-            checking = false;
-        }
-    };
-
-    window.setInterval(pollSnapshot, 10000);
-});
-</script>
 @endsection

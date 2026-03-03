@@ -3,7 +3,7 @@
 @section('title', 'Create Ticket - iOne Resources Ticketing')
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-client-ticket-create-page>
     <div class="mb-8">
         <nav class="flex" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-4">
@@ -237,38 +237,4 @@
     </div>
 </div>
 
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('ticket-create-form');
-    if (!form) return;
-
-    const fields = [
-        document.getElementById('province'),
-        document.getElementById('municipality'),
-        document.getElementById('subject'),
-    ].filter(Boolean);
-
-    const normalizeLeadingUppercase = function (value) {
-        const trimmed = String(value || '').trim();
-        if (trimmed.length === 0) return '';
-        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-    };
-
-    const normalizeField = function (field) {
-        field.value = normalizeLeadingUppercase(field.value);
-    };
-
-    fields.forEach(function (field) {
-        field.addEventListener('blur', function () {
-            normalizeField(field);
-        });
-    });
-
-    form.addEventListener('submit', function () {
-        fields.forEach(normalizeField);
-    });
-});
-</script>
-@endpush
 @endsection

@@ -729,7 +729,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Visible Technical');
     }
 
-    public function test_monthly_completed_and_open_counts_include_closed_tickets_correctly(): void
+    public function test_monthly_completed_and_open_counts_handle_closed_tickets_correctly(): void
     {
         config(['legal.require_acceptance' => false]);
 

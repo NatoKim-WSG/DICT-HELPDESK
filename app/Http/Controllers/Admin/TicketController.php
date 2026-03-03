@@ -12,10 +12,10 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -23,6 +23,8 @@ use Illuminate\Validation\Rule;
 class TicketController extends Controller
 {
     use InteractsWithTicketReplies;
+
+    private const CLOSED_REVERT_WINDOW_DAYS = 7;
 
     public function __construct(
         private TicketEmailAlertService $ticketEmailAlerts,
@@ -32,9 +34,6 @@ class TicketController extends Controller
     public function index(Request $request)
     {
         $activeTab = $request->string('tab')->toString();
-        if ($activeTab === 'scheduled') {
-            $activeTab = 'attention';
-        }
         if (! in_array($activeTab, ['tickets', 'attention', 'history'], true)) {
             $activeTab = 'tickets';
         }
@@ -42,10 +41,12 @@ class TicketController extends Controller
         if ($selectedStatus === '') {
             $selectedStatus = 'all';
         }
-        if (! in_array($selectedStatus, array_merge(['all'], Ticket::STATUSES), true)) {
+        $allowedStatuses = $activeTab === 'history'
+            ? array_merge(['all'], Ticket::CLOSED_STATUSES)
+            : array_merge(['all'], Ticket::OPEN_STATUSES);
+        if (! in_array($selectedStatus, $allowedStatuses, true)) {
             $selectedStatus = 'all';
         }
-        $includeClosed = $request->boolean('include_closed');
         $createdDateRange = $this->resolveCreatedDateRange($request);
 
         $query = $this->scopedTicketQueryForCurrentUser()
@@ -56,8 +57,8 @@ class TicketController extends Controller
         } elseif ($activeTab === 'attention') {
             $query->whereNotIn('status', Ticket::CLOSED_STATUSES)
                 ->where('created_at', '<=', now()->subHours(16));
-        } elseif ($selectedStatus === 'all' && ! $includeClosed) {
-            $query->whereNotIn('status', Ticket::CLOSED_STATUSES);
+        } else {
+            $query->whereIn('status', Ticket::OPEN_STATUSES);
         }
 
         $query
@@ -105,7 +106,7 @@ class TicketController extends Controller
                     ->orWhereHas('user', function ($userQuery) use ($pattern) {
                         $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
                             ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
-                });
+                    });
             });
         });
         if ($createdDateRange !== null) {
@@ -279,6 +280,11 @@ class TicketController extends Controller
 
         if ($previousStatus === $nextStatus) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
+        }
+
+        $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        if ($reopenGateError !== null) {
+            return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
         if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
@@ -527,6 +533,11 @@ class TicketController extends Controller
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
+        $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        if ($reopenGateError !== null) {
+            return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
+        }
+
         if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
             $closeGateError = $this->closeStatusGateErrorForTicket($ticket);
             if ($closeGateError !== null) {
@@ -730,6 +741,13 @@ class TicketController extends Controller
                         return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
                     }
                 }
+            } else {
+                foreach ($tickets as $candidateTicket) {
+                    $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
+                    if ($reopenGateError !== null) {
+                        return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
+                    }
+                }
             }
 
             $tickets->each(function (Ticket $ticket) use ($newStatus, $closeReason) {
@@ -861,6 +879,26 @@ class TicketController extends Controller
         $closeAvailableAt = $ticket->resolved_at->copy()->addDay();
         if (now()->lt($closeAvailableAt)) {
             return "Ticket {$ticket->ticket_number} can be closed on ".$closeAvailableAt->format('M j, Y \\a\\t g:i A').'.';
+        }
+
+        return null;
+    }
+
+    private function reopenClosedStatusGateErrorForTicket(Ticket $ticket, ?string $nextStatus): ?string
+    {
+        if ($ticket->status !== 'closed' || $nextStatus === null || $nextStatus === 'closed') {
+            return null;
+        }
+
+        if (! $ticket->closed_at) {
+            return null;
+        }
+
+        $reopenDeadline = $ticket->closed_at->copy()->addDays(self::CLOSED_REVERT_WINDOW_DAYS);
+        if (now()->gt($reopenDeadline)) {
+            return "Ticket {$ticket->ticket_number} can no longer be reverted because it was closed more than "
+                .self::CLOSED_REVERT_WINDOW_DAYS
+                .' days ago.';
         }
 
         return null;

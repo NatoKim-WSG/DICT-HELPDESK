@@ -34,7 +34,7 @@ class TicketController extends Controller
 
         $allowedStatuses = $activeTab === 'history'
             ? array_merge(['all'], Ticket::CLOSED_STATUSES)
-            : array_merge(['all', 'open_group'], Ticket::STATUSES);
+            : array_merge(['all', 'open_group'], Ticket::OPEN_STATUSES);
 
         $selectedStatus = trim($request->string('status')->toString());
         if ($selectedStatus === '') {
@@ -49,6 +49,8 @@ class TicketController extends Controller
 
         if ($activeTab === 'history') {
             $query->whereIn('status', Ticket::CLOSED_STATUSES);
+        } else {
+            $query->whereIn('status', Ticket::OPEN_STATUSES);
         }
 
         $query

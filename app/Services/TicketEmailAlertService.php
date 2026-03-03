@@ -307,4 +307,3 @@ class TicketEmailAlertService
         return $sentCount;
     }
 }
-

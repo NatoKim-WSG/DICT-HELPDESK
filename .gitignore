@@ -34,3 +34,5 @@ yarn-error.log
 /.idea
 /.vscode
 /database/database.sqlite
+/playwright-report
+/test-results

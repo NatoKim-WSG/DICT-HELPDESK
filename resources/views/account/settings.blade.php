@@ -16,7 +16,7 @@
         : route('client.dashboard');
 @endphp
 
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-account-settings-page>
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="font-display text-3xl font-semibold text-slate-900">Account Settings</h1>
@@ -235,27 +235,5 @@
             </button>
         </div>
     </form>
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const peekButtons = document.querySelectorAll('[data-password-peek]');
-
-        peekButtons.forEach(function (button) {
-            button.addEventListener('click', function () {
-                const selector = button.getAttribute('data-password-peek');
-                if (!selector) return;
-
-                const input = document.querySelector(selector);
-                if (!input || input.type !== 'password') return;
-
-                input.type = 'text';
-
-                window.setTimeout(function () {
-                    input.type = 'password';
-                }, 1000);
-            });
-        });
-    });
-    </script>
 </div>
 @endsection
-

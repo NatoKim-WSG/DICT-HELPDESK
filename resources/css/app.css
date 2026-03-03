@@ -435,11 +435,55 @@
     }
 
     .ticket-checkbox {
-        @apply h-4 w-4 rounded-md border border-slate-400 bg-white text-[#0f8d88] shadow-sm transition focus:ring-2 focus:ring-[#14b8a6]/40 focus:ring-offset-0;
+        @apply h-4 w-4 rounded-md border border-slate-400 bg-white text-[#0f8d88] shadow-sm;
+        -webkit-appearance: none;
+        appearance: none;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        vertical-align: middle;
+        border-width: 1.5px;
+        cursor: pointer;
+        transition:
+            border-color var(--motion-duration-fast) var(--motion-ease-standard),
+            background-color var(--motion-duration-fast) var(--motion-ease-standard),
+            box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
+            transform var(--motion-duration-fast) var(--motion-ease-standard);
+    }
+
+    .ticket-checkbox::after {
+        content: '';
+        width: 0.28rem;
+        height: 0.56rem;
+        border: 2px solid #ffffff;
+        border-top: 0;
+        border-left: 0;
+        transform: rotate(45deg) scale(0);
+        transform-origin: center;
+        transition: transform var(--motion-duration-fast) var(--motion-ease-standard);
     }
 
     .ticket-checkbox:hover {
         @apply border-[#0f8d88];
+    }
+
+    .ticket-checkbox:focus-visible {
+        @apply ring-2 ring-[#14b8a6]/45 ring-offset-0 outline-none;
+    }
+
+    .ticket-checkbox:checked {
+        @apply border-[#0f8d88] bg-[#0f8d88];
+    }
+
+    .ticket-checkbox:checked::after {
+        transform: rotate(45deg) scale(1);
+    }
+
+    .ticket-checkbox:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
     }
 
     .assigned-tech-btn {
@@ -1017,18 +1061,28 @@
     }
 
     .theme-dark .ticket-checkbox {
-        background-color: #20262f !important;
-        border-color: #4a5565 !important;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), inset 0 0 0 1px rgba(0, 0, 0, 0.35) !important;
+        background-color: #1b2430 !important;
+        border-color: #8fa3be !important;
+        box-shadow:
+            0 0 0 1px rgba(15, 23, 42, 0.58),
+            inset 0 0 0 1px rgba(0, 0, 0, 0.28) !important;
     }
 
     .theme-dark .ticket-checkbox:hover {
-        border-color: #5f6f84 !important;
+        border-color: #abc0da !important;
     }
 
     .theme-dark .ticket-checkbox:checked {
         background-color: #14b8a6 !important;
         border-color: #14b8a6 !important;
+    }
+
+    .theme-dark .ticket-checkbox:checked::after {
+        border-color: #ffffff;
+    }
+
+    .theme-dark .app-modal-overlay {
+        background-color: rgba(2, 6, 23, 0.72) !important;
     }
 
     .theme-dark .assigned-tech-btn--assigned {

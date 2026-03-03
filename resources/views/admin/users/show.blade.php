@@ -3,7 +3,7 @@
 @section('title', 'User Details - iOne Resources Inc.')
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-page data-users-base-url="{{ route('admin.users.index', absolute: false) }}">
     <div class="mb-8">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
@@ -86,6 +86,18 @@
                             <dt class="text-sm font-medium text-gray-500">Last updated</dt>
                             <dd class="mt-1 text-sm text-gray-900">{{ $user->updated_at->format('F j, Y \a\t g:i A') }}</dd>
                         </div>
+                        @if($user->isClient() && auth()->user()->isShadow())
+                            <div class="sm:col-span-2 xl:col-span-3">
+                                <dt class="text-sm font-medium text-gray-500">Client Notes</dt>
+                                <dd class="mt-1 text-sm text-gray-900">
+                                    @if(filled($user->client_notes))
+                                        {!! nl2br(e($user->client_notes)) !!}
+                                    @else
+                                        No notes added.
+                                    @endif
+                                </dd>
+                            </div>
+                        @endif
                     </dl>
                 </div>
             </div>
@@ -256,14 +268,21 @@
                     <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                         <div class="space-y-3">
                             @if($canToggleAccount)
-                                <button onclick="toggleUserStatus({{ $user->id }}, {{ $user->is_active ? 'false' : 'true' }}, @js($user->name))"
-                                        class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md">
+                                <button
+                                        type="button"
+                                        class="js-toggle-user-status w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                        data-user-id="{{ $user->id }}"
+                                        data-user-name="{{ $user->name }}"
+                                        data-new-status="{{ $user->is_active ? '0' : '1' }}">
                                     {{ $user->is_active ? 'Deactivate Account' : 'Activate Account' }}
                                 </button>
                             @endif
                             @if($canDeleteAccount)
-                                <button onclick="deleteUser({{ $user->id }})"
-                                        class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md">
+                                <button
+                                        type="button"
+                                        class="delete-user-btn w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md"
+                                        data-user-id="{{ $user->id }}"
+                                        data-user-name="{{ $user->name }}">
                                     Delete Account
                                 </button>
                             @endif
@@ -276,30 +295,31 @@
 </div>
 
 <!-- Account Status Modal -->
-<div id="statusConfirmModal" class="app-modal-root app-modal-overlay fixed inset-0 z-50 hidden bg-gray-600 bg-opacity-50">
-    <div class="flex min-h-full items-center justify-center p-4">
-    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
-        <div class="mt-3 text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100">
+<div id="statusConfirmModal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="status"></div>
+    <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+        <div class="text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
                 <svg class="h-6 w-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                 </svg>
             </div>
-            <h3 id="statusModalTitle" class="text-lg font-medium text-gray-900 mt-2">Deactivate Account</h3>
+            <h3 id="statusModalTitle" class="mt-2 text-lg font-medium text-gray-900">Deactivate Account</h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500">
                     <span id="statusPromptText">Are you sure you want to deactivate</span> <strong id="statusTargetUserName"></strong>?
                 </p>
                 <label class="mt-3 inline-flex items-center text-sm text-gray-700">
-                    <input id="statusConfirmCheckbox" type="checkbox" class="mr-2 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                    <input id="statusConfirmCheckbox" type="checkbox" class="mr-2 ticket-checkbox">
                     <span id="statusCheckboxText">I understand this user will not be able to sign in.</span>
                 </label>
             </div>
             <div class="items-center px-4 py-3">
-                <button id="confirmStatusChange" type="button" class="inline-flex w-full items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-300">
+                <button id="confirmStatusChange" type="button" class="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60" disabled>
                     Deactivate Account
                 </button>
-                <button id="cancelStatusChange" class="mt-3 px-4 py-2 bg-white text-gray-500 text-base font-medium rounded-md w-full shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <button id="cancelStatusChange" type="button" class="btn-secondary mt-3 w-full">
                     Cancel
                 </button>
             </div>
@@ -314,30 +334,31 @@
 </div>
 
 <!-- Deactivate User Modal -->
-<div id="deleteModal" class="app-modal-root app-modal-overlay fixed inset-0 z-50 hidden bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-    <div class="flex min-h-full items-center justify-center p-4">
-    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-md border bg-white p-5 shadow-lg">
-        <div class="mt-3 text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+<div id="deleteModal" class="app-modal-root fixed inset-0 z-50 hidden">
+    <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="delete"></div>
+    <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
+    <div class="app-modal-panel relative mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+        <div class="text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
                 <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-medium text-gray-900 mt-2">Delete User</h3>
+            <h3 class="mt-2 text-lg font-medium text-gray-900">Delete User</h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500">
-                    Are you sure you want to delete this user? Ticket history will be preserved.
+                    Are you sure you want to delete <strong id="deleteUserName"></strong>? Ticket history will be preserved.
                 </p>
                 <label class="mt-3 inline-flex items-center text-sm text-gray-700">
-                    <input id="deleteConfirmCheckbox" type="checkbox" required aria-required="true" class="mr-2 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                    <input id="deleteConfirmCheckbox" type="checkbox" required aria-required="true" class="mr-2 ticket-checkbox">
                     I understand this action is permanent.
                 </label>
             </div>
             <div class="items-center px-4 py-3">
-                <button id="confirmDelete" disabled class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60">
+                <button id="confirmDelete" disabled class="btn-danger w-full disabled:cursor-not-allowed disabled:opacity-60">
                     Delete
                 </button>
-                <button onclick="closeDeleteModal()" class="mt-3 px-4 py-2 bg-white text-gray-500 text-base font-medium rounded-md w-full shadow-sm border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                <button id="cancelDelete" type="button" class="btn-secondary mt-3 w-full">
                     Cancel
                 </button>
             </div>
@@ -346,280 +367,6 @@
     </div>
 </div>
 
-<script>
-const deleteConfirmCheckbox = document.getElementById('deleteConfirmCheckbox');
-const confirmDeleteButton = document.getElementById('confirmDelete');
-const deleteModal = document.getElementById('deleteModal');
-const statusConfirmCheckbox = document.getElementById('statusConfirmCheckbox');
-const confirmStatusButton = document.getElementById('confirmStatusChange');
-const statusModal = document.getElementById('statusConfirmModal');
-const statusNameSpan = document.getElementById('statusTargetUserName');
-const statusModalTitle = document.getElementById('statusModalTitle');
-const statusPromptText = document.getElementById('statusPromptText');
-const statusCheckboxText = document.getElementById('statusCheckboxText');
-const actionNotification = document.getElementById('actionNotification');
-const actionNotificationMessage = document.getElementById('actionNotificationMessage');
-const managedUserPasswordInput = document.getElementById('managedUserPassword');
-const toggleManagedUserPasswordButton = document.getElementById('toggleManagedUserPassword');
-let pendingStatusChange = null;
-let actionNotificationTimeout = null;
-const MODAL_TRANSITION_MS = 210;
-
-function syncBodyLock() {
-    const hasOpenModal = Boolean(document.querySelector('.app-modal-root.is-open:not(.hidden)'));
-    document.body.classList.toggle('overflow-hidden', hasOpenModal);
-}
-
-function showAnimatedModal(targetModal) {
-    if (!targetModal) return;
-
-    if (targetModal._closeTimer) {
-        clearTimeout(targetModal._closeTimer);
-        targetModal._closeTimer = null;
-    }
-
-    targetModal.classList.remove('hidden', 'is-closing');
-    requestAnimationFrame(function () {
-        targetModal.classList.add('is-open');
-    });
-    syncBodyLock();
-}
-
-function hideAnimatedModal(targetModal) {
-    if (!targetModal || targetModal.classList.contains('hidden')) {
-        syncBodyLock();
-        return;
-    }
-
-    targetModal.classList.remove('is-open');
-    targetModal.classList.add('is-closing');
-    targetModal._closeTimer = setTimeout(function () {
-        targetModal.classList.add('hidden');
-        targetModal.classList.remove('is-closing');
-        targetModal._closeTimer = null;
-        syncBodyLock();
-    }, MODAL_TRANSITION_MS);
-}
-
-function setStatusConfirmButtonTheme(isReactivation) {
-    if (!confirmStatusButton) return;
-
-    confirmStatusButton.classList.remove(
-        'bg-amber-600', 'hover:bg-amber-700', 'focus:ring-amber-300',
-        'bg-emerald-600', 'hover:bg-emerald-700', 'focus:ring-emerald-300'
-    );
-
-    if (isReactivation) {
-        confirmStatusButton.classList.add('bg-emerald-600', 'hover:bg-emerald-700', 'focus:ring-emerald-300');
-    } else {
-        confirmStatusButton.classList.add('bg-amber-600', 'hover:bg-amber-700', 'focus:ring-amber-300');
-    }
-}
-
-function showActionNotification(message, tone = 'warning') {
-    if (!actionNotification || !actionNotificationMessage) return;
-
-    actionNotificationMessage.textContent = message;
-    actionNotification.classList.remove('hidden');
-
-    actionNotification.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-800');
-    actionNotification.classList.remove('border-red-200', 'bg-red-50', 'text-red-700');
-
-    if (tone === 'error') {
-        actionNotification.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
-    } else {
-        actionNotification.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-800');
-    }
-
-    if (actionNotificationTimeout) clearTimeout(actionNotificationTimeout);
-    actionNotificationTimeout = setTimeout(function() {
-        actionNotification.classList.add('hidden');
-    }, 2600);
-}
-
-function deleteUser(userId) {
-    showAnimatedModal(deleteModal);
-
-    if (deleteConfirmCheckbox) {
-        deleteConfirmCheckbox.checked = false;
-    }
-    if (confirmDeleteButton) {
-        confirmDeleteButton.disabled = true;
-    }
-
-    document.getElementById('confirmDelete').onclick = function() {
-        if (!deleteConfirmCheckbox || !deleteConfirmCheckbox.checked) {
-            showActionNotification('Please check the confirmation box before deleting this account.');
-            return;
-        }
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/users/' + userId;
-
-        const methodField = document.createElement('input');
-        methodField.type = 'hidden';
-        methodField.name = '_method';
-        methodField.value = 'DELETE';
-
-        const tokenField = document.createElement('input');
-        tokenField.type = 'hidden';
-        tokenField.name = '_token';
-        tokenField.value = '{{ csrf_token() }}';
-
-        form.appendChild(methodField);
-        form.appendChild(tokenField);
-        document.body.appendChild(form);
-        form.submit();
-    };
-}
-
-function closeDeleteModal() {
-    hideAnimatedModal(deleteModal);
-    if (deleteConfirmCheckbox) {
-        deleteConfirmCheckbox.checked = false;
-    }
-    if (confirmDeleteButton) {
-        confirmDeleteButton.disabled = true;
-    }
-}
-
-if (deleteConfirmCheckbox && confirmDeleteButton) {
-    deleteConfirmCheckbox.addEventListener('change', function() {
-        confirmDeleteButton.disabled = !deleteConfirmCheckbox.checked;
-    });
-}
-
-function openStatusModal(userId, userName, newStatus) {
-    pendingStatusChange = { userId, newStatus };
-    const isReactivation = Boolean(newStatus);
-
-    if (statusNameSpan) {
-        statusNameSpan.textContent = userName || 'this user';
-    }
-    if (statusModalTitle) {
-        statusModalTitle.textContent = isReactivation ? 'Reactivate Account' : 'Deactivate Account';
-    }
-    if (statusPromptText) {
-        statusPromptText.textContent = isReactivation
-            ? 'Are you sure you want to reactivate'
-            : 'Are you sure you want to deactivate';
-    }
-    if (statusCheckboxText) {
-        statusCheckboxText.textContent = isReactivation
-            ? 'I understand this user will be able to sign in again.'
-            : 'I understand this user will not be able to sign in.';
-    }
-    if (statusConfirmCheckbox) {
-        statusConfirmCheckbox.checked = false;
-        statusConfirmCheckbox.className = isReactivation
-            ? 'mr-2 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500'
-            : 'mr-2 rounded border-gray-300 text-amber-600 focus:ring-amber-500';
-    }
-    if (confirmStatusButton) {
-        confirmStatusButton.textContent = isReactivation ? 'Reactivate Account' : 'Deactivate Account';
-        confirmStatusButton.disabled = false;
-        setStatusConfirmButtonTheme(isReactivation);
-    }
-    if (statusModal) {
-        showAnimatedModal(statusModal);
-    }
-}
-
-function closeStatusModal() {
-    pendingStatusChange = null;
-
-    if (statusConfirmCheckbox) {
-        statusConfirmCheckbox.checked = false;
-    }
-    if (statusModal) {
-        hideAnimatedModal(statusModal);
-    }
-}
-
-if (confirmStatusButton) {
-    confirmStatusButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (!pendingStatusChange || !statusConfirmCheckbox || !statusConfirmCheckbox.checked) {
-            showActionNotification('Please check the confirmation box before continuing.');
-            return;
-        }
-
-        performToggleUserStatus(pendingStatusChange.userId, pendingStatusChange.newStatus);
-        closeStatusModal();
-    });
-}
-
-const cancelStatusButton = document.getElementById('cancelStatusChange');
-if (cancelStatusButton) {
-    cancelStatusButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        closeStatusModal();
-    });
-}
-
-if (statusModal) {
-    statusModal.addEventListener('click', function(e) {
-        if (e.target === statusModal) {
-            closeStatusModal();
-        }
-    });
-}
-
-if (deleteModal) {
-    deleteModal.addEventListener('click', function(e) {
-        if (e.target === deleteModal) {
-            closeDeleteModal();
-        }
-    });
-}
-
-document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape') return;
-    closeDeleteModal();
-    closeStatusModal();
-});
-
-syncBodyLock();
-
-if (managedUserPasswordInput && toggleManagedUserPasswordButton) {
-    toggleManagedUserPasswordButton.addEventListener('click', function () {
-        const isMasked = managedUserPasswordInput.type === 'password';
-        managedUserPasswordInput.type = isMasked ? 'text' : 'password';
-        toggleManagedUserPasswordButton.textContent = isMasked ? 'Hide' : 'Show';
-        toggleManagedUserPasswordButton.setAttribute('aria-pressed', isMasked ? 'true' : 'false');
-    });
-}
-
-function performToggleUserStatus(userId, newStatus) {
-    fetch(`/admin/users/${userId}/toggle-status`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({
-            is_active: newStatus
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            showActionNotification(data.error || 'An error occurred while updating account status.', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showActionNotification('An error occurred while updating account status.', 'error');
-    });
-}
-
-function toggleUserStatus(userId, newStatus, userName = 'this user') {
-    openStatusModal(userId, userName, newStatus);
-}
-</script>
 @endsection
 
 

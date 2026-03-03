@@ -79,6 +79,58 @@ class ClientTicketHistoryTabTest extends TestCase
         $response->assertDontSee('History open ticket');
     }
 
+    public function test_client_tickets_tab_hides_resolved_and_closed_tickets_and_filters(): void
+    {
+        [$client, $category] = $this->createClientAndCategory();
+
+        Ticket::create($this->ticketPayload($client, $category, [
+            'subject' => 'Tickets open ticket',
+            'status' => 'open',
+            'ticket_number' => 'TK-TABOPEN1',
+        ]));
+
+        Ticket::create($this->ticketPayload($client, $category, [
+            'subject' => 'Tickets in progress ticket',
+            'status' => 'in_progress',
+            'ticket_number' => 'TK-TABPROG1',
+        ]));
+
+        Ticket::create($this->ticketPayload($client, $category, [
+            'subject' => 'Tickets resolved ticket',
+            'status' => 'resolved',
+            'ticket_number' => 'TK-TABRES1',
+        ]));
+
+        Ticket::create($this->ticketPayload($client, $category, [
+            'subject' => 'Tickets closed ticket',
+            'status' => 'closed',
+            'ticket_number' => 'TK-TABCLO1',
+        ]));
+
+        $ticketsResponse = $this->actingAs($client)->get(route('client.tickets.index', [
+            'tab' => 'tickets',
+        ]));
+
+        $ticketsResponse->assertOk();
+        $ticketsResponse->assertSee('Tickets open ticket');
+        $ticketsResponse->assertSee('Tickets in progress ticket');
+        $ticketsResponse->assertDontSee('Tickets resolved ticket');
+        $ticketsResponse->assertDontSee('Tickets closed ticket');
+        $ticketsResponse->assertDontSee('value="resolved"', false);
+        $ticketsResponse->assertDontSee('value="closed"', false);
+
+        $invalidStatusResponse = $this->actingAs($client)->get(route('client.tickets.index', [
+            'tab' => 'tickets',
+            'status' => 'resolved',
+        ]));
+
+        $invalidStatusResponse->assertOk();
+        $invalidStatusResponse->assertSee('Tickets open ticket');
+        $invalidStatusResponse->assertSee('Tickets in progress ticket');
+        $invalidStatusResponse->assertDontSee('Tickets resolved ticket');
+        $invalidStatusResponse->assertDontSee('Tickets closed ticket');
+    }
+
     private function createClientAndCategory(): array
     {
         config(['legal.require_acceptance' => false]);

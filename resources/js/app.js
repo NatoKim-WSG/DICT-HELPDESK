@@ -1,5 +1,18 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
+import './pages/admin-dashboard-page';
+import './pages/client-dashboard-page';
+import './pages/admin-reports-page';
+import './pages/admin-tickets-index-page';
+import './pages/admin-users-page';
+import './pages/admin-ticket-show-page';
+import './pages/client-ticket-show-page';
+import './pages/account-settings-page';
+import './pages/admin-users-create-page';
+import './pages/admin-users-edit-page';
+import './pages/client-ticket-create-page';
+import './pages/client-tickets-index-page';
+import './pages/app-layout-notifications-page';
 
 window.Alpine = Alpine;
 
@@ -74,6 +87,26 @@ Alpine.start();
                 }
             });
         });
+    });
+})();
+
+(() => {
+    document.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+            return;
+        }
+        if (target.dataset.autoSubmitChange === undefined) return;
+
+        const form = target.form || target.closest('form');
+        if (!form) return;
+
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+            return;
+        }
+
+        form.submit();
     });
 })();
 

@@ -14,7 +14,7 @@ class AdminTicketFilterConsistencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_ticket_filter_on_tickets_tab_can_select_resolved_and_closed_statuses(): void
+    public function test_admin_tickets_tab_hides_resolved_and_closed_statuses_and_results(): void
     {
         $supportUser = $this->createSupportUser();
         $category = $this->createCategory();
@@ -65,25 +65,33 @@ class AdminTicketFilterConsistencyTest extends TestCase
             'category_id' => $category->id,
         ]);
 
-        $resolvedResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+        $ticketsResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+        ]));
+
+        $ticketsResponse->assertOk();
+        $ticketsResponse->assertSee(route('admin.tickets.show', $openTicket), false);
+        $ticketsResponse->assertDontSee(route('admin.tickets.show', $resolvedTicket), false);
+        $ticketsResponse->assertDontSee(route('admin.tickets.show', $closedTicket), false);
+
+        $invalidStatusResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
             'tab' => 'tickets',
             'status' => 'resolved',
         ]));
 
-        $resolvedResponse->assertOk();
-        $resolvedResponse->assertSee(route('admin.tickets.show', $resolvedTicket), false);
-        $resolvedResponse->assertDontSee(route('admin.tickets.show', $closedTicket), false);
-        $resolvedResponse->assertDontSee(route('admin.tickets.show', $openTicket), false);
+        $invalidStatusResponse->assertOk();
+        $invalidStatusResponse->assertSee(route('admin.tickets.show', $openTicket), false);
+        $invalidStatusResponse->assertDontSee(route('admin.tickets.show', $resolvedTicket), false);
+        $invalidStatusResponse->assertDontSee(route('admin.tickets.show', $closedTicket), false);
 
-        $closedResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
-            'tab' => 'tickets',
-            'status' => 'closed',
+        $historyResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
         ]));
 
-        $closedResponse->assertOk();
-        $closedResponse->assertSee(route('admin.tickets.show', $closedTicket), false);
-        $closedResponse->assertDontSee(route('admin.tickets.show', $resolvedTicket), false);
-        $closedResponse->assertDontSee(route('admin.tickets.show', $openTicket), false);
+        $historyResponse->assertOk();
+        $historyResponse->assertSee(route('admin.tickets.show', $resolvedTicket), false);
+        $historyResponse->assertSee(route('admin.tickets.show', $closedTicket), false);
+        $historyResponse->assertDontSee(route('admin.tickets.show', $openTicket), false);
     }
 
     public function test_admin_ticket_filter_by_province_uses_ticket_location_fields(): void

@@ -3,7 +3,7 @@
 @section('title', 'Create User - iOne Resources Inc.')
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8">
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-create-page>
     <div class="mb-8">
         <div class="flex items-center">
             <a href="{{ route('admin.users.index') }}" class="text-gray-500 hover:text-gray-700 mr-4">
@@ -143,6 +143,28 @@
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
                         </div>
                     </div>
+
+                    @if(auth()->user()->isShadow())
+                        <div id="client-notes-wrap" class="hidden sm:col-span-2 xl:col-span-3">
+                            <label for="client_notes" class="block text-sm font-medium text-gray-700">
+                                Client Notes
+                            </label>
+                            <div class="mt-1">
+                                <textarea
+                                    name="client_notes"
+                                    id="client_notes"
+                                    rows="4"
+                                    class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('client_notes') border-red-300 @enderror"
+                                    placeholder="Optional internal notes for this client account"
+                                    disabled
+                                >{{ old('client_notes') }}</textarea>
+                            </div>
+                            <p class="mt-2 text-sm text-gray-500">Shadow-only note shown for client accounts.</p>
+                            @error('client_notes')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -154,39 +176,3 @@
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const roleSelect = document.getElementById('role');
-    const departmentSelect = document.getElementById('department');
-    const departmentHidden = document.getElementById('department_hidden');
-    const hint = document.getElementById('department-role-hint');
-
-    if (!roleSelect || !departmentSelect || !departmentHidden) return;
-
-    const syncDepartmentByRole = function () {
-        const role = roleSelect.value;
-        const isInternal = role === 'shadow' || role === 'admin' || role === 'super_user' || role === 'technical';
-
-        if (isInternal) {
-            departmentSelect.value = 'iOne';
-            departmentSelect.disabled = true;
-            departmentHidden.value = 'iOne';
-            departmentHidden.disabled = false;
-            hint.textContent = 'Internal users are automatically assigned to iOne.';
-            return;
-        }
-
-        departmentSelect.disabled = false;
-        departmentHidden.value = '';
-        departmentHidden.disabled = true;
-        hint.textContent = 'Select the client department.';
-    };
-
-    roleSelect.addEventListener('change', syncDepartmentByRole);
-    syncDepartmentByRole();
-});
-</script>
-@endpush
-

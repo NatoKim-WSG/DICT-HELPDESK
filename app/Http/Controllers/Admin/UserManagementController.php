@@ -137,6 +137,9 @@ class UserManagementController extends Controller
 
         $availableRoles = $this->availableRolesFor($user);
         $allowedDepartments = User::allowedDepartments();
+        $requestedRole = User::normalizeRole($request->string('role')->toString());
+        $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
+        $canManageClientNotes = $user->isShadow() && $willBeClientRole;
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -144,6 +147,9 @@ class UserManagementController extends Controller
             'phone' => 'required|string|max:20',
             'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
+            'client_notes' => $canManageClientNotes
+                ? 'nullable|string|max:2000'
+                : 'prohibited',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
@@ -161,6 +167,9 @@ class UserManagementController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'department' => $department,
+            'client_notes' => ($persistedRole === User::ROLE_CLIENT && $user->isShadow())
+                ? (trim($request->string('client_notes')->toString()) ?: null)
+                : null,
             'role' => $persistedRole,
             'password' => Hash::make($resolvedPassword),
             'is_active' => true,
@@ -392,6 +401,9 @@ class UserManagementController extends Controller
         $availableRoles = $this->availableRolesFor($currentUser);
         $allowedDepartments = User::allowedDepartments();
         $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
+        $requestedRole = User::normalizeRole($request->string('role')->toString());
+        $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
+        $canManageClientNotes = $currentUser->isShadow() && $willBeClientRole;
 
         $validationRules = [
             'name' => 'required|string|max:255',
@@ -399,6 +411,9 @@ class UserManagementController extends Controller
             'phone' => 'nullable|string|max:20',
             'department' => ['required', Rule::in($allowedDepartments)],
             'role' => ['required', Rule::in($availableRoles)],
+            'client_notes' => $canManageClientNotes
+                ? 'nullable|string|max:2000'
+                : 'prohibited',
             'password' => $canEditPassword
                 ? 'nullable|string|min:8|confirmed'
                 : 'prohibited',
@@ -424,6 +439,7 @@ class UserManagementController extends Controller
                 || (string) $request->string('phone')->toString() !== (string) ($user->phone ?? '')
                 || (string) $department !== (string) $user->department
                 || (string) $persistedRole !== (string) $user->normalizedRole()
+                || ($canManageClientNotes && (string) trim($request->string('client_notes')->toString()) !== (string) ($user->client_notes ?? ''))
                 || $request->boolean('is_active') !== (bool) $user->is_active
                 || $request->filled('password')
             );
@@ -444,6 +460,14 @@ class UserManagementController extends Controller
             'is_active' => $request->boolean('is_active'),
             'is_profile_locked' => $requestedIsProfileLocked,
         ];
+
+        if ($persistedRole !== User::ROLE_CLIENT) {
+            $updateData['client_notes'] = null;
+        } elseif ($currentUser->isShadow()) {
+            $updateData['client_notes'] = trim($request->string('client_notes')->toString()) ?: null;
+        } else {
+            $updateData['client_notes'] = $user->client_notes;
+        }
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
@@ -757,11 +781,11 @@ class UserManagementController extends Controller
             : ['assigned_to' => $user->id];
 
         return [
-            'total_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets', 'include_closed' => 1])),
+            'total_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
             'open_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
             'closed_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'history'])),
             'assigned_tickets' => $showAssigned
-                ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id, 'include_closed' => 1])
+                ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id])
                 : null,
         ];
     }
@@ -910,5 +934,3 @@ class UserManagementController extends Controller
         return $path.$query;
     }
 }
-
-

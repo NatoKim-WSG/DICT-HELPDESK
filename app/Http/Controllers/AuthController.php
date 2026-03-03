@@ -243,4 +243,3 @@ class AuthController extends Controller
         return User::where('name', $loginInput);
     }
 }
-

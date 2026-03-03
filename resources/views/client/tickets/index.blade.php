@@ -12,13 +12,18 @@
     $historyTabUrl = route('client.tickets.index', array_merge($tabQuery, ['tab' => 'history']));
     $clearUrl = route('client.tickets.index', ['tab' => $activeTab]);
     $panelTitle = $isHistoryTab ? 'History' : 'Tickets';
-    $panelDescription = $isHistoryTab ? 'Closed and resolved tickets.' : 'All of your support requests.';
+    $panelDescription = $isHistoryTab ? 'Closed and resolved tickets.' : 'Open and active support requests.';
     $emptyTitle = $isHistoryTab ? 'No history tickets found' : 'No tickets found';
     $emptyDescription = $isHistoryTab
         ? 'Resolved and closed tickets will appear here.'
         : 'Try adjusting your filters.';
 @endphp
-<div class="mx-auto max-w-[1460px]">
+<div
+    class="mx-auto max-w-[1460px]"
+    data-client-tickets-index-page
+    data-route-base="{{ route('client.tickets.index', absolute: false) }}"
+    data-snapshot-token="{{ $liveSnapshotToken ?? '' }}"
+>
     <div class="mb-6">
         <h1 class="font-display text-4xl font-semibold text-slate-900">My Tickets</h1>
     </div>
@@ -69,8 +74,6 @@
                             <option value="open" {{ in_array($selectedStatus, ['open', 'open_group'], true) ? 'selected' : '' }}>Open</option>
                             <option value="in_progress" {{ $selectedStatus === 'in_progress' ? 'selected' : '' }}>In Progress</option>
                             <option value="pending" {{ $selectedStatus === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }}>Resolved</option>
-                            <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }}>Closed</option>
                         @endif
                     </select>
                 </div>
@@ -204,64 +207,4 @@
         @endif
     </section>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const initialSnapshotToken = @json($liveSnapshotToken ?? '');
-    if (!initialSnapshotToken) return;
-
-    const routeBase = @json(route('client.tickets.index'));
-    let snapshotToken = initialSnapshotToken;
-    let staleDetected = false;
-
-    const showRefreshPrompt = function () {
-        if (document.querySelector('.js-live-refresh-prompt')) return;
-
-        const prompt = document.createElement('div');
-        prompt.className = 'js-live-refresh-prompt mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800';
-        prompt.innerHTML = 'New ticket updates are available. <button type="button" class="ml-2 font-semibold underline js-live-refresh-now">Refresh now</button>';
-        const container = document.querySelector('.mx-auto.max-w-\\[1460px\\]');
-        if (!container) return;
-        container.prepend(prompt);
-
-        const refreshButton = prompt.querySelector('.js-live-refresh-now');
-        if (refreshButton) {
-            refreshButton.addEventListener('click', function () {
-                window.location.reload();
-            });
-        }
-    };
-
-    const pollTicketListSnapshot = async function () {
-        if (document.hidden || staleDetected) return;
-
-        const params = new URLSearchParams(window.location.search);
-        params.set('heartbeat', '1');
-
-        try {
-            const response = await fetch(routeBase + '?' + params.toString(), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            if (!response.ok) return;
-
-            const payload = await response.json();
-            if (!payload || !payload.token) return;
-
-            if (payload.token !== snapshotToken) {
-                staleDetected = true;
-                showRefreshPrompt();
-                return;
-            }
-
-            snapshotToken = payload.token;
-        } catch (error) {
-        }
-    };
-
-    window.setInterval(pollTicketListSnapshot, 30000);
-});
-</script>
 @endsection

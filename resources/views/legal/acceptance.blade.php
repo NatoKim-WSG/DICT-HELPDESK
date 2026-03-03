@@ -52,11 +52,11 @@
                 <button type="submit" class="btn-primary">
                     Accept and Continue
                 </button>
-                <a href="{{ route('logout', absolute: false) }}"
-                   onclick="event.preventDefault(); document.getElementById('legal-logout-form').submit();"
+                <button type="submit"
+                   form="legal-logout-form"
                    class="app-menu-link text-sm font-semibold text-slate-500 hover:text-slate-700">
                     Sign out
-                </a>
+                </button>
             </div>
         </form>
         <form id="legal-logout-form" action="{{ route('logout', absolute: false) }}" method="POST" class="hidden">

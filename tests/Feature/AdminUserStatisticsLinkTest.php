@@ -30,7 +30,6 @@ class AdminUserStatisticsLinkTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('User Statistics');
-        $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=tickets&amp;include_closed=1"', false);
         $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=tickets"', false);
         $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=history"', false);
         $response->assertDontSee('Assigned Tickets');
@@ -56,10 +55,6 @@ class AdminUserStatisticsLinkTest extends TestCase
         $response->assertOk();
         $response->assertSee('Assigned Tickets');
         $response->assertSee(
-            'href="'.e(route('admin.tickets.index')).'?assigned_to='.$technical->id.'&amp;tab=tickets&amp;include_closed=1"',
-            false
-        );
-        $response->assertSee(
             'href="'.e(route('admin.tickets.index')).'?assigned_to='.$technical->id.'&amp;tab=tickets"',
             false
         );
@@ -67,10 +62,7 @@ class AdminUserStatisticsLinkTest extends TestCase
             'href="'.e(route('admin.tickets.index')).'?assigned_to='.$technical->id.'&amp;tab=history"',
             false
         );
-        $response->assertSee(
-            'href="'.e(route('admin.tickets.index')).'?tab=tickets&amp;assigned_to='.$technical->id.'&amp;include_closed=1"',
-            false
-        );
+        $response->assertSee('href="'.e(route('admin.tickets.index')).'?tab=tickets&amp;assigned_to='.$technical->id.'"', false);
     }
 
     private function createUser(string $name, string $email, string $role, string $department): User

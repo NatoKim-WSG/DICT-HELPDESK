@@ -176,4 +176,3 @@ class TicketSeeder extends Seeder
         }
     }
 }
-

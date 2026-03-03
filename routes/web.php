@@ -10,7 +10,6 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboardController
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
-use App\Models\Ticket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -244,4 +243,3 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
 
     return Storage::disk($storageDisk)->download($attachment->file_path, $attachment->original_filename);
 })->middleware(['auth', 'active', 'consent.accepted'])->name('attachments.download');
-

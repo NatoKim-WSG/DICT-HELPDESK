@@ -101,6 +101,80 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertNull($ticket->closed_at);
     }
 
+    public function test_admin_cannot_revert_closed_ticket_after_seven_days(): void
+    {
+        [$superUser, , $ticket] = $this->seedUsersAndTicket();
+
+        $ticket->update([
+            'status' => 'closed',
+            'resolved_at' => Carbon::now()->subDays(8),
+            'closed_at' => Carbon::now()->subDays(8),
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'in_progress',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
+    }
+
+    public function test_admin_quick_update_cannot_revert_closed_ticket_after_seven_days(): void
+    {
+        [$superUser, , $ticket] = $this->seedUsersAndTicket();
+
+        $ticket->update([
+            'status' => 'closed',
+            'resolved_at' => Carbon::now()->subDays(8),
+            'closed_at' => Carbon::now()->subDays(8),
+            'priority' => 'medium',
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->post(route('admin.tickets.quick-update', $ticket), [
+                'assigned_to' => '',
+                'status' => 'in_progress',
+                'priority' => 'medium',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
+    }
+
+    public function test_admin_bulk_status_update_cannot_revert_closed_ticket_after_seven_days(): void
+    {
+        [$superUser, , $ticket] = $this->seedUsersAndTicket();
+
+        $ticket->update([
+            'status' => 'closed',
+            'resolved_at' => Carbon::now()->subDays(8),
+            'closed_at' => Carbon::now()->subDays(8),
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->post(route('admin.tickets.bulk-action'), [
+                'action' => 'status',
+                'selected_ids' => [$ticket->id],
+                'status' => 'in_progress',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
+    }
+
     private function seedUsersAndTicket(): array
     {
         $superUser = User::create([

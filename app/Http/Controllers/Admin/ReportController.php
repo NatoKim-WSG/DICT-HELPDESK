@@ -665,8 +665,7 @@ class ReportController extends Controller
         mixed $requestedMonth,
         Collection $monthlyReportRows,
         mixed $preferredFallbackMonth = null
-    ): string
-    {
+    ): string {
         $availableMonths = $monthlyReportRows->pluck('month_key')->all();
         $fallbackMonth = ! empty($availableMonths)
             ? (string) end($availableMonths)
