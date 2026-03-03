@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TicketUserState extends Model
 {
@@ -57,6 +58,7 @@ class TicketUserState extends Model
             $state->dismissed_at = null;
         }
         $state->save();
+        static::forgetHeaderNotificationCacheForUser($userId);
 
         return $state;
     }
@@ -71,6 +73,7 @@ class TicketUserState extends Model
             $state->dismissed_at = $state->last_seen_at;
             $state->save();
         }
+        static::forgetHeaderNotificationCacheForUser($userId);
 
         return $state;
     }
@@ -91,5 +94,36 @@ class TicketUserState extends Model
         }
 
         return $ticket->updated_at ?? now();
+    }
+
+    public static function headerNotificationCacheKeyForUser(int $userId): string
+    {
+        return 'header_notifications_payload_user_'.$userId.'_v1';
+    }
+
+    public static function forgetHeaderNotificationCacheForUser(int $userId): void
+    {
+        Cache::forget(static::headerNotificationCacheKeyForUser($userId));
+    }
+
+    public static function forgetHeaderNotificationCachesForTicket(Ticket $ticket): void
+    {
+        $consoleUserIds = User::query()
+            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+
+        $candidateUserIds = array_values(array_unique(array_filter(array_map(
+            'intval',
+            array_merge(
+                $consoleUserIds,
+                [(int) $ticket->user_id, (int) ($ticket->assigned_to ?? 0)]
+            )
+        ))));
+
+        foreach ($candidateUserIds as $userId) {
+            static::forgetHeaderNotificationCacheForUser((int) $userId);
+        }
     }
 }

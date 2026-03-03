@@ -211,9 +211,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const routeBase = @json(route('client.tickets.index'));
     let snapshotToken = initialSnapshotToken;
+    let staleDetected = false;
+
+    const showRefreshPrompt = function () {
+        if (document.querySelector('.js-live-refresh-prompt')) return;
+
+        const prompt = document.createElement('div');
+        prompt.className = 'js-live-refresh-prompt mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800';
+        prompt.innerHTML = 'New ticket updates are available. <button type="button" class="ml-2 font-semibold underline js-live-refresh-now">Refresh now</button>';
+        const container = document.querySelector('.mx-auto.max-w-\\[1460px\\]');
+        if (!container) return;
+        container.prepend(prompt);
+
+        const refreshButton = prompt.querySelector('.js-live-refresh-now');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function () {
+                window.location.reload();
+            });
+        }
+    };
 
     const pollTicketListSnapshot = async function () {
-        if (document.hidden) return;
+        if (document.hidden || staleDetected) return;
 
         const params = new URLSearchParams(window.location.search);
         params.set('heartbeat', '1');
@@ -232,7 +251,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!payload || !payload.token) return;
 
             if (payload.token !== snapshotToken) {
-                window.location.reload();
+                staleDetected = true;
+                showRefreshPrompt();
                 return;
             }
 
@@ -241,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    window.setInterval(pollTicketListSnapshot, 10000);
+    window.setInterval(pollTicketListSnapshot, 30000);
 });
 </script>
 @endsection

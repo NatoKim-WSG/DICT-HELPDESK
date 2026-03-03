@@ -8,6 +8,7 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -17,6 +18,8 @@ class AppServiceProvider extends ServiceProvider
     private const HEADER_NOTIFICATION_TICKET_WINDOW = 120;
 
     private const HEADER_NOTIFICATION_RENDER_LIMIT = 5;
+
+    private const HEADER_NOTIFICATION_CACHE_SECONDS = 20;
 
     /**
      * Register any application services.
@@ -44,19 +47,24 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $payload = (function () use ($user): array {
-                $tickets = $this->headerNotificationTicketsForUser($user);
-                $notifications = $this->buildNotificationsForUser($user, $tickets)
-                    ->sortByDesc('activity_ts')
-                    ->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)
-                    ->values()
-                    ->all();
+            $cacheKey = TicketUserState::headerNotificationCacheKeyForUser((int) $user->id);
+            $payload = Cache::remember(
+                $cacheKey,
+                now()->addSeconds(self::HEADER_NOTIFICATION_CACHE_SECONDS),
+                function () use ($user): array {
+                    $tickets = $this->headerNotificationTicketsForUser($user);
+                    $notifications = $this->buildNotificationsForUser($user, $tickets)
+                        ->sortByDesc('activity_ts')
+                        ->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)
+                        ->values()
+                        ->all();
 
-                return [
-                    'notifications' => $notifications,
-                    'unread_count' => (int) collect($notifications)->where('is_viewed', false)->count(),
-                ];
-            })();
+                    return [
+                        'notifications' => $notifications,
+                        'unread_count' => (int) collect($notifications)->where('is_viewed', false)->count(),
+                    ];
+                }
+            );
 
             $view->with('headerNotifications', collect($payload['notifications'] ?? []));
             $view->with('headerNotificationUnreadCount', (int) ($payload['unread_count'] ?? 0));

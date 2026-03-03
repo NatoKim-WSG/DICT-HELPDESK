@@ -126,9 +126,28 @@ document.addEventListener('DOMContentLoaded', function () {
     heartbeatUrl.searchParams.set('heartbeat', '1');
     let activeToken = initialToken;
     let checking = false;
+    let staleDetected = false;
+
+    const showRefreshPrompt = function () {
+        if (document.querySelector('.js-live-refresh-prompt')) return;
+
+        const prompt = document.createElement('div');
+        prompt.className = 'js-live-refresh-prompt mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800';
+        prompt.innerHTML = 'New ticket updates are available. <button type="button" class="ml-2 font-semibold underline js-live-refresh-now">Refresh now</button>';
+        const container = document.querySelector('.mx-auto.max-w-\\[1460px\\]');
+        if (!container) return;
+        container.prepend(prompt);
+
+        const refreshButton = prompt.querySelector('.js-live-refresh-now');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function () {
+                window.location.reload();
+            });
+        }
+    };
 
     const pollSnapshot = async function () {
-        if (checking || document.hidden) return;
+        if (checking || document.hidden || staleDetected) return;
         checking = true;
 
         try {
@@ -145,7 +164,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!payload || !payload.token) return;
 
             if (payload.token !== activeToken) {
-                window.location.reload();
+                staleDetected = true;
+                showRefreshPrompt();
                 return;
             }
 
@@ -156,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    window.setInterval(pollSnapshot, 10000);
+    window.setInterval(pollSnapshot, 30000);
 });
 </script>
 @endsection

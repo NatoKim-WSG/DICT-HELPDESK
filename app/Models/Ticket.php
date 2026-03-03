@@ -75,6 +75,14 @@ class Ticket extends Model
                 $ticket->ticket_number = self::generateUniqueTicketNumber();
             }
         });
+
+        static::saved(function (Ticket $ticket) {
+            TicketUserState::forgetHeaderNotificationCachesForTicket($ticket);
+        });
+
+        static::deleted(function (Ticket $ticket) {
+            TicketUserState::forgetHeaderNotificationCachesForTicket($ticket);
+        });
     }
 
     private static function generateUniqueTicketNumber(int $maxAttempts = 20): string

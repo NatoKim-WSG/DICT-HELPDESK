@@ -10,9 +10,24 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    private array $openTicketCountCache = [];
+
+    private array $resolvedTicketCountCache = [];
+
+    private array $statusBreakdownCache = [];
+
+    private array $priorityBreakdownCache = [];
+
+    private array $categoryBreakdownCache = [];
+
+    private array $slaMetricsCache = [];
+
+    private array $majorIssueSummaryCache = [];
+
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -149,6 +164,7 @@ class ReportController extends Controller
         $slaThisPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
         $slaPreviousPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd);
         $majorIssueSummary = $this->buildMajorIssueSummary(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
+        $previousMajorIssueSummary = $this->buildMajorIssueSummary(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd);
         $keyInsights = $this->buildImprovementAndRiskSummary([
             'period_label' => $selectedMonthRange['label'],
             'current_total' => $totalTicketsThisPeriod,
@@ -162,7 +178,7 @@ class ReportController extends Controller
             'current_pending' => (int) ($periodStatusSummary['pending'] ?? 0),
             'previous_pending' => (int) ($previousPeriodStatusSummary['pending'] ?? 0),
             'current_urgent' => (int) ($majorIssueSummary['urgent_total'] ?? 0),
-            'previous_urgent' => $this->buildMajorIssueSummary(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd)['urgent_total'] ?? 0,
+            'previous_urgent' => (int) ($previousMajorIssueSummary['urgent_total'] ?? 0),
         ]);
 
         $periodOverview = [
@@ -519,6 +535,32 @@ class ReportController extends Controller
     {
         $startMonth = Carbon::now()->startOfMonth()->subMonths(11);
         $endMonth = Carbon::now()->startOfMonth();
+        $reportingRangeStart = $startMonth->copy()->startOfMonth();
+        $reportingRangeEnd = $endMonth->copy()->endOfMonth()->endOfDay();
+        $monthKeyExpressionForCreatedAt = $this->monthKeyExpression('created_at', $scopedTickets);
+        $monthKeyExpressionForResolvedAt = $this->monthKeyExpression('resolved_at', $scopedTickets);
+        $monthKeyExpressionForClosedAt = $this->monthKeyExpression('closed_at', $scopedTickets);
+
+        $receivedByMonth = (clone $scopedTickets)
+            ->whereBetween('created_at', [$reportingRangeStart, $reportingRangeEnd])
+            ->selectRaw("{$monthKeyExpressionForCreatedAt} as month_key, COUNT(*) as count")
+            ->groupBy('month_key')
+            ->pluck('count', 'month_key');
+
+        $resolvedSubQuery = (clone $scopedTickets)
+            ->whereNotNull('resolved_at')
+            ->whereBetween('resolved_at', [$reportingRangeStart, $reportingRangeEnd])
+            ->selectRaw("id as ticket_id, {$monthKeyExpressionForResolvedAt} as month_key");
+        $closedSubQuery = (clone $scopedTickets)
+            ->whereNotNull('closed_at')
+            ->whereBetween('closed_at', [$reportingRangeStart, $reportingRangeEnd])
+            ->selectRaw("id as ticket_id, {$monthKeyExpressionForClosedAt} as month_key");
+
+        $resolvedByMonth = DB::query()
+            ->fromSub($resolvedSubQuery->unionAll($closedSubQuery), 'completion_points')
+            ->selectRaw('month_key, COUNT(DISTINCT ticket_id) as count')
+            ->groupBy('month_key')
+            ->pluck('count', 'month_key');
 
         $monthDefinitions = collect();
         for ($cursor = $startMonth->copy(); $cursor->lte($endMonth); $cursor->addMonth()) {
@@ -531,15 +573,8 @@ class ReportController extends Controller
         }
 
         $reportRows = $monthDefinitions->map(function (array $month) use ($scopedTickets) {
-            $receivedCount = (clone $scopedTickets)
-                ->whereBetween('created_at', [$month['start'], $month['end']])
-                ->count();
-
-            $resolvedCount = $this->countResolvedTicketsWithinRange(
-                clone $scopedTickets,
-                $month['start'],
-                $month['end']
-            );
+            $receivedCount = 0;
+            $resolvedCount = 0;
 
             $openAtMonthEnd = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $month['end']);
 
@@ -555,6 +590,18 @@ class ReportController extends Controller
                     ? round(($resolvedCount / $receivedCount) * 100, 1)
                     : 0.0,
             ];
+        })->map(function (array $row) use ($receivedByMonth, $resolvedByMonth) {
+            $monthKey = (string) $row['month_key'];
+            $receivedCount = (int) ($receivedByMonth[$monthKey] ?? 0);
+            $resolvedCount = (int) ($resolvedByMonth[$monthKey] ?? 0);
+
+            $row['received'] = $receivedCount;
+            $row['resolved'] = $resolvedCount;
+            $row['resolution_rate'] = $receivedCount > 0
+                ? round(($resolvedCount / $receivedCount) * 100, 1)
+                : 0.0;
+
+            return $row;
         });
 
         $graphPoints = $reportRows->map(fn (array $row) => [
@@ -571,7 +618,12 @@ class ReportController extends Controller
 
     private function countOpenTicketsAtCutoff(Builder $scopedTickets, Carbon $cutoff): int
     {
-        return (clone $scopedTickets)
+        $cacheKey = $this->queryScopeSignature($scopedTickets).'|'.$cutoff->toIso8601String();
+        if (array_key_exists($cacheKey, $this->openTicketCountCache)) {
+            return $this->openTicketCountCache[$cacheKey];
+        }
+
+        $count = (clone $scopedTickets)
             ->where('created_at', '<=', $cutoff)
             ->where(function ($query) use ($cutoff) {
                 $query->whereNull('resolved_at')
@@ -582,16 +634,31 @@ class ReportController extends Controller
                     ->orWhere('closed_at', '>', $cutoff);
             })
             ->count();
+
+        $this->openTicketCountCache[$cacheKey] = (int) $count;
+
+        return (int) $count;
     }
 
     private function countResolvedTicketsWithinRange(Builder $scopedTickets, Carbon $start, Carbon $end): int
     {
-        return (clone $scopedTickets)
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->resolvedTicketCountCache)) {
+            return $this->resolvedTicketCountCache[$cacheKey];
+        }
+
+        $count = (clone $scopedTickets)
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween('resolved_at', [$start, $end])
                     ->orWhereBetween('closed_at', [$start, $end]);
             })
             ->count();
+
+        $this->resolvedTicketCountCache[$cacheKey] = (int) $count;
+
+        return (int) $count;
     }
 
     private function resolveSelectedMonthKey(
@@ -651,32 +718,61 @@ class ReportController extends Controller
 
     private function buildStatusBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->statusBreakdownCache)) {
+            return $this->statusBreakdownCache[$cacheKey];
+        }
+
         $statusCounts = (clone $scopedTickets)
             ->whereBetween('created_at', [$start, $end])
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
 
-        return collect(Ticket::STATUSES)->mapWithKeys(fn (string $status) => [
+        $breakdown = collect(Ticket::STATUSES)->mapWithKeys(fn (string $status) => [
             $status => (int) ($statusCounts[$status] ?? 0),
         ])->all();
+
+        $this->statusBreakdownCache[$cacheKey] = $breakdown;
+
+        return $breakdown;
     }
 
     private function buildPriorityBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->priorityBreakdownCache)) {
+            return $this->priorityBreakdownCache[$cacheKey];
+        }
+
         $priorityCounts = (clone $scopedTickets)
             ->whereBetween('created_at', [$start, $end])
             ->selectRaw('priority, COUNT(*) as count')
             ->groupBy('priority')
             ->pluck('count', 'priority');
 
-        return collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
+        $breakdown = collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
             $priority => (int) ($priorityCounts[$priority] ?? 0),
         ])->all();
+
+        $this->priorityBreakdownCache[$cacheKey] = $breakdown;
+
+        return $breakdown;
     }
 
     private function buildCategoryBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): Collection
     {
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->categoryBreakdownCache)) {
+            return $this->categoryBreakdownCache[$cacheKey];
+        }
+
         $tickets = (clone $scopedTickets)
             ->whereBetween('created_at', [$start, $end])
             ->with('category:id,name')
@@ -684,7 +780,7 @@ class ReportController extends Controller
 
         $total = max(1, $tickets->count());
 
-        return $tickets
+        $breakdown = $tickets
             ->groupBy(fn (Ticket $ticket) => optional($ticket->category)->name ?? 'Uncategorized')
             ->map(function ($groupedTickets, $categoryName) use ($total) {
                 $count = $groupedTickets->count();
@@ -697,6 +793,10 @@ class ReportController extends Controller
             })
             ->sortByDesc('count')
             ->values();
+
+        $this->categoryBreakdownCache[$cacheKey] = $breakdown;
+
+        return $breakdown;
     }
 
     private function emptyMonthlyReportRow(string $monthKey, array $monthRange): array
@@ -724,6 +824,13 @@ class ReportController extends Controller
 
     private function buildSlaMetricsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->slaMetricsCache)) {
+            return $this->slaMetricsCache[$cacheKey];
+        }
+
         $completedTickets = (clone $scopedTickets)
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween('resolved_at', [$start, $end])
@@ -746,15 +853,26 @@ class ReportController extends Controller
             }
         }
 
-        return [
+        $metrics = [
             'eligible' => $eligible,
             'met' => $met,
             'rate' => $eligible > 0 ? round(($met / $eligible) * 100, 1) : 0.0,
         ];
+
+        $this->slaMetricsCache[$cacheKey] = $metrics;
+
+        return $metrics;
     }
 
     private function buildMajorIssueSummary(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
+        $cacheKey = $this->queryScopeSignature($scopedTickets)
+            .'|'.$start->toIso8601String()
+            .'|'.$end->toIso8601String();
+        if (array_key_exists($cacheKey, $this->majorIssueSummaryCache)) {
+            return $this->majorIssueSummaryCache[$cacheKey];
+        }
+
         $incidentTickets = (clone $scopedTickets)
             ->whereBetween('created_at', [$start, $end])
             ->whereIn('priority', ['urgent', 'high'])
@@ -775,12 +893,16 @@ class ReportController extends Controller
             ->values()
             ->take(3);
 
-        return [
+        $summary = [
             'major_count' => $majorCount,
             'open_major_count' => $openMajorCount,
             'urgent_total' => $urgentTotal,
             'top_categories' => $incidentByCategory,
         ];
+
+        $this->majorIssueSummaryCache[$cacheKey] = $summary;
+
+        return $summary;
     }
 
     private function buildImprovementAndRiskSummary(array $metrics): array
@@ -1027,6 +1149,22 @@ class ReportController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function queryScopeSignature(Builder $scopedTickets): string
+    {
+        return sha1($scopedTickets->toSql().'|'.json_encode($scopedTickets->getBindings()));
+    }
+
+    private function monthKeyExpression(string $column, Builder $query): string
+    {
+        $driver = $query->getConnection()->getDriverName();
+
+        return match ($driver) {
+            'pgsql' => "TO_CHAR({$column}, 'YYYY-MM')",
+            'sqlite' => "strftime('%Y-%m', {$column})",
+            default => "DATE_FORMAT({$column}, '%Y-%m')",
+        };
     }
 
     private function buildDateOptionsForRange(Carbon $start, Carbon $end): Collection

@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,10 +13,19 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
-        // Logout CSRF mismatches can occur behind proxies or stale pages; allow logout to proceed.
-        $middleware->validateCsrfTokens(except: [
-            'logout',
-        ]);
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (is_string($trustedProxies) && trim($trustedProxies) !== '') {
+            $parsedTrustedProxies = trim($trustedProxies) === '*'
+                ? '*'
+                : array_values(array_filter(array_map('trim', explode(',', $trustedProxies))));
+            $middleware->trustProxies(
+                at: $parsedTrustedProxies,
+                headers: Request::HEADER_X_FORWARDED_FOR
+                    | Request::HEADER_X_FORWARDED_HOST
+                    | Request::HEADER_X_FORWARDED_PORT
+                    | Request::HEADER_X_FORWARDED_PROTO
+            );
+        }
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,

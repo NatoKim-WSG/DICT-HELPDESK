@@ -28,6 +28,23 @@ class TicketReply extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (TicketReply $reply) {
+            $reply->loadMissing('ticket:id,user_id,assigned_to');
+            if ($reply->ticket) {
+                TicketUserState::forgetHeaderNotificationCachesForTicket($reply->ticket);
+            }
+        });
+
+        static::deleted(function (TicketReply $reply) {
+            $reply->loadMissing('ticket:id,user_id,assigned_to');
+            if ($reply->ticket) {
+                TicketUserState::forgetHeaderNotificationCachesForTicket($reply->ticket);
+            }
+        });
+    }
+
     public function ticket()
     {
         return $this->belongsTo(Ticket::class);

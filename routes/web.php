@@ -9,10 +9,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\NotificationController;
 use App\Models\Ticket;
-use App\Models\TicketUserState;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -72,88 +71,17 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
         ->middleware('throttle:15,1')
         ->name('tickets.rate');
 
-    Route::post('/notifications/dismiss', function (Request $request) {
-        $request->validate([
-            'ticket_id' => 'required|integer|exists:tickets,id',
-            'activity_at' => 'required|date',
-        ]);
-
-        $ticket = Ticket::findOrFail($request->integer('ticket_id'));
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
-
-        $activityAt = Carbon::parse($request->string('activity_at')->toString());
-        $state = TicketUserState::query()->firstOrNew([
-            'ticket_id' => $ticket->id,
-            'user_id' => (int) auth()->id(),
-        ]);
-
-        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
-            return back()->with('error', 'You can dismiss notifications only after viewing them.');
-        }
-
-        $state->dismissed_at = $activityAt;
-        $state->save();
-
-        return back();
-    })->middleware('throttle:60,1')->name('notifications.dismiss');
-
-    Route::post('/notifications/clear', function (Request $request) {
-        $ticketIds = Ticket::query()
-            ->where('user_id', (int) auth()->id())
-            ->pluck('id');
-
-        if ($ticketIds->isEmpty()) {
-            return back();
-        }
-
-        $now = now();
-        $rows = $ticketIds->map(fn ($ticketId) => [
-            'ticket_id' => (int) $ticketId,
-            'user_id' => (int) auth()->id(),
-            'last_seen_at' => $now,
-            'dismissed_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
-        TicketUserState::upsert(
-            $rows,
-            ['ticket_id', 'user_id'],
-            ['last_seen_at', 'dismissed_at', 'updated_at']
-        );
-
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
-        }
-
-        return back();
-    })->middleware('throttle:30,1')->name('notifications.clear');
-
-    Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
-
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return response()->json([
-            'ok' => true,
-            'seen_at' => $seenAt->toIso8601String(),
-        ]);
-    })->middleware('throttle:120,1')->name('notifications.seen');
-
-    Route::get('/notifications/open/{ticket}', function (Request $request, Ticket $ticket) {
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
-
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return redirect()->route('client.tickets.show', $ticket);
-    })->name('notifications.open');
+    Route::post('/notifications/dismiss', [NotificationController::class, 'clientDismiss'])
+        ->middleware('throttle:60,1')
+        ->name('notifications.dismiss');
+    Route::post('/notifications/clear', [NotificationController::class, 'clientClear'])
+        ->middleware('throttle:30,1')
+        ->name('notifications.clear');
+    Route::post('/notifications/seen/{ticket}', [NotificationController::class, 'clientSeen'])
+        ->middleware('throttle:120,1')
+        ->name('notifications.seen');
+    Route::get('/notifications/open/{ticket}', [NotificationController::class, 'clientOpen'])
+        ->name('notifications.open');
 });
 
 // Admin Routes
@@ -202,95 +130,17 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         ->middleware('throttle:60,1')
         ->name('tickets.due-date');
 
-    Route::post('/notifications/dismiss', function (Request $request) {
-        $request->validate([
-            'ticket_id' => 'required|integer|exists:tickets,id',
-            'activity_at' => 'required|date',
-        ]);
-
-        $ticket = Ticket::findOrFail($request->integer('ticket_id'));
-        $authUser = auth()->user();
-        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
-            abort(403);
-        }
-
-        $activityAt = Carbon::parse($request->string('activity_at')->toString());
-        $state = TicketUserState::query()->firstOrNew([
-            'ticket_id' => $ticket->id,
-            'user_id' => (int) auth()->id(),
-        ]);
-
-        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
-            return back()->with('error', 'You can dismiss notifications only after viewing them.');
-        }
-
-        $state->dismissed_at = $activityAt;
-        $state->save();
-
-        return back();
-    })->middleware('throttle:60,1')->name('notifications.dismiss');
-
-    Route::post('/notifications/clear', function (Request $request) {
-        $authUser = auth()->user();
-        $ticketsQuery = Ticket::query()->open();
-
-        if ($authUser && $authUser->isTechnician()) {
-            $ticketsQuery->where('assigned_to', $authUser->id);
-        }
-
-        $ticketIds = $ticketsQuery->pluck('id');
-        if ($ticketIds->isEmpty()) {
-            return back();
-        }
-
-        $now = now();
-        $rows = $ticketIds->map(fn ($ticketId) => [
-            'ticket_id' => (int) $ticketId,
-            'user_id' => (int) auth()->id(),
-            'last_seen_at' => $now,
-            'dismissed_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
-        TicketUserState::upsert(
-            $rows,
-            ['ticket_id', 'user_id'],
-            ['last_seen_at', 'dismissed_at', 'updated_at']
-        );
-
-        if ($request->expectsJson()) {
-            return response()->json(['ok' => true]);
-        }
-
-        return back();
-    })->middleware('throttle:30,1')->name('notifications.clear');
-
-    Route::post('/notifications/seen/{ticket}', function (Request $request, Ticket $ticket) {
-        $authUser = auth()->user();
-        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
-            abort(403);
-        }
-
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return response()->json([
-            'ok' => true,
-            'seen_at' => $seenAt->toIso8601String(),
-        ]);
-    })->middleware('throttle:120,1')->name('notifications.seen');
-
-    Route::get('/notifications/open/{ticket}', function (Request $request, \App\Models\Ticket $ticket) {
-        $authUser = auth()->user();
-        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
-            abort(403);
-        }
-
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return redirect()->route('admin.tickets.show', $ticket);
-    })->name('notifications.open');
+    Route::post('/notifications/dismiss', [NotificationController::class, 'adminDismiss'])
+        ->middleware('throttle:60,1')
+        ->name('notifications.dismiss');
+    Route::post('/notifications/clear', [NotificationController::class, 'adminClear'])
+        ->middleware('throttle:30,1')
+        ->name('notifications.clear');
+    Route::post('/notifications/seen/{ticket}', [NotificationController::class, 'adminSeen'])
+        ->middleware('throttle:120,1')
+        ->name('notifications.seen');
+    Route::get('/notifications/open/{ticket}', [NotificationController::class, 'adminOpen'])
+        ->name('notifications.open');
 
     Route::middleware('role:shadow')->prefix('system-logs')->name('system-logs.')->group(function () {
         Route::get('/unlock', [SystemLogController::class, 'showUnlockForm'])->name('unlock.show');

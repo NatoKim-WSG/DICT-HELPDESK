@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Services\SystemLogService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -43,10 +44,12 @@ class AuthController extends Controller
                 ->get();
         } else {
             // Username login is case-sensitive.
-            $matchedUsers = User::whereRaw('LOWER(name) = ?', [strtolower($loginInput)])
-                ->get()
-                ->filter(fn (User $user) => $user->name === $loginInput)
-                ->values();
+            $matchedUsers = $this->usernameMatchQuery($loginInput)->get();
+            if ($matchedUsers->count() > 1) {
+                return back()->withErrors([
+                    'login' => 'Multiple accounts share this username. Please sign in with your email address.',
+                ])->onlyInput('login');
+            }
         }
 
         $activeUser = $matchedUsers->first(function (User $user) use ($request) {
@@ -227,6 +230,17 @@ class AuthController extends Controller
         }
 
         return '/client/dashboard';
+    }
+
+    private function usernameMatchQuery(string $loginInput): Builder
+    {
+        $driver = User::query()->getConnection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            return User::whereRaw('BINARY name = ?', [$loginInput]);
+        }
+
+        return User::where('name', $loginInput);
     }
 }
 

@@ -545,6 +545,7 @@ Alpine.start();
 
     const searchForms = resolveSearchForms();
     if (searchForms.length === 0) return;
+    const panelControllers = [];
 
     searchForms.forEach((form) => {
         const input = form.querySelector('[data-search-history-input]')
@@ -705,9 +706,15 @@ Alpine.start();
                 ...historyItems.filter((item) => item.toLowerCase() !== term.toLowerCase()),
             ]);
         });
+        panelControllers.push({ form, closePanel });
+    });
 
-        document.addEventListener('click', (event) => {
-            if (form.contains(event.target)) return;
+    document.addEventListener('click', (event) => {
+        panelControllers.forEach(({ form, closePanel }) => {
+            if (form.contains(event.target)) {
+                return;
+            }
+
             closePanel();
         });
     });
