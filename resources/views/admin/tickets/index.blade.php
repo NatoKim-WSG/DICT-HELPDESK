@@ -353,19 +353,19 @@
             <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
                 <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
-                        <th class="w-10 px-6 py-4">
+                        <th class="w-[4%] px-6 py-4">
                             <input id="select-all-tickets" type="checkbox" class="ticket-checkbox">
                         </th>
-                        <th class="w-[38%] px-6 py-4">Details</th>
+                        <th class="w-[36%] px-6 py-4">Details</th>
                         <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
-                        <th class="w-[11%] px-6 py-4 text-center">Priority</th>
+                        <th class="w-[10%] px-6 py-4 text-center">Priority</th>
                         @if($isHistoryTab)
-                            <th class="w-[19%] px-6 py-4 text-center">Completed At</th>
+                            <th class="w-[16%] px-6 py-4 text-center">Completed At</th>
                         @else
-                            <th class="w-[19%] px-6 py-4 text-center">Activity Status</th>
+                            <th class="w-[16%] px-6 py-4 text-center">Activity Status</th>
                         @endif
-                        <th class="w-[9%] px-6 py-4 text-center">Status</th>
-                        <th class="w-[9%] px-6 py-4 text-center">Action</th>
+                        <th class="w-[8%] px-6 py-4 text-center">Status</th>
+                        <th class="w-[10%] px-6 py-4 text-center">Action</th>
                     </tr>
                 </thead>
 
