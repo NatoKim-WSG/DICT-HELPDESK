@@ -38,6 +38,14 @@ const initAdminUsersPage = () => {
     const togglePasswordButton = document.getElementById('toggleManagedUserPassword');
     const managedPasswordInput = document.getElementById('managedUserPassword');
 
+    // Keep modals fixed to the viewport even when page containers use transforms.
+    if (statusModal && statusModal.parentElement !== document.body) {
+        document.body.appendChild(statusModal);
+    }
+    if (deleteModal && deleteModal.parentElement !== document.body) {
+        document.body.appendChild(deleteModal);
+    }
+
     let statusModalState = {
         userId: null,
         userName: '',
