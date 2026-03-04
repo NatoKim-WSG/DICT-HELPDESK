@@ -182,7 +182,7 @@
                         @if($notificationsEnabled)
                             <div class="relative" x-data="headerNotificationDropdown">
                                 <button
-                                    @click="notificationOpen = !notificationOpen"
+                                    @click.stop="notificationOpen = !notificationOpen"
                                     type="button"
                                     class="app-pressable relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                                     aria-label="Notifications"
@@ -266,7 +266,7 @@
                         @endif
 
                         <div class="relative" x-data="profileMenuDropdown">
-                            <button @click="open = !open" class="app-pressable inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
+                            <button @click.stop="open = !open" class="app-pressable inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
                                 <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
                                     <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="avatar-logo">
                                 </span>
