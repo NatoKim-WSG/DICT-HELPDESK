@@ -15,6 +15,8 @@
 !/storage/framework/testing/.gitignore
 /storage/logs/*
 !/storage/logs/.gitignore
+/storage/phpstan/*
+!/storage/phpstan/.gitignore
 /storage/app/public/attachments/*
 !/storage/app/public/attachments/.gitignore
 /storage/app/private/attachments/*
