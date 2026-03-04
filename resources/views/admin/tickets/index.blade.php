@@ -183,8 +183,8 @@
                                 <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
                                 <select id="bulk-assigned-to" name="assigned_to" data-enhanced-select class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                     <option value="">Choose technical</option>
-                                    @foreach($agents as $agent)
-                                        <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
+                                    @foreach($assignees as $assignee)
+                                        <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -526,8 +526,8 @@
                     <label for="assign-modal-select" class="form-label">Technical User</label>
                     <select id="assign-modal-select" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
-                        @foreach($agents as $agent)
-                            <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
+                        @foreach($assignees as $assignee)
+                            <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -581,8 +581,8 @@
                     <label for="edit-modal-assigned" class="form-label">Technical User</label>
                     <select id="edit-modal-assigned" name="assigned_to" class="form-input">
                         <option value="">Unassigned</option>
-                        @foreach($agents as $agent)
-                            <option value="{{ $agent->id }}">{{ $agent->publicDisplayName() }}</option>
+                        @foreach($assignees as $assignee)
+                            <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach
                     </select>
                 </div>

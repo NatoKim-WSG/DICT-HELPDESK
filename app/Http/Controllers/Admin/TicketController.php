@@ -168,12 +168,12 @@ class TicketController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']);
         });
-        $agents = $this->activeAssignableAgents();
+        $assignees = $this->activeAssignableAgents();
 
         return view('admin.tickets.index', compact(
             'tickets',
             'categories',
-            'agents',
+            'assignees',
             'provinceOptions',
             'municipalityOptions',
             'accountOptions',
@@ -191,9 +191,9 @@ class TicketController extends Controller
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
-        $agents = $this->activeAssignableAgents();
+        $assignees = $this->activeAssignableAgents();
 
-        return view('admin.tickets.show', compact('ticket', 'agents'));
+        return view('admin.tickets.show', compact('ticket', 'assignees'));
     }
 
     public function replies(Ticket $ticket): JsonResponse
@@ -591,7 +591,7 @@ class TicketController extends Controller
 
         DB::transaction(function () use ($ticket) {
             $ticket->attachments()->get()->each->delete();
-            $ticket->replies()->with('attachments')->get()->each(function ($reply) {
+            $ticket->replies()->with('attachments')->get()->each(function (TicketReply $reply) {
                 $reply->attachments()->get()->each->delete();
                 $reply->delete();
             });
@@ -665,9 +665,9 @@ class TicketController extends Controller
         if ($action === 'delete') {
             $ticketNumbers = $tickets->pluck('ticket_number')->values()->all();
             DB::transaction(function () use ($tickets) {
-                $tickets->each(function ($ticket) {
+                $tickets->each(function (Ticket $ticket) {
                     $ticket->attachments()->get()->each->delete();
-                    $ticket->replies()->with('attachments')->get()->each(function ($reply) {
+                    $ticket->replies()->with('attachments')->get()->each(function (TicketReply $reply) {
                         $reply->attachments()->get()->each->delete();
                         $reply->delete();
                     });
@@ -1071,8 +1071,8 @@ class TicketController extends Controller
         }
 
         $actorName = optional(auth()->user())->name ?? 'System';
-        $previousAssigneeName = $previousAssignedTo ? optional(User::find($previousAssignedTo))->publicDisplayName() : null;
-        $newAssigneeName = $newAssignedTo ? optional(User::find($newAssignedTo))->publicDisplayName() : null;
+        $previousAssigneeName = $this->assigneeDisplayName($previousAssignedTo);
+        $newAssigneeName = $this->assigneeDisplayName($newAssignedTo);
 
         $message = match (true) {
             $previousAssignedTo === null && $newAssigneeName !== null => "Ticket was assigned to {$newAssigneeName} by {$actorName}.",
@@ -1091,6 +1091,22 @@ class TicketController extends Controller
             'message' => $message.' Previous conversation remains available for continuity.',
             'is_internal' => true,
         ]);
+    }
+
+    private function assigneeDisplayName(?int $userId): ?string
+    {
+        if (! $userId) {
+            return null;
+        }
+
+        static $displayNameCache = [];
+        if (array_key_exists($userId, $displayNameCache)) {
+            return $displayNameCache[$userId];
+        }
+
+        $displayNameCache[$userId] = optional(User::find($userId))->publicDisplayName();
+
+        return $displayNameCache[$userId];
     }
 
     private function recordStatusClosureReason(Ticket $ticket, string $previousStatus, string $nextStatus, string $closeReason): void

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -12,7 +12,8 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $ticketQuery = $user->tickets();
+        /** @var Builder<Ticket> $ticketQuery */
+        $ticketQuery = $user->tickets()->getQuery();
         $liveSnapshotToken = $this->buildLiveSnapshotToken(clone $ticketQuery);
 
         if ($request->boolean('heartbeat')) {
@@ -41,7 +42,10 @@ class DashboardController extends Controller
         return view('client.dashboard', compact('stats', 'recentTickets', 'liveSnapshotToken'));
     }
 
-    private function buildLiveSnapshotToken(Builder|HasMany $ticketQuery): string
+    /**
+     * @param  Builder<Ticket>  $ticketQuery
+     */
+    private function buildLiveSnapshotToken(Builder $ticketQuery): string
     {
         $latestUpdatedAt = (clone $ticketQuery)->max('updated_at');
         $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;

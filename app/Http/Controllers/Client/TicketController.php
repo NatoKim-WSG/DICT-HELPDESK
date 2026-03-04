@@ -389,13 +389,15 @@ class TicketController extends Controller
 
     private function buildTicketListSnapshotToken(Builder|HasMany $query): string
     {
-        $latestUpdatedAt = (clone $query)->max('updated_at');
+        /** @var Builder<Ticket> $ticketQuery */
+        $ticketQuery = $query instanceof HasMany ? $query->getQuery() : $query;
+        $latestUpdatedAt = (clone $ticketQuery)->max('updated_at');
         $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
 
         return sha1(json_encode([
             'latest_updated_at' => $latestUpdatedTimestamp,
-            'open_tickets' => (clone $query)->open()->count(),
-            'total_tickets' => (clone $query)->count(),
+            'open_tickets' => (clone $ticketQuery)->open()->count(),
+            'total_tickets' => (clone $ticketQuery)->count(),
         ]));
     }
 

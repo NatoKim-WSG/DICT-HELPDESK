@@ -1,6 +1,7 @@
 const initAdminReportsPage = () => {
     const pageRoot = document.querySelector('[data-admin-reports-page]');
     if (!pageRoot) return;
+    if (!window.ModalKit) return;
 
     const modal = document.getElementById('volume-chart-modal');
     const modalTitle = document.getElementById('volume-chart-modal-title');
@@ -23,44 +24,11 @@ const initAdminReportsPage = () => {
         modalContent.innerHTML = '';
     };
 
-    const modalController = window.ModalKit
-        ? window.ModalKit.bind(modal, {
-            onClose: clearModalContent,
-        })
-        : null;
+    const modalController = window.ModalKit.bind(modal, {
+        onClose: clearModalContent,
+    });
 
-    const fallbackOpen = function () {
-        modal.classList.remove('hidden');
-        requestAnimationFrame(function () {
-            modal.classList.add('is-open');
-        });
-    };
-
-    const fallbackClose = function () {
-        modal.classList.remove('is-open');
-        window.setTimeout(function () {
-            modal.classList.add('hidden');
-            clearModalContent();
-        }, 180);
-    };
-
-    const openModal = function () {
-        if (modalController) {
-            modalController.open();
-            return;
-        }
-
-        fallbackOpen();
-    };
-
-    const closeModal = function () {
-        if (modalController) {
-            modalController.close();
-            return;
-        }
-
-        fallbackClose();
-    };
+    if (!modalController) return;
 
     const tuneModalChartLayout = function (clone) {
         const chartArea = clone.querySelector('.h-48');
@@ -75,33 +43,33 @@ const initAdminReportsPage = () => {
             pie.classList.add('h-72', 'w-72');
         });
 
-            const charts = clone.querySelectorAll('.js-volume-bars');
-            charts.forEach(function (chart) {
-                chart.classList.remove('min-w-[760px]', 'min-w-[720px]', 'pb-6');
-                chart.classList.add('w-full', 'min-w-0', 'justify-between', 'pb-10');
+        const charts = clone.querySelectorAll('.js-volume-bars');
+        charts.forEach(function (chart) {
+            chart.classList.remove('min-w-[760px]', 'min-w-[720px]', 'pb-6');
+            chart.classList.add('w-full', 'min-w-0', 'justify-between', 'pb-10');
 
-                const groups = chart.querySelectorAll('.group');
-                groups.forEach(function (group) {
-                    group.classList.remove('min-w-[16px]', 'min-w-[34px]');
-                    group.classList.add('flex-1', 'min-w-0');
-                });
-
-                const bars = chart.querySelectorAll('.js-volume-bar');
-                bars.forEach(function (bar) {
-                    const originalHeight = Number.parseFloat(bar.style.height || '0');
-                    if (!Number.isFinite(originalHeight) || originalHeight <= 0) {
-                        return;
-                    }
-                    const scaledHeight = Math.round(originalHeight * barScale);
-                    bar.style.height = `${Math.min(340, Math.max(8, scaledHeight))}px`;
-                });
-
-                const labels = chart.querySelectorAll('span.text-\\[10px\\]');
-                labels.forEach(function (label) {
-                    label.classList.add('text-xs');
-                });
+            const groups = chart.querySelectorAll('.group');
+            groups.forEach(function (group) {
+                group.classList.remove('min-w-[16px]', 'min-w-[34px]');
+                group.classList.add('flex-1', 'min-w-0');
             });
-        };
+
+            const bars = chart.querySelectorAll('.js-volume-bar');
+            bars.forEach(function (bar) {
+                const originalHeight = Number.parseFloat(bar.style.height || '0');
+                if (!Number.isFinite(originalHeight) || originalHeight <= 0) {
+                    return;
+                }
+                const scaledHeight = Math.round(originalHeight * barScale);
+                bar.style.height = `${Math.min(340, Math.max(8, scaledHeight))}px`;
+            });
+
+            const labels = chart.querySelectorAll('span.text-\\[10px\\]');
+            labels.forEach(function (label) {
+                label.classList.add('text-xs');
+            });
+        });
+    };
 
     openButtons.forEach(function (button) {
         button.addEventListener('click', function () {
@@ -119,42 +87,13 @@ const initAdminReportsPage = () => {
             tuneModalChartLayout(clone);
 
             modalContent.appendChild(clone);
-            openModal();
+            modalController.open();
         });
     });
-
-    if (!modalController) {
-        const closeButtons = modal.querySelectorAll('[data-modal-close="volume-chart"]');
-        closeButtons.forEach(function (button) {
-            button.addEventListener('click', closeModal);
-        });
-
-        modal.addEventListener('click', function (event) {
-            if (modal.classList.contains('hidden')) {
-                return;
-            }
-
-            if (event.target.closest('.app-modal-panel')) {
-                return;
-            }
-
-            closeModal();
-        });
-
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
-    }
-};
-
-const bootAdminReportsPage = () => {
-    window.setTimeout(initAdminReportsPage, 0);
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminReportsPage, { once: true });
+    document.addEventListener('DOMContentLoaded', initAdminReportsPage, { once: true });
 } else {
-    bootAdminReportsPage();
+    initAdminReportsPage();
 }

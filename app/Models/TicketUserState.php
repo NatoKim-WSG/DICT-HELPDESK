@@ -4,12 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @property int $id
+ * @property int $ticket_id
+ * @property int $user_id
+ * @property Carbon|null $last_seen_at
+ * @property Carbon|null $dismissed_at
+ * @property-read Ticket $ticket
+ * @property-read User $user
+ */
 class TicketUserState extends Model
 {
     use HasFactory;
+
+    private const ACTIVE_CONSOLE_USER_IDS_CACHE_KEY = 'header_notification_console_user_ids_v1';
+
+    private const ACTIVE_CONSOLE_USER_IDS_CACHE_SECONDS = 30;
 
     protected $fillable = [
         'ticket_id',
@@ -26,12 +40,12 @@ class TicketUserState extends Model
         ];
     }
 
-    public function ticket()
+    public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -83,7 +97,7 @@ class TicketUserState extends Model
         return $this->last_seen_at !== null && $this->last_seen_at->gte($activityAt);
     }
 
-    public static function resolveSeenAt(Ticket $ticket, mixed $rawActivityAt): Carbon
+    public static function resolveSeenAt(Ticket $ticket, mixed $rawActivityAt): \Carbon\CarbonInterface
     {
         if (is_string($rawActivityAt) && trim($rawActivityAt) !== '') {
             try {
@@ -108,11 +122,7 @@ class TicketUserState extends Model
 
     public static function forgetHeaderNotificationCachesForTicket(Ticket $ticket): void
     {
-        $consoleUserIds = User::query()
-            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->where('is_active', true)
-            ->pluck('id')
-            ->all();
+        $consoleUserIds = static::activeConsoleUserIds();
 
         $candidateUserIds = array_values(array_unique(array_filter(array_map(
             'intval',
@@ -125,5 +135,20 @@ class TicketUserState extends Model
         foreach ($candidateUserIds as $userId) {
             static::forgetHeaderNotificationCacheForUser((int) $userId);
         }
+    }
+
+    public static function activeConsoleUserIds(): array
+    {
+        return Cache::remember(
+            self::ACTIVE_CONSOLE_USER_IDS_CACHE_KEY,
+            now()->addSeconds(self::ACTIVE_CONSOLE_USER_IDS_CACHE_SECONDS),
+            fn () => User::query()
+                ->whereIn('role', User::TICKET_CONSOLE_ROLES)
+                ->where('is_active', true)
+                ->pluck('id')
+                ->map(fn (int|string $id) => (int) $id)
+                ->values()
+                ->all()
+        );
     }
 }

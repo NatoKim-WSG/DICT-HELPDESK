@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -82,32 +84,32 @@ class User extends Authenticatable
         ];
     }
 
-    public function tickets()
+    public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
     }
 
-    public function assignedTickets()
+    public function assignedTickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'assigned_to');
     }
 
-    public function ticketReplies()
+    public function ticketReplies(): HasMany
     {
         return $this->hasMany(TicketReply::class);
     }
 
-    public function ticketStates()
+    public function ticketStates(): HasMany
     {
         return $this->hasMany(TicketUserState::class);
     }
 
-    public function legalConsents()
+    public function legalConsents(): HasMany
     {
         return $this->hasMany(UserLegalConsent::class);
     }
 
-    public function credentialHandoff()
+    public function credentialHandoff(): HasOne
     {
         return $this->hasOne(CredentialHandoff::class, 'target_user_id');
     }

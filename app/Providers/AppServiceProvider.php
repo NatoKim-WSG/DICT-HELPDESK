@@ -6,12 +6,17 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\SystemLogService;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->deleteStaleViteHotFile();
+        $this->registerSlowQueryTelemetry();
 
         View::composer('layouts.app', function ($view) {
             /** @var User|null $user */
@@ -53,15 +59,18 @@ class AppServiceProvider extends ServiceProvider
                 now()->addSeconds(self::HEADER_NOTIFICATION_CACHE_SECONDS),
                 function () use ($user): array {
                     $tickets = $this->headerNotificationTicketsForUser($user);
-                    $notifications = $this->buildNotificationsForUser($user, $tickets)
+                    $notificationItems = $this->buildNotificationsForUser($user, $tickets)
                         ->sortByDesc('activity_ts')
-                        ->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)
-                        ->values()
-                        ->all();
+                        ->values();
 
                     return [
-                        'notifications' => $notifications,
-                        'unread_count' => (int) collect($notifications)->where('is_viewed', false)->count(),
+                        'notifications' => $notificationItems
+                            ->take(self::HEADER_NOTIFICATION_RENDER_LIMIT)
+                            ->values()
+                            ->all(),
+                        'unread_count' => (int) $notificationItems
+                            ->where('is_viewed', false)
+                            ->count(),
                     ];
                 }
             );
@@ -210,6 +219,90 @@ class AppServiceProvider extends ServiceProvider
         }
 
         fclose($socket);
+    }
+
+    private function registerSlowQueryTelemetry(): void
+    {
+        $configuredEnabledFlag = config('observability.slow_queries.enabled');
+        $slowQueryTelemetryEnabled = is_bool($configuredEnabledFlag)
+            ? $configuredEnabledFlag
+            : app()->environment(['staging', 'production']);
+
+        if (! $slowQueryTelemetryEnabled) {
+            return;
+        }
+
+        $thresholdMs = (int) config('observability.slow_queries.threshold_ms', 250);
+        if ($thresholdMs < 1) {
+            return;
+        }
+
+        $includeBindings = (bool) config('observability.slow_queries.include_bindings', false);
+        $logToSystemLogs = (bool) config('observability.slow_queries.log_to_system_logs', false);
+
+        DB::listen(function (QueryExecuted $query) use ($thresholdMs, $includeBindings, $logToSystemLogs): void {
+            if ($query->time < $thresholdMs) {
+                return;
+            }
+
+            $rawSql = $query->toRawSql();
+
+            $payload = [
+                'connection' => $query->connectionName,
+                'duration_ms' => round((float) $query->time, 2),
+                'sql' => Str::limit((string) $rawSql, 4000),
+            ];
+
+            if ($includeBindings) {
+                $payload['bindings'] = $this->sanitizeSlowQueryBindings($query->bindings);
+            }
+
+            Log::warning('Slow query detected.', $payload);
+
+            if (! $logToSystemLogs) {
+                return;
+            }
+
+            static $recordingSystemLog = false;
+            if ($recordingSystemLog) {
+                return;
+            }
+
+            try {
+                $recordingSystemLog = true;
+                app(SystemLogService::class)->record(
+                    'database.query.slow',
+                    'Slow database query exceeded configured threshold.',
+                    [
+                        'category' => 'performance',
+                        'metadata' => $payload,
+                    ]
+                );
+            } catch (Throwable $exception) {
+                report($exception);
+            } finally {
+                $recordingSystemLog = false;
+            }
+        });
+    }
+
+    private function sanitizeSlowQueryBindings(array $bindings): array
+    {
+        return array_map(function (mixed $binding): mixed {
+            if ($binding instanceof \DateTimeInterface) {
+                return $binding->format(DATE_ATOM);
+            }
+
+            if (is_scalar($binding) || $binding === null) {
+                if (is_string($binding)) {
+                    return Str::limit($binding, 250);
+                }
+
+                return $binding;
+            }
+
+            return '['.get_debug_type($binding).']';
+        }, $bindings);
     }
 
     private function resolveNotificationActivityAt(

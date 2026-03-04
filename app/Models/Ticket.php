@@ -2,10 +2,41 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $assigned_to
+ * @property int|null $category_id
+ * @property string $ticket_number
+ * @property string $subject
+ * @property string $priority
+ * @property string $status
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $due_date
+ * @property Carbon|null $resolved_at
+ * @property Carbon|null $closed_at
+ * @property-read User $user
+ * @property-read User|null $assignedUser
+ * @property-read Category|null $category
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, TicketReply> $replies
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Attachment> $attachments
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, TicketUserState> $userStates
+ *
+ * @method static Builder<static> open()
+ * @method static Builder<static> closed()
+ * @method static Builder<static> byPriority(string $priority)
+ * @method static Builder<static> assignedTo(int $userId)
+ */
 class Ticket extends Model
 {
     use HasFactory;
@@ -97,52 +128,52 @@ class Ticket extends Model
         return 'TK-'.strtoupper(Str::random(12));
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function assignedUser()
+    public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
-    public function category()
+    public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
-    public function replies()
+    public function replies(): HasMany
     {
         return $this->hasMany(TicketReply::class);
     }
 
-    public function attachments()
+    public function attachments(): MorphMany
     {
         return $this->morphMany(Attachment::class, 'attachable');
     }
 
-    public function userStates()
+    public function userStates(): HasMany
     {
         return $this->hasMany(TicketUserState::class);
     }
 
-    public function scopeOpen($query)
+    public function scopeOpen(Builder $query): Builder
     {
         return $query->whereIn('status', self::OPEN_STATUSES);
     }
 
-    public function scopeClosed($query)
+    public function scopeClosed(Builder $query): Builder
     {
         return $query->whereIn('status', self::CLOSED_STATUSES);
     }
 
-    public function scopeByPriority($query, $priority)
+    public function scopeByPriority(Builder $query, string $priority): Builder
     {
         return $query->where('priority', $priority);
     }
 
-    public function scopeAssignedTo($query, $userId)
+    public function scopeAssignedTo(Builder $query, int $userId): Builder
     {
         return $query->where('assigned_to', $userId);
     }

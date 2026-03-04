@@ -111,7 +111,7 @@ class TicketSeeder extends Seeder
             }
 
             $client = $clients->random();
-            $agent = $supportUsers->random();
+            $technician = $supportUsers->random();
             $location = $seedLocations[array_rand($seedLocations)];
 
             $ticket = Ticket::create([
@@ -125,7 +125,7 @@ class TicketSeeder extends Seeder
                 'priority' => $ticketData['priority'],
                 'status' => $ticketData['status'],
                 'user_id' => $client->id,
-                'assigned_to' => in_array($ticketData['status'], ['in_progress', 'pending', 'resolved', 'closed']) ? $agent->id : null,
+                'assigned_to' => in_array($ticketData['status'], ['in_progress', 'pending', 'resolved', 'closed']) ? $technician->id : null,
                 'category_id' => $category->id,
                 'created_at' => now()->subDays(rand(0, 30)),
                 'resolved_at' => in_array($ticketData['status'], ['resolved', 'closed']) ? now()->subDays(rand(0, 5)) : null,
@@ -137,7 +137,7 @@ class TicketSeeder extends Seeder
                 // Agent first reply
                 TicketReply::create([
                     'ticket_id' => $ticket->id,
-                    'user_id' => $agent->id,
+                    'user_id' => $technician->id,
                     'message' => 'Thank you for reporting this issue. I\'ve been assigned to help you and I\'m looking into it now.',
                     'is_internal' => false,
                     'created_at' => $ticket->created_at->addHours(2),
@@ -158,7 +158,7 @@ class TicketSeeder extends Seeder
                 if (in_array($ticketData['status'], ['resolved', 'closed'])) {
                     TicketReply::create([
                         'ticket_id' => $ticket->id,
-                        'user_id' => $agent->id,
+                        'user_id' => $technician->id,
                         'message' => 'I\'ve resolved the issue. Please let me know if you experience any further problems.',
                         'is_internal' => false,
                         'created_at' => $ticket->resolved_at ?? $ticket->closed_at,

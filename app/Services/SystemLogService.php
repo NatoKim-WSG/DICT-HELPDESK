@@ -23,8 +23,8 @@ class SystemLogService
                 'target_id' => isset($context['target_id']) ? (int) $context['target_id'] : null,
                 'description' => $description,
                 'metadata' => $this->sanitizeMetadata($context['metadata'] ?? []),
-                'ip_address' => $request?->ip(),
-                'user_agent' => $request?->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
                 'occurred_at' => $context['occurred_at'] ?? now(),
             ]);
         } catch (Throwable $exception) {
@@ -43,7 +43,7 @@ class SystemLogService
         return $authUser instanceof User ? $authUser : null;
     }
 
-    private function resolveRequest(mixed $request): ?Request
+    private function resolveRequest(mixed $request): Request
     {
         if ($request instanceof Request) {
             return $request;
@@ -51,7 +51,11 @@ class SystemLogService
 
         $resolved = request();
 
-        return $resolved instanceof Request ? $resolved : null;
+        if ($resolved instanceof Request) {
+            return $resolved;
+        }
+
+        return app(Request::class);
     }
 
     private function sanitizeMetadata(mixed $metadata): mixed

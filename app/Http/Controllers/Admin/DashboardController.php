@@ -88,6 +88,9 @@ class DashboardController extends Controller
         ));
     }
 
+    /**
+     * @return Builder<Ticket>
+     */
     private function scopedTicketQueryForUser(User $user): Builder
     {
         $query = Ticket::query();
@@ -99,6 +102,9 @@ class DashboardController extends Controller
         return $query;
     }
 
+    /**
+     * @param  Builder<Ticket>  $scopedTickets
+     */
     private function buildDashboardSnapshotToken(Builder $scopedTickets): string
     {
         $latestUpdatedAt = (clone $scopedTickets)->max('updated_at');

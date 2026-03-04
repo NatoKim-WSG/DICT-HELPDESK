@@ -7,6 +7,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -122,23 +123,16 @@ class ReportController extends Controller
             $kpiScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
         }
 
-        $totalTickets = (clone $kpiScopedTickets)->count();
-        $resolvedTicketsCount = (clone $kpiScopedTickets)
-            ->whereIn('status', Ticket::CLOSED_STATUSES)
-            ->count();
+        $kpiSummary = $this->buildKpiSummary(clone $kpiScopedTickets);
+        $totalTickets = (int) $kpiSummary['total_tickets'];
+        $resolvedTicketsCount = (int) $kpiSummary['closed_tickets'];
 
         $stats = [
             'total_tickets' => $totalTickets,
-            'open_tickets' => (clone $kpiScopedTickets)->open()->count(),
+            'open_tickets' => (int) $kpiSummary['open_tickets'],
             'closed_tickets' => $resolvedTicketsCount,
-            'unassigned_open_tickets' => (clone $kpiScopedTickets)
-                ->open()
-                ->whereNull('assigned_to')
-                ->count(),
-            'urgent_open_tickets' => (clone $kpiScopedTickets)
-                ->open()
-                ->where('priority', 'urgent')
-                ->count(),
+            'unassigned_open_tickets' => (int) $kpiSummary['unassigned_open_tickets'],
+            'urgent_open_tickets' => (int) $kpiSummary['urgent_open_tickets'],
             'resolution_rate' => $totalTickets > 0
                 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1)
                 : 0,
@@ -288,11 +282,12 @@ class ReportController extends Controller
             'sla_compliance_rate' => (float) ($detailSlaMetrics['rate'] ?? 0),
         ];
 
-        $monthlyPerformanceScopedTickets = clone $scopedTickets;
+        $monthlyPerformanceGraphPoints = $monthlyGraphPoints;
         if ($detailFilterApplied) {
-            $monthlyPerformanceScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+            $monthlyPerformanceScopedTickets = (clone $scopedTickets)
+                ->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+            [, $monthlyPerformanceGraphPoints] = $this->buildMonthlyReportData(clone $monthlyPerformanceScopedTickets);
         }
-        [, $monthlyPerformanceGraphPoints] = $this->buildMonthlyReportData(clone $monthlyPerformanceScopedTickets);
         $monthlyPerformanceFocusMonthKey = $detailFilterApplied
             ? $detailMonthKey
             : $selectedMonthKey;
@@ -307,16 +302,13 @@ class ReportController extends Controller
             ->groupBy('priority')
             ->pluck('count', 'priority');
 
-        $ticketsByCategory = (clone $scopedTickets)
-            ->with('category:id,name')
-            ->get()
-            ->groupBy(fn (Ticket $ticket) => optional($ticket->category)->name ?? 'Uncategorized')
-            ->map(fn ($tickets, $categoryName) => [
-                'name' => $categoryName,
-                'count' => $tickets->count(),
-                'share' => $totalTickets > 0 ? round(($tickets->count() / $totalTickets) * 100, 1) : 0,
+        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets);
+        $ticketsByCategory = $categoryCounts
+            ->map(fn (object $row) => [
+                'name' => (string) $row->category_name,
+                'count' => (int) $row->count,
+                'share' => $totalTickets > 0 ? round(((int) $row->count / $totalTickets) * 100, 1) : 0.0,
             ])
-            ->sortByDesc('count')
             ->values();
 
         $selectedMonthStatuses = $this->buildStatusBreakdownForPeriod(
@@ -383,34 +375,28 @@ class ReportController extends Controller
 
         $topTechnicianScopedTickets = clone $scopedTickets;
         if ($detailFilterApplied) {
-            $topTechnicianScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
+            $topTechnicianScopedTickets->whereBetween('tickets.created_at', [$detailScopeStart, $detailScopeEnd]);
         }
 
         $topTechnicianRows = (clone $topTechnicianScopedTickets)
             ->whereNotNull('assigned_to')
-            ->whereHas('assignedUser', function ($query) {
-                $query->visibleDirectory();
-            })
-            ->selectRaw("assigned_to, COUNT(*) as total_tickets, SUM(CASE WHEN status IN ('resolved','closed') THEN 1 ELSE 0 END) as resolved_tickets")
-            ->groupBy('assigned_to')
+            ->join('users', 'tickets.assigned_to', '=', 'users.id')
+            ->where('users.role', '!=', User::ROLE_SHADOW)
+            ->selectRaw("tickets.assigned_to, users.name as technician_name, COUNT(*) as total_tickets, SUM(CASE WHEN tickets.status IN ('resolved','closed') THEN 1 ELSE 0 END) as resolved_tickets")
+            ->groupBy('tickets.assigned_to', 'users.name')
             ->orderByDesc('total_tickets')
             ->take(5)
+            ->toBase()
             ->get();
 
-        $technicianDirectory = User::query()
-            ->visibleDirectory()
-            ->whereIn('id', $topTechnicianRows->pluck('assigned_to')->all())
-            ->get(['id', 'name'])
-            ->keyBy('id');
-
         $topTechnicians = $topTechnicianRows
-            ->map(function ($row) use ($technicianDirectory) {
-                $technician = $technicianDirectory->get((int) $row->assigned_to);
+            ->map(function (object $row) {
+                $rowData = (array) $row;
 
                 return [
-                    'name' => $technician?->publicDisplayName() ?? 'Unknown technical user',
-                    'total_tickets' => (int) $row->total_tickets,
-                    'resolved_tickets' => (int) $row->resolved_tickets,
+                    'name' => (string) ($rowData['technician_name'] ?? 'Unknown technical user'),
+                    'total_tickets' => (int) ($rowData['total_tickets'] ?? 0),
+                    'resolved_tickets' => (int) ($rowData['resolved_tickets'] ?? 0),
                 ];
             })
             ->values();
@@ -495,6 +481,9 @@ class ReportController extends Controller
         return $pdf->download('ticket-monthly-report-'.$selectedMonthKey.'.pdf');
     }
 
+    /**
+     * @return Builder<Ticket>
+     */
     private function scopedTicketQueryForUser(User $user): Builder
     {
         $query = Ticket::query();
@@ -529,6 +518,30 @@ class ReportController extends Controller
         }
 
         return (int) round($durations->avg());
+    }
+
+    private function buildKpiSummary(Builder $scopedTickets): array
+    {
+        $openStatusesSqlList = "'".implode("','", Ticket::OPEN_STATUSES)."'";
+        $closedStatusesSqlList = "'".implode("','", Ticket::CLOSED_STATUSES)."'";
+
+        $summary = (clone $scopedTickets)
+            ->toBase()
+            ->selectRaw('COUNT(*) as total_tickets')
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_tickets")
+            ->selectRaw("SUM(CASE WHEN status IN ({$closedStatusesSqlList}) THEN 1 ELSE 0 END) as closed_tickets")
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND assigned_to IS NULL THEN 1 ELSE 0 END) as unassigned_open_tickets")
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND priority = 'urgent' THEN 1 ELSE 0 END) as urgent_open_tickets")
+            ->first();
+        $summaryRow = is_object($summary) ? (array) $summary : [];
+
+        return [
+            'total_tickets' => (int) ($summaryRow['total_tickets'] ?? 0),
+            'open_tickets' => (int) ($summaryRow['open_tickets'] ?? 0),
+            'closed_tickets' => (int) ($summaryRow['closed_tickets'] ?? 0),
+            'unassigned_open_tickets' => (int) ($summaryRow['unassigned_open_tickets'] ?? 0),
+            'urgent_open_tickets' => (int) ($summaryRow['urgent_open_tickets'] ?? 0),
+        ];
     }
 
     private function buildMonthlyReportData(Builder $scopedTickets): array
@@ -572,36 +585,35 @@ class ReportController extends Controller
             ]);
         }
 
-        $reportRows = $monthDefinitions->map(function (array $month) use ($scopedTickets) {
-            $receivedCount = 0;
-            $resolvedCount = 0;
+        $rangeBacklogCutoff = $reportingRangeStart->copy()->subSecond();
+        $openBeforeReportingRange = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $rangeBacklogCutoff);
+        $runningOpenCount = $openBeforeReportingRange;
 
-            $openAtMonthEnd = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $month['end']);
+        $reportRows = $monthDefinitions->map(function (array $row) use (
+            &$runningOpenCount,
+            $receivedByMonth,
+            $resolvedByMonth
+        ) {
+            $monthKey = (string) $row['key'];
+            $receivedCount = (int) ($receivedByMonth[$monthKey] ?? 0);
+            $resolvedCount = (int) ($resolvedByMonth[$monthKey] ?? 0);
+            $runningOpenCount += $receivedCount - $resolvedCount;
+            if ($runningOpenCount < 0) {
+                $runningOpenCount = 0;
+            }
 
             return [
-                'month_key' => $month['key'],
-                'month_label' => $month['label'],
-                'month_start' => $month['start']->toDateString(),
-                'month_end' => $month['end']->toDateString(),
+                'month_key' => $monthKey,
+                'month_label' => (string) $row['label'],
+                'month_start' => $row['start']->toDateString(),
+                'month_end' => $row['end']->toDateString(),
                 'received' => $receivedCount,
                 'resolved' => $resolvedCount,
-                'open_end_of_month' => $openAtMonthEnd,
+                'open_end_of_month' => $runningOpenCount,
                 'resolution_rate' => $receivedCount > 0
                     ? round(($resolvedCount / $receivedCount) * 100, 1)
                     : 0.0,
             ];
-        })->map(function (array $row) use ($receivedByMonth, $resolvedByMonth) {
-            $monthKey = (string) $row['month_key'];
-            $receivedCount = (int) ($receivedByMonth[$monthKey] ?? 0);
-            $resolvedCount = (int) ($resolvedByMonth[$monthKey] ?? 0);
-
-            $row['received'] = $receivedCount;
-            $row['resolved'] = $resolvedCount;
-            $row['resolution_rate'] = $receivedCount > 0
-                ? round(($resolvedCount / $receivedCount) * 100, 1)
-                : 0.0;
-
-            return $row;
         });
 
         $graphPoints = $reportRows->map(fn (array $row) => [
@@ -772,25 +784,19 @@ class ReportController extends Controller
             return $this->categoryBreakdownCache[$cacheKey];
         }
 
-        $tickets = (clone $scopedTickets)
-            ->whereBetween('created_at', [$start, $end])
-            ->with('category:id,name')
-            ->get();
+        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets, $start, $end);
+        $total = max(1, (int) $categoryCounts->sum(fn (object $row) => (int) $row->count));
 
-        $total = max(1, $tickets->count());
-
-        $breakdown = $tickets
-            ->groupBy(fn (Ticket $ticket) => optional($ticket->category)->name ?? 'Uncategorized')
-            ->map(function ($groupedTickets, $categoryName) use ($total) {
-                $count = $groupedTickets->count();
+        $breakdown = $categoryCounts
+            ->map(function (object $row) use ($total) {
+                $count = (int) $row->count;
 
                 return [
-                    'name' => (string) $categoryName,
+                    'name' => (string) $row->category_name,
                     'count' => $count,
                     'share' => round(($count / $total) * 100, 1),
                 ];
             })
-            ->sortByDesc('count')
             ->values();
 
         $this->categoryBreakdownCache[$cacheKey] = $breakdown;
@@ -963,20 +969,36 @@ class ReportController extends Controller
         $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
         $bucketCounts = array_fill_keys($bucketOrder, 0);
 
-        $tickets = (clone $scopedTickets)
-            ->whereBetween('created_at', [$start, $end])
-            ->with('category:id,name')
-            ->get(['id', 'category_id']);
-
-        foreach ($tickets as $ticket) {
-            $bucket = $this->normalizeCategoryBucket(optional($ticket->category)->name);
-            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + 1;
+        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets, $start, $end);
+        foreach ($categoryCounts as $row) {
+            $bucket = $this->normalizeCategoryBucket((string) $row->category_name);
+            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
         }
 
         return collect($bucketCounts)->map(fn (int $count, string $name) => [
             'name' => $name,
             'count' => $count,
         ])->values()->all();
+    }
+
+    private function categoryCountsForScope(
+        Builder $scopedTickets,
+        ?Carbon $start = null,
+        ?Carbon $end = null
+    ): Collection {
+        $query = (clone $scopedTickets)
+            ->leftJoin('categories', 'tickets.category_id', '=', 'categories.id')
+            ->reorder();
+
+        if ($start && $end) {
+            $query->whereBetween('tickets.created_at', [$start, $end]);
+        }
+
+        return $query
+            ->selectRaw("COALESCE(categories.name, 'Uncategorized') as category_name, COUNT(*) as count")
+            ->groupBy('categories.name')
+            ->orderByDesc('count')
+            ->get();
     }
 
     private function normalizeCategoryBucket(?string $categoryName): string
@@ -1157,7 +1179,9 @@ class ReportController extends Controller
 
     private function monthKeyExpression(string $column, Builder $query): string
     {
-        $driver = $query->getConnection()->getDriverName();
+        /** @var Connection $connection */
+        $connection = $query->getQuery()->getConnection();
+        $driver = $connection->getDriverName();
 
         return match ($driver) {
             'pgsql' => "TO_CHAR({$column}, 'YYYY-MM')",
