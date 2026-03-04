@@ -7,8 +7,7 @@
 
 <div
     x-cloak
-    x-show="legalModalOpen"
-    x-transition.opacity
+    x-bind:hidden="!legalModalOpen"
     :class="{ 'is-open': legalModalOpen }"
     @keydown.escape.window="closeLegalModal()"
     class="app-modal-root fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6"
@@ -51,13 +50,13 @@
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-            <div x-show="legalModalTab === 'terms'" x-transition.opacity>
+            <div x-bind:hidden="legalModalTab !== 'terms'">
                 @include('legal.partials.terms-content')
             </div>
-            <div x-show="legalModalTab === 'privacy'" x-transition.opacity>
+            <div x-bind:hidden="legalModalTab !== 'privacy'">
                 @include('legal.partials.privacy-content')
             </div>
-            <div x-show="legalModalTab === 'ticket-consent'" x-transition.opacity>
+            <div x-bind:hidden="legalModalTab !== 'ticket-consent'">
                 @include('legal.partials.ticket-consent-content')
             </div>
         </div>

@@ -10,6 +10,17 @@ class Attachment extends Model
 {
     use HasFactory;
 
+    public const PREVIEWABLE_MIME_TYPES = [
+        'application/pdf',
+        'image/bmp',
+        'image/gif',
+        'image/jpeg',
+        'image/png',
+        'image/svg+xml',
+        'image/webp',
+        'text/plain',
+    ];
+
     protected $fillable = [
         'filename',
         'original_filename',
@@ -44,10 +55,19 @@ class Attachment extends Model
 
     public function getPreviewUrlAttribute()
     {
+        if (! $this->isPreviewableMime()) {
+            return null;
+        }
+
         return route('attachments.download', [
             'attachment' => $this->id,
             'preview' => 1,
         ]);
+    }
+
+    public static function previewableMimeTypes(): array
+    {
+        return self::PREVIEWABLE_MIME_TYPES;
     }
 
     public function delete()
@@ -62,11 +82,16 @@ class Attachment extends Model
 
     public function resolvedDisk(): string
     {
-        $primaryDisk = (string) config('helpdesk.attachments_disk', 'local');
-        if (Storage::disk($primaryDisk)->exists($this->file_path)) {
-            return $primaryDisk;
+        return (string) config('helpdesk.attachments_disk', 'local');
+    }
+
+    public function isPreviewableMime(?string $mimeType = null): bool
+    {
+        $normalizedMimeType = strtolower((string) ($mimeType ?? $this->mime_type));
+        if ($normalizedMimeType === '') {
+            return false;
         }
 
-        return 'public';
+        return in_array($normalizedMimeType, self::PREVIEWABLE_MIME_TYPES, true);
     }
 }

@@ -5,14 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Services\SystemLogService;
+use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    private const LOGIN_ACCOUNT_MAX_ATTEMPTS = 8;
+
+    private const LOGIN_ACCOUNT_LOCKOUT_SECONDS = 900;
+
     public function __construct(
         private SystemLogService $systemLogs,
     ) {}
@@ -37,15 +44,28 @@ class AuthController extends Controller
         $loginInput = trim($request->string('login')->toString());
         $remember = $request->boolean('remember');
         $isEmailLogin = filter_var($loginInput, FILTER_VALIDATE_EMAIL) !== false;
+        $accountLockKey = $this->loginAccountThrottleKey($loginInput);
+
+        if (RateLimiter::tooManyAttempts($accountLockKey, self::LOGIN_ACCOUNT_MAX_ATTEMPTS)) {
+            $secondsUntilRetry = RateLimiter::availableIn($accountLockKey);
+
+            return back()->withErrors([
+                'login' => $this->loginLockoutErrorMessage($secondsUntilRetry),
+            ])->onlyInput('login');
+        }
 
         if ($isEmailLogin) {
             // Email login remains case-insensitive.
+            /** @var EloquentCollection<int, User> $matchedUsers */
             $matchedUsers = User::whereRaw('LOWER(email) = ?', [strtolower($loginInput)])
                 ->get();
         } else {
             // Username login is case-sensitive.
+            /** @var EloquentCollection<int, User> $matchedUsers */
             $matchedUsers = $this->usernameMatchQuery($loginInput)->get();
             if ($matchedUsers->count() > 1) {
+                RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
+
                 return back()->withErrors([
                     'login' => 'Multiple accounts share this username. Please sign in with your email address.',
                 ])->onlyInput('login');
@@ -59,6 +79,7 @@ class AuthController extends Controller
         if ($activeUser) {
             Auth::login($activeUser, $remember);
             $request->session()->regenerate();
+            RateLimiter::clear($accountLockKey);
             $this->systemLogs->record(
                 'auth.login',
                 'User signed in.',
@@ -82,10 +103,14 @@ class AuthController extends Controller
         });
 
         if ($inactiveMatch) {
+            RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
+
             return back()->withErrors([
                 'login' => 'Your account is inactive. Please contact an administrator.',
             ])->onlyInput('login');
         }
+
+        RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
 
         return back()->withErrors([
             'login' => 'The provided credentials do not match our records.',
@@ -232,14 +257,35 @@ class AuthController extends Controller
         return '/client/dashboard';
     }
 
+    /**
+     * @return Builder<User>
+     */
     private function usernameMatchQuery(string $loginInput): Builder
     {
-        $driver = User::query()->getConnection()->getDriverName();
+        /** @var Connection $connection */
+        $connection = User::query()->getQuery()->getConnection();
+        $driver = $connection->getDriverName();
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
             return User::whereRaw('BINARY name = ?', [$loginInput]);
         }
 
         return User::where('name', $loginInput);
+    }
+
+    private function loginAccountThrottleKey(string $loginInput): string
+    {
+        $normalizedLogin = mb_strtolower(trim($loginInput));
+
+        return 'auth:login-account:'.sha1($normalizedLogin);
+    }
+
+    private function loginLockoutErrorMessage(int $secondsUntilRetry): string
+    {
+        $retryAfterSeconds = max(1, $secondsUntilRetry);
+        $retryAfterMinutes = (int) ceil($retryAfterSeconds / 60);
+        $unit = $retryAfterMinutes === 1 ? 'minute' : 'minutes';
+
+        return "Too many sign-in attempts for this account. Try again in {$retryAfterMinutes} {$unit}.";
     }
 }

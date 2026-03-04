@@ -6,7 +6,7 @@ use Tests\TestCase;
 
 class SecurityHeadersTest extends TestCase
 {
-    public function test_forced_csp_includes_unsafe_eval_for_frontend_runtime(): void
+    public function test_forced_csp_disables_unsafe_eval_for_frontend_runtime(): void
     {
         config()->set('security.csp.force', true);
 
@@ -16,6 +16,10 @@ class SecurityHeadersTest extends TestCase
         $response->assertHeader('Content-Security-Policy');
 
         $csp = (string) $response->headers->get('Content-Security-Policy');
-        $this->assertStringContainsString("script-src 'self' 'unsafe-inline' 'unsafe-eval'", $csp);
+        $this->assertStringContainsString("script-src 'self'", $csp);
+        $this->assertStringNotContainsString("'unsafe-eval'", $csp);
+        $this->assertStringNotContainsString("'unsafe-inline'", $csp);
+        $this->assertStringContainsString("script-src-attr 'none'", $csp);
+        $this->assertStringContainsString("style-src-attr 'none'", $csp);
     }
 }

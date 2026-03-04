@@ -263,7 +263,9 @@
                                 @endphp
                                 <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
-                                        <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
+                                        <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
+                                            <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
+                                        </svg>
                                         <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
                                     <div class="text-right">
@@ -328,7 +330,9 @@
                                 @endphp
                                 <a href="{{ $categoryLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
-                                        <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
+                                        <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
+                                            <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
+                                        </svg>
                                         <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
                                     <div class="text-right">
@@ -398,7 +402,9 @@
                                 @endphp
                                 <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
-                                        <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $slice['color'] }};"></span>
+                                        <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
+                                            <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
+                                        </svg>
                                         <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
                                     <div class="text-right">
@@ -652,9 +658,10 @@
                                 <span class="font-medium text-slate-700">{{ $category['name'] }}</span>
                                 <span class="text-slate-500">{{ $category['count'] }} tickets ({{ number_format($category['share'], 1) }}%)</span>
                             </div>
-                            <div class="h-2 w-full rounded-full bg-slate-100">
-                                <div class="h-2 rounded-full bg-[#0f8d88]" style="width: {{ max(2, $category['share']) }}%;"></div>
-                            </div>
+                            <svg viewBox="0 0 100 8" class="h-2 w-full" role="img" aria-label="{{ $category['name'] }} share">
+                                <rect x="0" y="0" width="100" height="8" rx="4" fill="#e2e8f0"></rect>
+                                <rect x="0" y="0" width="{{ max(2, $category['share']) }}" height="8" rx="4" fill="#0f8d88"></rect>
+                            </svg>
                         </div>
                     @empty
                         <p class="px-5 py-8 text-sm text-slate-500">No ticket data is available for this period.</p>

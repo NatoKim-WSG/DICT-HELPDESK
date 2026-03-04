@@ -10,6 +10,7 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboardController
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
+use App\Models\Attachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -181,7 +182,8 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
 });
 
 // Download attachments
-Route::get('/attachments/{attachment}/download', function (Request $request, \App\Models\Attachment $attachment) {
+Route::get('/attachments/{attachment}/download', function (Request $request, Attachment $attachment) {
+    $previewAllowedMimeTypes = Attachment::previewableMimeTypes();
     $user = auth()->user();
     $attachable = $attachment->attachable;
 
@@ -216,6 +218,17 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
     }
 
     if ($request->boolean('preview')) {
+        $storedMimeType = strtolower((string) $attachment->mime_type);
+        if ($storedMimeType !== '' && ! in_array($storedMimeType, $previewAllowedMimeTypes, true)) {
+            abort(415, 'Preview is not supported for this file type.');
+        }
+
+        $detectedMimeType = strtolower((string) (Storage::disk($storageDisk)->mimeType($attachment->file_path) ?: ''));
+        $previewMimeType = $detectedMimeType !== '' ? $detectedMimeType : $storedMimeType;
+        if ($previewMimeType === '' || ! in_array($previewMimeType, $previewAllowedMimeTypes, true)) {
+            abort(415, 'Preview is not supported for this file type.');
+        }
+
         $stream = Storage::disk($storageDisk)->readStream($attachment->file_path);
         if (! is_resource($stream)) {
             abort(404);
@@ -236,7 +249,7 @@ Route::get('/attachments/{attachment}/download', function (Request $request, \Ap
             }
         }, 200, [
             'Content-Disposition' => $contentDisposition,
-            'Content-Type' => $attachment->mime_type,
+            'Content-Type' => $previewMimeType,
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

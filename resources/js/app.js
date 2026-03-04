@@ -1,5 +1,5 @@
 import './bootstrap';
-import Alpine from 'alpinejs';
+import Alpine from '@alpinejs/csp';
 import './pages/admin-dashboard-page';
 import './pages/client-dashboard-page';
 import './pages/admin-reports-page';
@@ -14,7 +14,119 @@ import './pages/client-ticket-create-page';
 import './pages/client-tickets-index-page';
 import './pages/app-layout-notifications-page';
 
+window.AppTheme = (() => {
+    const storageKey = 'ione_theme';
+    const root = document.documentElement;
+
+    const hasReducedMotionPreference = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isDark = () => root.classList.contains('theme-dark');
+
+    const persistMode = (isDarkMode) => {
+        try {
+            window.localStorage.setItem(storageKey, isDarkMode ? 'dark' : 'light');
+        } catch (error) {
+        }
+    };
+
+    const apply = (isDarkMode, options = {}) => {
+        const persist = options.persist !== false;
+        const shouldAnimate = options.animate !== false && !hasReducedMotionPreference();
+
+        if (shouldAnimate) {
+            root.classList.add('theme-switching');
+            requestAnimationFrame(() => {
+                root.classList.toggle('theme-dark', isDarkMode);
+                if (persist) persistMode(isDarkMode);
+                window.setTimeout(() => {
+                    root.classList.remove('theme-switching');
+                }, 120);
+            });
+
+            return isDarkMode;
+        }
+
+        root.classList.toggle('theme-dark', isDarkMode);
+        root.classList.remove('theme-switching');
+        if (persist) persistMode(isDarkMode);
+
+        return isDarkMode;
+    };
+
+    const toggle = () => apply(!isDark());
+
+    return { isDark, apply, toggle };
+})();
+
 window.Alpine = Alpine;
+
+const resolveDarkModeState = () => (
+    window.AppTheme
+        ? window.AppTheme.isDark()
+        : document.documentElement.classList.contains('theme-dark')
+);
+
+const buildThemeState = () => ({
+    darkMode: false,
+    initThemeState() {
+        this.darkMode = resolveDarkModeState();
+    },
+    toggleDarkMode() {
+        if (window.AppTheme) {
+            this.darkMode = window.AppTheme.toggle();
+            return;
+        }
+
+        this.darkMode = !this.darkMode;
+        document.documentElement.classList.toggle('theme-dark', this.darkMode);
+        window.localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
+    },
+});
+
+const buildLegalModalState = () => ({
+    legalModalOpen: false,
+    legalModalTab: 'terms',
+    openLegalModal(tab = 'terms') {
+        this.legalModalTab = tab;
+        this.legalModalOpen = true;
+        document.body.classList.add('overflow-hidden');
+    },
+    closeLegalModal() {
+        this.legalModalOpen = false;
+        document.body.classList.remove('overflow-hidden');
+    },
+});
+
+Alpine.data('appShellState', () => ({
+    sidebarOpen: false,
+    ...buildThemeState(),
+    ...buildLegalModalState(),
+    init() {
+        this.initThemeState();
+    },
+}));
+
+Alpine.data('loginPageState', () => ({
+    ...buildThemeState(),
+    ...buildLegalModalState(),
+    init() {
+        this.initThemeState();
+    },
+}));
+
+Alpine.data('publicLegalPageState', () => ({
+    ...buildThemeState(),
+    init() {
+        this.initThemeState();
+    },
+}));
+
+Alpine.data('headerNotificationDropdown', () => ({
+    notificationOpen: false,
+}));
+
+Alpine.data('profileMenuDropdown', () => ({
+    open: false,
+}));
 
 Alpine.start();
 
@@ -56,7 +168,12 @@ Alpine.start();
         }, 90);
     });
 
-    window.addEventListener('pageshow', () => {
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            window.location.reload();
+            return;
+        }
+
         document.documentElement.classList.remove('is-page-transitioning');
     });
 })();
@@ -113,6 +230,26 @@ Alpine.start();
 (() => {
     const openModals = new Set();
 
+    const resolveTransitionDuration = (customDuration) => {
+        const parsedCustomDuration = Number(customDuration);
+        if (Number.isFinite(parsedCustomDuration) && parsedCustomDuration > 0) {
+            return parsedCustomDuration;
+        }
+
+        const durationToken = window.getComputedStyle(document.documentElement)
+            .getPropertyValue('--motion-duration-base')
+            .trim();
+        const durationMatch = durationToken.match(/^([\d.]+)\s*(ms|s)?$/i);
+
+        if (!durationMatch) return 220;
+
+        const durationValue = Number.parseFloat(durationMatch[1]);
+        if (!Number.isFinite(durationValue) || durationValue <= 0) return 220;
+
+        const unit = (durationMatch[2] || 'ms').toLowerCase();
+        return unit === 's' ? durationValue * 1000 : durationValue;
+    };
+
     const syncBodyScroll = () => {
         if (openModals.size > 0) {
             document.body.classList.add('overflow-hidden');
@@ -143,7 +280,7 @@ Alpine.start();
         const openButtons = toNodes(options.openButtons || []);
         const overlay = toNode(options.overlay) || modal.querySelector(options.overlaySelector || '.app-modal-overlay');
         const panel = toNode(options.panel) || modal.querySelector(options.panelSelector || '.app-modal-panel');
-        const transitionDuration = Number(options.transitionDuration || 210);
+        const transitionDuration = resolveTransitionDuration(options.transitionDuration);
         let closeTimer = null;
 
         modal.classList.add('app-modal-root');

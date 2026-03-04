@@ -86,7 +86,7 @@
                     <h3 class="font-display text-xl font-semibold text-slate-900">Recent Tickets</h3>
                     <p class="mt-1 text-sm text-slate-500">Latest support requests from users.</p>
                 </div>
-                <div class="overflow-y-auto" style="max-height: 525px;">
+                <div class="max-h-[525px] overflow-y-auto">
                     <ul class="divide-y divide-slate-100">
                         @forelse($recentTickets as $ticket)
                             <li>

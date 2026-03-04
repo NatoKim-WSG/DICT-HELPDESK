@@ -404,10 +404,18 @@ const initAdminTicketShowPage = () => {
             : '';
         const attachmentsHtml = !isDeleted && Array.isArray(payload.attachments) && payload.attachments.length
             ? '<div class="mt-4 flex flex-wrap gap-2">' + payload.attachments.map(function (attachment) {
+                const canPreview = Boolean(attachment.can_preview && attachment.preview_url);
                 if (attachment.is_image) {
-                    return '<a href="' + attachment.download_url + '" class="js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><img src="' + attachment.preview_url + '" alt="' + escapeHtml(attachment.original_filename) + '" class="h-36 w-full rounded-lg object-cover"><span class="mt-2 block truncate text-xs text-slate-600">' + escapeHtml(attachment.original_filename) + '</span></a>';
+                    const imagePreviewAttributes = canPreview
+                        ? ' data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"'
+                        : '';
+                    const imageUrl = canPreview ? attachment.preview_url : attachment.download_url;
+                    return '<a href="' + attachment.download_url + '" class="' + (canPreview ? 'js-attachment-link ' : '') + 'block w-[240px] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-2 text-sm hover:bg-slate-50"' + imagePreviewAttributes + '><img src="' + imageUrl + '" alt="' + escapeHtml(attachment.original_filename) + '" class="h-36 w-full rounded-lg object-cover"><span class="mt-2 block truncate text-xs text-slate-600">' + escapeHtml(attachment.original_filename) + '</span></a>';
                 }
-                return '<a href="' + attachment.download_url + '" class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50" data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"><svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">' + escapeHtml(attachment.original_filename) + '</span></a>';
+                const linkPreviewAttributes = canPreview
+                    ? ' data-file-url="' + attachment.preview_url + '" data-file-name="' + escapeHtml(attachment.original_filename) + '" data-file-mime="' + escapeHtml(attachment.mime_type || '') + '"'
+                    : '';
+                return '<a href="' + attachment.download_url + '" class="' + (canPreview ? 'js-attachment-link ' : '') + 'flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"' + linkPreviewAttributes + '><svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">' + escapeHtml(attachment.original_filename) + '</span></a>';
             }).join('') + '</div>'
             : '';
         const stateRow = '<div class="js-state-row mb-1 flex items-center gap-2 ' + ((showEditedBadge || isDeleted) ? '' : 'hidden') + '"><span class="js-edited-badge chat-meta-badge ' + (showEditedBadge ? '' : 'hidden') + '">Edited</span><span class="js-deleted-badge chat-meta-badge chat-meta-badge--deleted ' + (isDeleted ? '' : 'hidden') + '">Deleted</span></div>';

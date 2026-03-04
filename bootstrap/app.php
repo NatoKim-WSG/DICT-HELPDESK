@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             $parsedTrustedProxies = trim($trustedProxies) === '*'
                 ? '*'
                 : array_values(array_filter(array_map('trim', explode(',', $trustedProxies))));
+        } else {
+            $parsedTrustedProxies = ['127.0.0.1', '::1'];
+        }
+
+        if ($parsedTrustedProxies === '*' || count($parsedTrustedProxies) > 0) {
             $middleware->trustProxies(
                 at: $parsedTrustedProxies,
                 headers: Request::HEADER_X_FORWARDED_FOR

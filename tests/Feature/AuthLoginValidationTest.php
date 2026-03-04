@@ -64,4 +64,40 @@ class AuthLoginValidationTest extends TestCase
         $response->assertSessionHasErrors('login');
         $this->assertGuest();
     }
+
+    public function test_account_lockout_blocks_login_after_repeated_failed_attempts(): void
+    {
+        User::create([
+            'name' => 'Lockout User',
+            'email' => 'lockout-user@example.com',
+            'phone' => '09125556666',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('StrongPass123!'),
+            'is_active' => true,
+        ]);
+
+        foreach (range(1, 8) as $attempt) {
+            $response = $this->from(route('login'))->post(route('login'), [
+                'login' => 'lockout-user@example.com',
+                'password' => 'invalid-password',
+            ], [
+                'REMOTE_ADDR' => '198.51.100.'.$attempt,
+            ]);
+
+            $response->assertRedirect(route('login'));
+            $response->assertSessionHasErrors('login');
+        }
+
+        $lockedResponse = $this->from(route('login'))->post(route('login'), [
+            'login' => 'lockout-user@example.com',
+            'password' => 'StrongPass123!',
+        ], [
+            'REMOTE_ADDR' => '203.0.113.250',
+        ]);
+
+        $lockedResponse->assertRedirect(route('login'));
+        $lockedResponse->assertSessionHasErrors('login');
+        $this->assertGuest();
+    }
 }

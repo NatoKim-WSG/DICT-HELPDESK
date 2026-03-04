@@ -11,51 +11,6 @@
     $clientCompanyLogo = $departmentLogo(auth()->user()->department);
     $supportCompanyLogo = asset('images/iOne Logo.png');
 @endphp
-<style>
-#conversation-thread {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-#conversation-thread::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-}
-
-#conversation-thread:hover {
-    scrollbar-width: thin;
-}
-
-#conversation-thread:hover::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-#conversation-thread:hover::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-}
-
-#conversation-thread:hover::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.theme-dark #conversation-thread:hover {
-    scrollbar-color: #38414d #12161c;
-}
-
-.theme-dark #conversation-thread {
-    background: linear-gradient(180deg, #171b21 0%, #101215 100%) !important;
-}
-
-.theme-dark #conversation-thread:hover::-webkit-scrollbar-thumb {
-    background: #38414d;
-}
-
-.theme-dark #conversation-thread:hover::-webkit-scrollbar-track {
-    background: #12161c;
-}
-</style>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-client-ticket-show-page>
     <div class="mb-3">
         <a href="{{ route('client.tickets.index') }}" class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
@@ -140,10 +95,12 @@
                                                 </a>
                                             @else
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
-                                                   data-file-url="{{ $attachment->preview_url }}"
-                                                   data-file-name="{{ $attachment->original_filename }}"
-                                                   data-file-mime="{{ $attachment->mime_type }}">
+                                                   class="{{ $attachment->preview_url ? 'js-attachment-link ' : '' }}flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                   @if($attachment->preview_url)
+                                                       data-file-url="{{ $attachment->preview_url }}"
+                                                       data-file-name="{{ $attachment->original_filename }}"
+                                                       data-file-mime="{{ $attachment->mime_type }}"
+                                                   @endif>
                                                     <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                     </svg>
@@ -246,10 +203,12 @@
                                                     </a>
                                                 @else
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
-                                                       data-file-url="{{ $attachment->preview_url }}"
-                                                       data-file-name="{{ $attachment->original_filename }}"
-                                                       data-file-mime="{{ $attachment->mime_type }}">
+                                                       class="{{ $attachment->preview_url ? 'js-attachment-link ' : '' }}flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50"
+                                                       @if($attachment->preview_url)
+                                                           data-file-url="{{ $attachment->preview_url }}"
+                                                           data-file-name="{{ $attachment->original_filename }}"
+                                                           data-file-mime="{{ $attachment->mime_type }}"
+                                                       @endif>
                                                         <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                         </svg>

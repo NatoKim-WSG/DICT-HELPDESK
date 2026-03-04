@@ -50,13 +50,7 @@
 
 <div
     x-cloak
-    x-show="sidebarOpen"
-    x-transition:enter="transition-opacity duration-250 ease-out"
-    x-transition:enter-start="opacity-0"
-    x-transition:enter-end="opacity-100"
-    x-transition:leave="transition-opacity duration-200 ease-in"
-    x-transition:leave-start="opacity-100"
-    x-transition:leave-end="opacity-0"
+    x-bind:hidden="!sidebarOpen"
     @click="sidebarOpen = false"
     class="fixed inset-0 z-40 bg-slate-900/45 lg:hidden"
 ></div>

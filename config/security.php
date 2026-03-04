@@ -14,9 +14,10 @@ return [
             'img-src' => ["'self'", 'data:', 'blob:'],
             'media-src' => ["'self'", 'data:', 'blob:'],
             'font-src' => ["'self'", 'https://fonts.bunny.net', 'data:'],
-            'style-src' => ["'self'", "'unsafe-inline'", 'https://fonts.bunny.net'],
-            // Alpine.js expression evaluation relies on eval/new Function.
-            'script-src' => ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            'style-src' => ["'self'", 'https://fonts.bunny.net'],
+            'script-src' => ["'self'"],
+            'script-src-attr' => ["'none'"],
+            'style-src-attr' => ["'none'"],
             'connect-src' => ["'self'"],
             'manifest-src' => ["'self'"],
             'worker-src' => ["'self'", 'blob:'],

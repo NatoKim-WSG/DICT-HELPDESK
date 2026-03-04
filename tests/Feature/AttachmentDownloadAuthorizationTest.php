@@ -51,6 +51,29 @@ class AttachmentDownloadAuthorizationTest extends TestCase
         $response->assertHeader('Content-Disposition');
     }
 
+    public function test_preview_rejects_unsupported_mime_types(): void
+    {
+        [, $superUser, $ticket] = $this->seedTicketContext();
+        $reply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $superUser->id,
+            'message' => 'Reply with unsupported preview attachment',
+            'is_internal' => false,
+        ]);
+
+        $attachment = $this->createReplyAttachment($reply, 'unsupported.bin', "\x00\x01\x02\x03");
+        $attachment->update(['mime_type' => 'application/octet-stream']);
+        $this->assertSame('application/octet-stream', (string) $attachment->fresh()->mime_type);
+
+        $response = $this->actingAs($superUser)
+            ->get(route('attachments.download', [
+                'attachment' => $attachment,
+                'preview' => 1,
+            ]));
+
+        $response->assertStatus(415);
+    }
+
     private function seedTicketContext(): array
     {
         Storage::fake('local');

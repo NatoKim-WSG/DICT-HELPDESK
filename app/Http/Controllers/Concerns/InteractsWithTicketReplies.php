@@ -51,12 +51,15 @@ trait InteractsWithTicketReplies
             'reply_to_message' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
             'reply_to_excerpt' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
             'attachments' => $reply->attachments->map(function ($attachment) {
+                $previewUrl = $attachment->preview_url;
+
                 return [
                     'download_url' => $attachment->download_url,
-                    'preview_url' => $attachment->preview_url,
+                    'preview_url' => $previewUrl,
                     'original_filename' => $attachment->original_filename,
                     'mime_type' => $attachment->mime_type,
                     'is_image' => str_starts_with((string) $attachment->mime_type, 'image/'),
+                    'can_preview' => (bool) $previewUrl,
                 ];
             })->values(),
         ];

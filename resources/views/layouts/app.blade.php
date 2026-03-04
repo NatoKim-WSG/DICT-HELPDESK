@@ -60,55 +60,13 @@
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
-    <script>
-        (function () {
-            if (localStorage.getItem('ione_theme') === 'dark') {
-                document.documentElement.classList.add('theme-dark');
-            }
-        })();
-    </script>
-    <script>
-        window.addEventListener('pageshow', function (event) {
-            if (event.persisted) {
-                window.location.reload();
-            }
-        });
-    </script>
+    @include('partials.theme-initializer')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-[#f3f5f7] font-sans antialiased text-slate-900">
     <div
         class="min-h-screen bg-[#f3f5f7]"
-        x-data="{
-            sidebarOpen: false,
-            darkMode: false,
-            legalModalOpen: false,
-            legalModalTab: 'terms',
-            init() {
-                this.darkMode = document.documentElement.classList.contains('theme-dark');
-            },
-            toggleDarkMode() {
-                const root = document.documentElement;
-                this.darkMode = !this.darkMode;
-                root.classList.add('theme-switching');
-                requestAnimationFrame(() => {
-                    root.classList.toggle('theme-dark', this.darkMode);
-                    localStorage.setItem('ione_theme', this.darkMode ? 'dark' : 'light');
-                    window.setTimeout(() => {
-                        root.classList.remove('theme-switching');
-                    }, 120);
-                });
-            },
-            openLegalModal(tab = 'terms') {
-                this.legalModalTab = tab;
-                this.legalModalOpen = true;
-                document.body.classList.add('overflow-hidden');
-            },
-            closeLegalModal() {
-                this.legalModalOpen = false;
-                document.body.classList.remove('overflow-hidden');
-            }
-        }"
+        x-data="appShellState"
     >
         @include('layouts.navigation')
 
@@ -168,10 +126,10 @@
                             :aria-pressed="darkMode.toString()"
                             aria-label="Toggle dark mode"
                         >
-                            <svg x-cloak x-show="!darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg x-cloak :class="darkMode ? 'hidden' : ''" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-10h-1M4.34 12h-1m14.02 6.36-.7-.7M7.02 7.02l-.7-.7m12.02 0-.7.7M7.02 16.98l-.7.7M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
                             </svg>
-                            <svg x-cloak x-show="darkMode" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;">
+                            <svg x-cloak :class="darkMode ? '' : 'hidden'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"></path>
                             </svg>
                         </button>
@@ -222,7 +180,7 @@
                         @endif
 
                         @if($notificationsEnabled)
-                            <div class="relative" x-data="{ notificationOpen: false }">
+                            <div class="relative" x-data="headerNotificationDropdown">
                                 <button
                                     @click="notificationOpen = !notificationOpen"
                                     type="button"
@@ -241,14 +199,8 @@
 
                                 <div
                                     x-cloak
-                                    x-show="notificationOpen"
+                                    x-bind:hidden="!notificationOpen"
                                     @click.away="notificationOpen = false"
-                                    x-transition:enter="transition duration-220 ease-out"
-                                    x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
-                                    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                                    x-transition:leave="transition duration-160 ease-in"
-                                    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                                    x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
                                     class="fixed left-2 right-2 top-20 z-40 max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[calc(100vw-1rem)]"
                                 >
                                     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
@@ -313,7 +265,7 @@
                             </div>
                         @endif
 
-                        <div class="relative" x-data="{ open: false }">
+                        <div class="relative" x-data="profileMenuDropdown">
                             <button @click="open = !open" class="app-pressable inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 sm:px-4">
                                 <span class="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white">
                                     <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="avatar-logo">
@@ -326,14 +278,8 @@
 
                             <div
                                 x-cloak
-                                x-show="open"
+                                x-bind:hidden="!open"
                                 @click.away="open = false"
-                                x-transition:enter="transition duration-220 ease-out"
-                                x-transition:enter-start="opacity-0 -translate-y-1 scale-95"
-                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                                x-transition:leave="transition duration-150 ease-in"
-                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                                x-transition:leave-end="opacity-0 -translate-y-1 scale-95"
                                 class="absolute right-0 z-40 mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
                             >
                                 @if($canAccessAccountSettings)

@@ -211,15 +211,18 @@ const initClientTicketShowPage = () => {
     const createAttachmentLink = function (attachment) {
         const link = document.createElement('a');
         link.href = attachment.download_url;
-        link.dataset.fileUrl = attachment.preview_url;
-        link.dataset.fileName = attachment.original_filename;
-        link.dataset.fileMime = attachment.mime_type;
+        const canPreview = Boolean(attachment.can_preview && attachment.preview_url);
+        if (canPreview) {
+            link.dataset.fileUrl = attachment.preview_url;
+            link.dataset.fileName = attachment.original_filename;
+            link.dataset.fileMime = attachment.mime_type;
+        }
 
         if (attachment.is_image) {
-            link.className = 'js-attachment-link block w-[240px] max-w-full overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50';
+            link.className = (canPreview ? 'js-attachment-link ' : '') + 'block w-[240px] max-w-full overflow-hidden rounded-xl border border-ione-blue-200 bg-white p-2 text-sm transition hover:bg-slate-50';
 
             const image = document.createElement('img');
-            image.src = attachment.preview_url;
+            image.src = canPreview ? attachment.preview_url : attachment.download_url;
             image.alt = attachment.original_filename || 'Attachment image';
             image.className = 'h-36 w-full rounded-lg object-cover';
 
@@ -232,7 +235,7 @@ const initClientTicketShowPage = () => {
             return link;
         }
 
-        link.className = 'js-attachment-link flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
+        link.className = (canPreview ? 'js-attachment-link ' : '') + 'flex max-w-full items-center rounded-xl border border-ione-blue-200 bg-white px-3 py-2 text-sm transition hover:bg-slate-50';
 
         const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         icon.setAttribute('class', 'mr-2 h-4 w-4 text-slate-500');

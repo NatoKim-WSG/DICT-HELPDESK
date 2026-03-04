@@ -625,6 +625,48 @@
         @apply text-slate-600;
     }
 
+    .login-card {
+        background: rgba(255, 255, 255, 0.96);
+    }
+
+    .login-toggle {
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    #conversation-thread,
+    #admin-conversation-thread {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    #conversation-thread::-webkit-scrollbar,
+    #admin-conversation-thread::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    #conversation-thread:hover,
+    #admin-conversation-thread:hover {
+        scrollbar-width: thin;
+    }
+
+    #conversation-thread:hover::-webkit-scrollbar,
+    #admin-conversation-thread:hover::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    #conversation-thread:hover::-webkit-scrollbar-thumb,
+    #admin-conversation-thread:hover::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 9999px;
+    }
+
+    #conversation-thread:hover::-webkit-scrollbar-track,
+    #admin-conversation-thread:hover::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
     .app-shell {
         @apply relative z-10 max-w-7xl px-4 sm:px-6 lg:px-8;
     }
@@ -798,6 +840,63 @@
 
     .theme-dark .bg-\[\#fafbfc\] {
         background-color: var(--dm-surface-soft) !important;
+    }
+
+    .theme-dark .login-card {
+        background: linear-gradient(160deg, #161b22 0%, #11161d 100%) !important;
+        border-color: #2b323c !important;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.58) !important;
+    }
+
+    .theme-dark .login-hero {
+        background: linear-gradient(140deg, rgba(15, 118, 110, 0.12), rgba(14, 165, 233, 0.07)) !important;
+        border-right: 1px solid #2b323c;
+    }
+
+    .theme-dark .login-orb-left {
+        background-color: rgba(45, 119, 155, 0.12) !important;
+        opacity: 0.45;
+    }
+
+    .theme-dark .login-orb-right {
+        background-color: rgba(18, 106, 126, 0.12) !important;
+        opacity: 0.4;
+    }
+
+    .theme-dark .login-toggle {
+        background: #161b22 !important;
+        border-color: #2b323c !important;
+        color: #e7ebf2 !important;
+    }
+
+    .theme-dark .login-input {
+        background-color: #1d232b !important;
+        border-color: #2b323c !important;
+        color: #e7ebf2 !important;
+    }
+
+    .theme-dark .login-input::placeholder {
+        color: #94a3b8 !important;
+    }
+
+    .theme-dark #conversation-thread:hover,
+    .theme-dark #admin-conversation-thread:hover {
+        scrollbar-color: #38414d #12161c;
+    }
+
+    .theme-dark #conversation-thread,
+    .theme-dark #admin-conversation-thread {
+        background: linear-gradient(180deg, #171b21 0%, #101215 100%) !important;
+    }
+
+    .theme-dark #conversation-thread:hover::-webkit-scrollbar-thumb,
+    .theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-thumb {
+        background: #38414d;
+    }
+
+    .theme-dark #conversation-thread:hover::-webkit-scrollbar-track,
+    .theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-track {
+        background: #12161c;
     }
 
     .theme-dark header.sticky {

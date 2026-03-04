@@ -329,7 +329,7 @@
 </div>
 
 <!-- Action Notification -->
-<div id="actionNotification" class="fixed z-[70] hidden max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-lg" style="top: 16px; right: 16px; bottom: auto; left: auto;">
+<div id="actionNotification" class="fixed right-4 top-4 z-[70] hidden max-w-sm rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-lg">
     <p id="actionNotificationMessage"></p>
 </div>
 

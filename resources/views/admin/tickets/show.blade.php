@@ -23,51 +23,6 @@
     $canRevertTicket = $ticket->status === 'resolved'
         || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
 @endphp
-<style>
-#admin-conversation-thread {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-#admin-conversation-thread::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-}
-
-#admin-conversation-thread:hover {
-    scrollbar-width: thin;
-}
-
-#admin-conversation-thread:hover::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-#admin-conversation-thread:hover::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-}
-
-#admin-conversation-thread:hover::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.theme-dark #admin-conversation-thread:hover {
-    scrollbar-color: #38414d #12161c;
-}
-
-.theme-dark #admin-conversation-thread {
-    background: linear-gradient(180deg, #171b21 0%, #101215 100%) !important;
-}
-
-.theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-thumb {
-    background: #38414d;
-}
-
-.theme-dark #admin-conversation-thread:hover::-webkit-scrollbar-track {
-    background: #12161c;
-}
-</style>
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-admin-ticket-show-page>
     <!-- Back Button -->
     <div class="mb-6">
@@ -150,10 +105,12 @@
                                                 </a>
                                             @else
                                                 <a href="{{ $attachment->download_url }}"
-                                                   class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                                                   data-file-url="{{ $attachment->preview_url }}"
-                                                   data-file-name="{{ $attachment->original_filename }}"
-                                                   data-file-mime="{{ $attachment->mime_type }}">
+                                                   class="{{ $attachment->preview_url ? 'js-attachment-link ' : '' }}flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                                                   @if($attachment->preview_url)
+                                                       data-file-url="{{ $attachment->preview_url }}"
+                                                       data-file-name="{{ $attachment->original_filename }}"
+                                                       data-file-mime="{{ $attachment->mime_type }}"
+                                                   @endif>
                                                     <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                     </svg>
@@ -228,10 +185,12 @@
                                                     </a>
                                                 @else
                                                     <a href="{{ $attachment->download_url }}"
-                                                       class="js-attachment-link flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                                                       data-file-url="{{ $attachment->preview_url }}"
-                                                       data-file-name="{{ $attachment->original_filename }}"
-                                                       data-file-mime="{{ $attachment->mime_type }}">
+                                                       class="{{ $attachment->preview_url ? 'js-attachment-link ' : '' }}flex max-w-full items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                                                       @if($attachment->preview_url)
+                                                           data-file-url="{{ $attachment->preview_url }}"
+                                                           data-file-name="{{ $attachment->original_filename }}"
+                                                           data-file-mime="{{ $attachment->mime_type }}"
+                                                       @endif>
                                                         <svg class="mr-2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                                         </svg>
@@ -402,10 +361,10 @@
                             <label for="assigned_to" class="form-label">Assign To</label>
                             <select name="assigned_to" id="assigned_to" class="form-input">
                                 <option value="">Select Support User</option>
-                                @foreach($agents as $agent)
-                                    <option value="{{ $agent->id }}"
-                                            {{ $ticket->assigned_to == $agent->id ? 'selected' : '' }}>
-                                        {{ $agent->publicDisplayName() }}
+                                @foreach($assignees as $assignee)
+                                    <option value="{{ $assignee->id }}"
+                                            {{ $ticket->assigned_to == $assignee->id ? 'selected' : '' }}>
+                                        {{ $assignee->publicDisplayName() }}
                                     </option>
                                 @endforeach
                             </select>
