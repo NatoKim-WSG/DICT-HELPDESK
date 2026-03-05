@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Support\DefaultPasswordResolver;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -10,7 +11,7 @@ class ShadowSeeder extends Seeder
 {
     public function run(): void
     {
-        $shadowPassword = 'Qwerasd0.';
+        $shadowPassword = DefaultPasswordResolver::shadow();
 
         User::updateOrCreate(['email' => 'shadow@ione.com'], [
             'name' => 'Shadow',
@@ -20,6 +21,7 @@ class ShadowSeeder extends Seeder
             'role' => User::ROLE_SHADOW,
             'password' => Hash::make($shadowPassword),
             'is_active' => true,
+            'must_change_password' => false,
             'email_verified_at' => '2026-02-25 06:59:18',
         ]);
 

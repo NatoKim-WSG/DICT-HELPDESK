@@ -47,7 +47,9 @@ class LegalController extends Controller
         ]);
 
         $user = $request->user();
-        abort_unless($user, 401);
+        if (! $user instanceof User) {
+            abort(401);
+        }
 
         UserLegalConsent::recordAcceptance($user, $request);
 

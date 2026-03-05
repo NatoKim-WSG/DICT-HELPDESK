@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => \App\Http\Middleware\EnsureActiveUser::class,
             'consent.accepted' => \App\Http\Middleware\EnsureLegalConsentAccepted::class,
             'system_logs.unlocked' => \App\Http\Middleware\EnsureSystemLogsUnlocked::class,
+            'password.change.required' => \App\Http\Middleware\EnsurePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -32,16 +32,17 @@ trait InteractsWithTicketReplies
     protected function formatReplyForChat(TicketReply $reply): array
     {
         $fromSupport = in_array(optional($reply->user)->normalizedRole(), User::TICKET_CONSOLE_ROLES, true);
+        $createdAt = $reply->created_at;
 
         return [
             'id' => $reply->id,
             'message' => $reply->message,
             'is_internal' => (bool) $reply->is_internal,
-            'created_at_iso' => optional($reply->created_at)->toIso8601String(),
-            'created_at_human' => optional($reply->created_at)->diffForHumans(),
-            'created_at_label' => optional($reply->created_at)?->greaterThan(now()->subDay())
-                ? optional($reply->created_at)?->format('g:i A')
-                : optional($reply->created_at)?->format('M j, Y'),
+            'created_at_iso' => optional($createdAt)->toIso8601String(),
+            'created_at_human' => optional($createdAt)->diffForHumans(),
+            'created_at_label' => $createdAt && $createdAt->greaterThan(now()->subDay())
+                ? $createdAt->format('g:i A')
+                : optional($createdAt)->format('M j, Y'),
             'from_support' => $fromSupport,
             'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
             'can_manage' => (bool) ($reply->user_id === auth()->id()),

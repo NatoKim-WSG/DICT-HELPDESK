@@ -25,7 +25,7 @@
             @csrf
 
             <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <input type="checkbox" name="accept_terms" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500">
+                <input type="checkbox" name="accept_terms" value="1" class="ticket-checkbox mt-1">
                 <span>I agree to the Terms of Service.</span>
             </label>
             @error('accept_terms')
@@ -33,7 +33,7 @@
             @enderror
 
             <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <input type="checkbox" name="accept_privacy" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500">
+                <input type="checkbox" name="accept_privacy" value="1" class="ticket-checkbox mt-1">
                 <span>I acknowledge and consent to the Privacy Notice.</span>
             </label>
             @error('accept_privacy')
@@ -41,7 +41,7 @@
             @enderror
 
             <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                <input type="checkbox" name="accept_platform_consent" value="1" class="mt-1 h-4 w-4 rounded border-slate-300 text-ione-blue-600 focus:ring-ione-blue-500">
+                <input type="checkbox" name="accept_platform_consent" value="1" class="ticket-checkbox mt-1">
                 <span>I confirm I am authorized to use this platform and provide data needed for support.</span>
             </label>
             @error('accept_platform_consent')

@@ -85,7 +85,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
 });
 
 // Admin Routes
-Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,shadow,technical'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,shadow,technical', 'password.change.required'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('role:super_user,admin,shadow,technical')
         ->name('dashboard');

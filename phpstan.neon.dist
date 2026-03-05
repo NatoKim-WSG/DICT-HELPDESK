@@ -1,9 +1,8 @@
 includes:
     - vendor/larastan/larastan/extension.neon
-    - phpstan-baseline.neon
 
 parameters:
-    level: 4
+    level: 5
     paths:
         - app
     tmpDir: storage/phpstan

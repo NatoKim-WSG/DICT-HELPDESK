@@ -191,7 +191,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-3.5-3.5A6.965 6.965 0 0012 5a6.965 6.965 0 00-7.5 8.5L1 17h5m9 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                                     </svg>
                                     @if($notificationCount > 0)
-                                        <span class="js-header-notification-badge absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white" data-count="{{ $notificationCount }}">
+                                        <span class="js-header-notification-badge absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white" data-count="{{ $notificationCount }}">
                                             {{ $notificationCount > 9 ? '9+' : $notificationCount }}
                                         </span>
                                     @endif
@@ -271,7 +271,7 @@
                                     <img src="{{ $clientCompanyLogo }}" alt="{{ $clientCompanyName }} logo" class="avatar-logo">
                                 </span>
                                 <span class="hidden text-left xl:block">
-                                    <span class="block max-w-[11rem] truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
+                                    <span class="block max-w-44 truncate text-base font-semibold text-slate-800">{{ $user->name }}</span>
                                     <span class="block text-sm text-slate-500">{{ $clientCompanyName }}</span>
                                 </span>
                             </button>

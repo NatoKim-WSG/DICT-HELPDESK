@@ -503,7 +503,8 @@ class ReportController extends Controller
                     ->orWhereNotNull('closed_at');
             })
             ->get(['created_at', 'resolved_at', 'closed_at'])
-            ->map(function (Ticket $ticket) {
+            ->map(function ($ticket) {
+                /** @var Ticket $ticket */
                 $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
                 if (! $ticket->created_at || ! $completedAt) {
                     return null;
@@ -847,6 +848,7 @@ class ReportController extends Controller
         $met = 0;
 
         foreach ($completedTickets as $ticket) {
+            /** @var Ticket $ticket */
             if (! $ticket->due_date) {
                 continue;
             }
@@ -889,7 +891,11 @@ class ReportController extends Controller
         $openMajorCount = $incidentTickets->whereIn('status', Ticket::OPEN_STATUSES)->count();
 
         $incidentByCategory = $incidentTickets
-            ->groupBy(fn (Ticket $ticket) => $this->normalizeCategoryBucket(optional($ticket->category)->name))
+            ->groupBy(function ($ticket): string {
+                /** @var Ticket $ticket */
+
+                return $this->normalizeCategoryBucket(optional($ticket->category)->name);
+            })
             ->map(fn (Collection $group, string $name) => [
                 'name' => $name,
                 'count' => $group->count(),
@@ -1083,6 +1089,7 @@ class ReportController extends Controller
 
         $counts = [];
         foreach ($tickets as $ticket) {
+            /** @var Ticket $ticket */
             if (! $ticket->created_at) {
                 continue;
             }

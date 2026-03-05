@@ -11,7 +11,7 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $defaultUserPassword = DefaultPasswordResolver::user();
+        $staffDefaultPassword = DefaultPasswordResolver::staff();
 
         User::updateOrCreate(['email' => 'admin@ioneresources.net'], [
             'name' => 'Admin',
@@ -19,8 +19,9 @@ class AdminSeeder extends Seeder
             'phone' => '09763621490',
             'department' => 'iOne',
             'role' => User::ROLE_ADMIN,
-            'password' => Hash::make($defaultUserPassword),
+            'password' => Hash::make($staffDefaultPassword),
             'is_active' => true,
+            'must_change_password' => true,
             'email_verified_at' => '2026-02-25 06:59:20',
         ]);
 

@@ -169,11 +169,14 @@ class TicketController extends Controller
     {
         $this->assertTicketOwner($ticket);
 
-        $replies = $ticket->replies()
+        /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+        $ticketReplies = $ticket->replies()
             ->where('is_internal', false)
             ->with(['user', 'attachments', 'replyTo'])
             ->orderBy('created_at')
-            ->get()
+            ->get();
+
+        $replies = $ticketReplies
             ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
             ->values();
 

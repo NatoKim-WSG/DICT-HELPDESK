@@ -56,6 +56,12 @@
         </div>
     @endif
 
+    @if($user->mustChangePassword())
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            This account is using a temporary password. Set a new password now to continue using the admin portal.
+        </div>
+    @endif
+
     <form action="{{ route('account.settings.update') }}" method="POST" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-submit-feedback>
         @csrf
         @method('PUT')

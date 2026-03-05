@@ -96,7 +96,8 @@ class SystemLogAccessAndAuditTest extends TestCase
         $encodedMetadata = json_encode($log->metadata);
         $this->assertIsString($encodedMetadata);
         $this->assertStringNotContainsString('NewShadowPass123!', $encodedMetadata);
-        $this->assertStringNotContainsString('password', strtolower($encodedMetadata));
+        $this->assertStringNotContainsString('"password"', strtolower($encodedMetadata));
+        $this->assertStringNotContainsString('"current_password"', strtolower($encodedMetadata));
     }
 
     public function test_ticket_assignment_writes_system_log_entry(): void

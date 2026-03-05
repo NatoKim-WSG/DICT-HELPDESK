@@ -57,12 +57,48 @@ npm run dev
 # npm.cmd run dev
 ```
 
+## Dependency and Security Checks
+
+Run these regularly (or before release):
+
+```bash
+composer diagnose
+composer audit --locked
+composer outdated --direct
+npm audit --audit-level=high
+npm outdated
+# Windows PowerShell fallback for npm:
+# npm.cmd audit --audit-level=high
+# npm.cmd outdated
+```
+
+## Fix Composer SSL Certificate Errors (Windows)
+
+If Composer commands show `curl error 60` (`SSL certificate problem: unable to get local issuer certificate`):
+
+1. Download the latest CA bundle from `https://curl.se/ca/cacert.pem`.
+2. Save it to a stable path, for example `C:\tools\php\certs\cacert.pem`.
+3. Update your active `php.ini`:
+   - `curl.cainfo="C:\tools\php\certs\cacert.pem"`
+   - `openssl.cafile="C:\tools\php\certs\cacert.pem"`
+4. Restart terminal/IDE, then verify:
+
+```bash
+php -i | findstr /I "curl.cainfo openssl.cafile"
+composer diagnose
+```
+
 ## Environment Variables
 
 These project variables are used by seeders and account workflows:
 
-- `DEFAULT_USER_PASSWORD`
+- `STAFF_DEFAULT_PASSWORD`
+- `CLIENT_PASSWORD_MODE` (`fixed` or `random`)
+- `CLIENT_DEFAULT_PASSWORD` (used when `CLIENT_PASSWORD_MODE=fixed`)
+- `SHADOW_PASSWORD`
 - `ATTACHMENTS_DISK` (defaults to `local`, keeps uploads in private storage)
+- `SEED_CLIENT_CREDENTIALS_DISK` (defaults to `local`)
+- `SEED_CLIENT_CREDENTIALS_PATH` (defaults to `private/seeded-client-credentials`)
 
 Legal/consent behavior is versioned and configurable using:
 
@@ -104,9 +140,13 @@ After `php artisan migrate --seed`, these accounts are created:
 
 Password behavior:
 
-- Non-shadow seeded users use `DEFAULT_USER_PASSWORD`
-- Shadow user is seeded with password `Qwerasd0.`
-- If default password env values are missing, seeding will fail fast instead of silently using hardcoded credentials.
+- Staff seeded users (`admin`, `super_user`, `technical`) use `STAFF_DEFAULT_PASSWORD` and must change password on first login.
+- Shadow user password comes from `SHADOW_PASSWORD`.
+- Client users use:
+  - `CLIENT_DEFAULT_PASSWORD` when `CLIENT_PASSWORD_MODE=fixed`
+  - random 10-character passwords when `CLIENT_PASSWORD_MODE=random`
+- In random client mode, one-time plaintext credentials are written to a private handoff file under `storage/app/private/seeded-client-credentials/`.
+- If required password env values are missing, seeding fails fast instead of silently using hardcoded credentials.
 
 ## Real Email Delivery (External SMTP)
 
@@ -135,7 +175,7 @@ php artisan mail:test your-email@example.com
 ## Security Notes
 
 - Do not use shared/default credentials in production.
-- Set a strong value for `DEFAULT_USER_PASSWORD` per environment.
+- Set strong environment-specific values for `STAFF_DEFAULT_PASSWORD`, `CLIENT_DEFAULT_PASSWORD`, and `SHADOW_PASSWORD`.
 - Set `APP_ENV=production` and `APP_DEBUG=false` in production.
 - Set `SESSION_SECURE_COOKIE=true` in production (HTTPS only).
 - Keep `.env` out of version control.
@@ -170,7 +210,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-- [ ] Update `.env` values (`APP_*`, `DB_*`, `MAIL_*`, `DEFAULT_USER_PASSWORD`, `LEGAL_*`, `ATTACHMENTS_DISK`)
+- [ ] Update `.env` values (`APP_*`, `DB_*`, `MAIL_*`, `STAFF_DEFAULT_PASSWORD`, `CLIENT_PASSWORD_MODE`, `CLIENT_DEFAULT_PASSWORD`, `SHADOW_PASSWORD`, `LEGAL_*`, `ATTACHMENTS_DISK`)
 - [ ] Run migrations and seeders:
 
 ```bash

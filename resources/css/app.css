@@ -1102,7 +1102,7 @@
     }
 
     .theme-dark .form-input,
-    .theme-dark input,
+    .theme-dark input:not([type='checkbox']):not([type='radio']),
     .theme-dark select,
     .theme-dark textarea {
         background-color: var(--dm-surface-soft) !important;
@@ -1113,7 +1113,7 @@
     }
 
     .theme-dark .form-input::placeholder,
-    .theme-dark input::placeholder,
+    .theme-dark input:not([type='checkbox']):not([type='radio'])::placeholder,
     .theme-dark textarea::placeholder {
         color: #90a0b5 !important;
         opacity: 1;
@@ -1121,8 +1121,8 @@
 
     .theme-dark .form-input:disabled,
     .theme-dark .form-input[readonly],
-    .theme-dark input:disabled,
-    .theme-dark input[readonly],
+    .theme-dark input:not([type='checkbox']):not([type='radio']):disabled,
+    .theme-dark input:not([type='checkbox']):not([type='radio'])[readonly],
     .theme-dark select:disabled,
     .theme-dark textarea:disabled,
     .theme-dark textarea[readonly] {

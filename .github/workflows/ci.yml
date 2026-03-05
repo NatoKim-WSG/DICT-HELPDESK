@@ -16,7 +16,16 @@ jobs:
 
       - name: Install gitleaks
         run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin v8.28.0
+          GITLEAKS_VERSION="8.28.0"
+          ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          CHECKSUMS_FILE="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${ARCHIVE}" -o "${ARCHIVE}"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${CHECKSUMS_FILE}" -o "${CHECKSUMS_FILE}"
+
+          grep " ${ARCHIVE}$" "${CHECKSUMS_FILE}" | sha256sum --check --
+          tar -xzf "${ARCHIVE}" gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
 
       - name: Scan working tree for secrets
         run: gitleaks detect --source . --no-git --redact --exit-code 1
@@ -42,11 +51,20 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      - name: Ensure CA certificates are available
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates
+          sudo update-ca-certificates
+
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Validate Composer config
         run: composer validate --strict
+
+      - name: Diagnose Composer environment
+        run: composer diagnose
 
       - name: Audit PHP dependencies
         run: composer audit --no-interaction --locked

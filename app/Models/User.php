@@ -67,6 +67,7 @@ class User extends Authenticatable
         'password',
         'is_active',
         'is_profile_locked',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -81,6 +82,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_profile_locked' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -142,6 +144,11 @@ class User extends Authenticatable
     public function isTechnician()
     {
         return $this->normalizedRole() === self::ROLE_TECHNICAL;
+    }
+
+    public function mustChangePassword(): bool
+    {
+        return (bool) $this->must_change_password;
     }
 
     public function canAccessAdminTickets()

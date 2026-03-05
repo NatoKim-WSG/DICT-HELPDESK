@@ -200,10 +200,13 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        $replies = $ticket->replies()
+        /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+        $ticketReplies = $ticket->replies()
             ->with(['user', 'attachments', 'replyTo'])
             ->orderBy('created_at')
-            ->get()
+            ->get();
+
+        $replies = $ticketReplies
             ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
             ->values();
 
@@ -591,7 +594,9 @@ class TicketController extends Controller
 
         DB::transaction(function () use ($ticket) {
             $ticket->attachments()->get()->each->delete();
-            $ticket->replies()->with('attachments')->get()->each(function (TicketReply $reply) {
+            /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+            $ticketReplies = $ticket->replies()->with('attachments')->get();
+            $ticketReplies->each(function (TicketReply $reply) {
                 $reply->attachments()->get()->each->delete();
                 $reply->delete();
             });
@@ -642,6 +647,7 @@ class TicketController extends Controller
         }
 
         $action = $request->string('action')->toString();
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Ticket> $tickets */
         $tickets = $this->scopedTicketQueryForCurrentUser()
             ->whereIn('id', $selectedIds)
             ->get();
@@ -667,7 +673,9 @@ class TicketController extends Controller
             DB::transaction(function () use ($tickets) {
                 $tickets->each(function (Ticket $ticket) {
                     $ticket->attachments()->get()->each->delete();
-                    $ticket->replies()->with('attachments')->get()->each(function (TicketReply $reply) {
+                    /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+                    $ticketReplies = $ticket->replies()->with('attachments')->get();
+                    $ticketReplies->each(function (TicketReply $reply) {
                         $reply->attachments()->get()->each->delete();
                         $reply->delete();
                     });
@@ -736,6 +744,7 @@ class TicketController extends Controller
             }
             if ($newStatus === 'closed') {
                 foreach ($tickets as $candidateTicket) {
+                    /** @var Ticket $candidateTicket */
                     $closeGateError = $this->closeStatusGateErrorForTicket($candidateTicket);
                     if ($closeGateError !== null) {
                         return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
@@ -743,6 +752,7 @@ class TicketController extends Controller
                 }
             } else {
                 foreach ($tickets as $candidateTicket) {
+                    /** @var Ticket $candidateTicket */
                     $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
                     if ($reopenGateError !== null) {
                         return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);

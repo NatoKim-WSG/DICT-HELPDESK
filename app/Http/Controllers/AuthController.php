@@ -177,7 +177,9 @@ class AuthController extends Controller
         $email = $isSuperAdmin
             ? $request->string('email')->toString()
             : (string) $user->email;
-        $requiresCurrentPassword = ($isSuperAdmin && $email !== $user->email) || $request->filled('password');
+        $requiresCurrentPassword = $user->mustChangePassword()
+            || ($isSuperAdmin && $email !== $user->email)
+            || $request->filled('password');
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -186,7 +188,9 @@ class AuthController extends Controller
                 : 'nullable',
             'phone' => 'nullable|string|max:20',
             'department' => $departmentRules,
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => $user->mustChangePassword()
+                ? 'required|string|min:8|confirmed'
+                : 'nullable|string|min:8|confirmed',
         ];
 
         if ($requiresCurrentPassword) {
@@ -211,6 +215,7 @@ class AuthController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
+            $updateData['must_change_password'] = false;
             CredentialHandoff::query()
                 ->where('target_user_id', $user->id)
                 ->delete();
@@ -250,6 +255,10 @@ class AuthController extends Controller
 
     private function dashboardPath(User $user): string
     {
+        if ($user->canAccessAdminTickets() && $user->mustChangePassword()) {
+            return '/account/settings';
+        }
+
         if ($user->canAccessAdminTickets()) {
             return '/admin/dashboard';
         }

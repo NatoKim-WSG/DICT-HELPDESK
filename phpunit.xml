@@ -25,6 +25,10 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="LEGAL_REQUIRE_ACCEPTANCE" value="false"/>
+        <env name="STAFF_DEFAULT_PASSWORD" value="staff-test-password"/>
+        <env name="CLIENT_PASSWORD_MODE" value="fixed"/>
+        <env name="CLIENT_DEFAULT_PASSWORD" value="client-test-password"/>
+        <env name="SHADOW_PASSWORD" value="shadow-test-password"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
     </php>

@@ -416,7 +416,7 @@ class AdminUserManagementNormalizationTest extends TestCase
             'phone' => '09100000018',
             'department' => 'DICT',
             'role' => User::ROLE_CLIENT,
-            'password' => Hash::make(DefaultPasswordResolver::user()),
+            'password' => Hash::make(DefaultPasswordResolver::clientFixed()),
             'is_active' => true,
         ]);
 

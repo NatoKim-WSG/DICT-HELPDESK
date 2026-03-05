@@ -156,10 +156,13 @@ class UserManagementController extends Controller
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->normalizeRoleForPersistence($role);
+        $isClientRole = $persistedRole === User::ROLE_CLIENT;
         if ($request->filled('password')) {
             $resolvedPassword = (string) $request->password;
         } else {
-            $resolvedPassword = DefaultPasswordResolver::user();
+            $resolvedPassword = $isClientRole
+                ? DefaultPasswordResolver::clientFixed()
+                : DefaultPasswordResolver::staff();
         }
 
         $createdUser = User::create([
@@ -174,6 +177,7 @@ class UserManagementController extends Controller
             'password' => Hash::make($resolvedPassword),
             'is_active' => true,
             'is_profile_locked' => false,
+            'must_change_password' => ! $request->filled('password') && ! $isClientRole,
         ]);
         $this->systemLogs->record(
             'user.created',
@@ -262,6 +266,7 @@ class UserManagementController extends Controller
 
         $user->forceFill([
             'password' => Hash::make($temporaryPassword),
+            'must_change_password' => ! $user->isClient(),
         ])->save();
 
         CredentialHandoff::query()->updateOrCreate(
@@ -471,6 +476,7 @@ class UserManagementController extends Controller
 
         if ($request->filled('password')) {
             $updateData['password'] = Hash::make($request->password);
+            $updateData['must_change_password'] = false;
             CredentialHandoff::query()
                 ->where('target_user_id', $user->id)
                 ->delete();
@@ -708,19 +714,15 @@ class UserManagementController extends Controller
             return;
         }
 
-        if ($this->canManageStaffAccounts($currentUser)) {
-            $query->whereIn('role', [
-                User::ROLE_SHADOW,
-                User::ROLE_ADMIN,
-                User::ROLE_SUPER_USER,
-                User::ROLE_TECHNICAL,
-            ]);
+        $query->whereIn('role', [
+            User::ROLE_SHADOW,
+            User::ROLE_ADMIN,
+            User::ROLE_SUPER_USER,
+            User::ROLE_TECHNICAL,
+        ]);
 
-            if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-                $query->where('role', '!=', User::ROLE_SHADOW);
-            }
-
-            return;
+        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
+            $query->where('role', '!=', User::ROLE_SHADOW);
         }
     }
 

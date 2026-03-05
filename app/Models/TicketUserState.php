@@ -97,7 +97,7 @@ class TicketUserState extends Model
         return $this->last_seen_at !== null && $this->last_seen_at->gte($activityAt);
     }
 
-    public static function resolveSeenAt(Ticket $ticket, mixed $rawActivityAt): \Carbon\CarbonInterface
+    public static function resolveSeenAt(Ticket $ticket, mixed $rawActivityAt): Carbon
     {
         if (is_string($rawActivityAt) && trim($rawActivityAt) !== '') {
             try {
