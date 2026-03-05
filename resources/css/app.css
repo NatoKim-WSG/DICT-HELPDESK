@@ -696,6 +696,14 @@
         animation: app-row-enter var(--motion-duration-base) var(--motion-ease-standard) both;
     }
 
+    .app-modal-root {
+        pointer-events: none;
+    }
+
+    .app-modal-root.is-open {
+        pointer-events: auto;
+    }
+
     .app-modal-root .app-modal-overlay,
     .app-modal-root.app-modal-overlay {
         opacity: 0;
