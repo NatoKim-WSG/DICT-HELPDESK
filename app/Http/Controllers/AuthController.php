@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\UpdateAccountSettingsRequest;
 use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Services\SystemLogService;
@@ -12,7 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -33,14 +34,8 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'login' => 'required|string|max:255',
-            'password' => 'required',
-            'remember' => 'nullable|boolean',
-        ]);
-
         $loginInput = trim($request->string('login')->toString());
         $remember = $request->boolean('remember');
         $isEmailLogin = filter_var($loginInput, FILTER_VALIDATE_EMAIL) !== false;
@@ -60,14 +55,24 @@ class AuthController extends Controller
             $matchedUsers = User::whereRaw('LOWER(email) = ?', [strtolower($loginInput)])
                 ->get();
         } else {
-            // Username login is case-sensitive.
+            /** @var EloquentCollection<int, User> $usernameMatches */
+            $usernameMatches = User::whereRaw('LOWER(username) = ?', [strtolower($loginInput)])
+                ->get();
+
+            if ($usernameMatches->isNotEmpty()) {
+                $matchedUsers = $usernameMatches;
+            } else {
+                // Full-name login remains case-sensitive.
+                /** @var EloquentCollection<int, User> $matchedUsers */
+                $matchedUsers = $this->usernameMatchQuery($loginInput)->get();
+            }
+
             /** @var EloquentCollection<int, User> $matchedUsers */
-            $matchedUsers = $this->usernameMatchQuery($loginInput)->get();
             if ($matchedUsers->count() > 1) {
                 RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
 
                 return back()->withErrors([
-                    'login' => 'Multiple accounts share this username. Please sign in with your email address.',
+                    'login' => 'Multiple accounts share this name. Please sign in with email or your username.',
                 ])->onlyInput('login');
             }
         }
@@ -155,7 +160,7 @@ class AuthController extends Controller
         return view('account.settings', compact('user', 'departmentOptions'));
     }
 
-    public function updateAccountSettings(Request $request)
+    public function updateAccountSettings(UpdateAccountSettingsRequest $request)
     {
         $user = Auth::user();
         if ($user->isClient()) {
@@ -171,35 +176,9 @@ class AuthController extends Controller
         $normalizedRole = $user->normalizedRole();
         $isSuperAdmin = in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
         $isUsernameLocked = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true);
-        $departmentRules = $isSuperAdmin
-            ? ['required', Rule::in(User::allowedDepartments())]
-            : ['nullable'];
         $email = $isSuperAdmin
             ? $request->string('email')->toString()
             : (string) $user->email;
-        $requiresCurrentPassword = $user->mustChangePassword()
-            || ($isSuperAdmin && $email !== $user->email)
-            || $request->filled('password');
-
-        $rules = [
-            'name' => 'required|string|max:255',
-            'email' => $isSuperAdmin
-                ? 'required|email|unique:users,email,'.$user->id
-                : 'nullable',
-            'phone' => 'nullable|string|max:20',
-            'department' => $departmentRules,
-            'password' => $user->mustChangePassword()
-                ? 'required|string|min:8|confirmed'
-                : 'nullable|string|min:8|confirmed',
-        ];
-
-        if ($requiresCurrentPassword) {
-            $rules['current_password'] = ['required', 'current_password'];
-        } else {
-            $rules['current_password'] = ['nullable'];
-        }
-
-        $request->validate($rules);
 
         $updateData = [
             'name' => $isUsernameLocked

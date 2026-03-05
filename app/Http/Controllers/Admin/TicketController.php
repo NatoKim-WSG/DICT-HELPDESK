@@ -4,6 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Tickets\AssignTicketRequest;
+use App\Http\Requests\Admin\Tickets\BulkTicketActionRequest;
+use App\Http\Requests\Admin\Tickets\QuickUpdateTicketRequest;
+use App\Http\Requests\Admin\Tickets\SetTicketDueDateRequest;
+use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
+use App\Http\Requests\Admin\Tickets\UpdateTicketPriorityRequest;
+use App\Http\Requests\Admin\Tickets\UpdateTicketReplyRequest;
+use App\Http\Requests\Admin\Tickets\UpdateTicketStatusRequest;
 use App\Models\Attachment;
 use App\Models\Category;
 use App\Models\Ticket;
@@ -18,7 +26,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
@@ -215,16 +222,9 @@ class TicketController extends Controller
         ]);
     }
 
-    public function assign(Request $request, Ticket $ticket)
+    public function assign(AssignTicketRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate([
-            'assigned_to' => [
-                'nullable',
-                $this->assignableAgentRule(),
-            ],
-        ]);
 
         $previousAssignedTo = $ticket->assigned_to ? (int) $ticket->assigned_to : null;
         $newAssignedTo = $request->filled('assigned_to') ? $request->integer('assigned_to') : null;
@@ -262,19 +262,9 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket assignment updated successfully!');
     }
 
-    public function updateStatus(Request $request, Ticket $ticket)
+    public function updateStatus(UpdateTicketStatusRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate([
-            'status' => 'required|in:'.implode(',', Ticket::STATUSES),
-            'close_reason' => [
-                Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
-                'nullable',
-                'string',
-                'max:1000',
-            ],
-        ]);
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
@@ -328,11 +318,9 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
     }
 
-    public function updatePriority(Request $request, Ticket $ticket)
+    public function updatePriority(UpdateTicketPriorityRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate(['priority' => 'required|in:'.implode(',', Ticket::PRIORITIES)]);
 
         if ($ticket->priority === $request->priority) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
@@ -359,17 +347,9 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket priority updated successfully!');
     }
 
-    public function reply(Request $request, Ticket $ticket)
+    public function reply(StoreTicketReplyRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate([
-            'message' => 'nullable|string|required_without:attachments',
-            'is_internal' => 'boolean',
-            'reply_to_id' => 'nullable|integer|exists:ticket_replies,id',
-            'attachments' => 'nullable|array|min:1|required_without:message',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
-        ]);
 
         $replyToId = $request->integer('reply_to_id') ?: null;
 
@@ -413,21 +393,18 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Reply added successfully!');
     }
 
-    public function updateReply(Request $request, Ticket $ticket, TicketReply $reply): JsonResponse
+    public function updateReply(UpdateTicketReplyRequest $request, Ticket $ticket, TicketReply $reply): JsonResponse
     {
         $this->authorizeTicketAccess($ticket);
 
-        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+        if ($reply->ticket_id !== $ticket->id) {
             abort(403);
         }
+        $this->authorize('update', $reply);
 
         if ($reply->deleted_at) {
             return response()->json(['message' => 'Deleted messages cannot be edited.'], 422);
         }
-
-        $request->validate([
-            'message' => 'required|string',
-        ]);
 
         $reply->update([
             'message' => $request->string('message')->toString(),
@@ -444,9 +421,10 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+        if ($reply->ticket_id !== $ticket->id) {
             abort(403);
         }
+        $this->authorize('delete', $reply);
 
         if (! $reply->deleted_at) {
             $reply->update([
@@ -461,13 +439,9 @@ class TicketController extends Controller
         ]);
     }
 
-    public function setDueDate(Request $request, Ticket $ticket)
+    public function setDueDate(SetTicketDueDateRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate([
-            'due_date' => 'required|date|after:now',
-        ]);
 
         $incomingDueDateLabel = \Illuminate\Support\Carbon::parse($request->due_date)->format('Y-m-d H:i');
         $existingDueDateLabel = optional($ticket->due_date)->format('Y-m-d H:i');
@@ -496,24 +470,9 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Due date set successfully!');
     }
 
-    public function quickUpdate(Request $request, Ticket $ticket)
+    public function quickUpdate(QuickUpdateTicketRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
-
-        $request->validate([
-            'assigned_to' => [
-                'nullable',
-                $this->assignableAgentRule(),
-            ],
-            'status' => 'required|in:'.implode(',', Ticket::STATUSES),
-            'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
-            'close_reason' => [
-                Rule::requiredIf(fn () => $request->string('status')->toString() === 'closed'),
-                'nullable',
-                'string',
-                'max:1000',
-            ],
-        ]);
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
@@ -623,20 +582,8 @@ class TicketController extends Controller
         return redirect()->route('admin.tickets.index')->with('success', 'Ticket deleted successfully.');
     }
 
-    public function bulkAction(Request $request)
+    public function bulkAction(BulkTicketActionRequest $request)
     {
-        $request->validate([
-            'action' => 'required|in:delete,assign,status,priority,merge',
-            'selected_ids' => 'required|array|min:1',
-            'selected_ids.*' => 'integer|exists:tickets,id',
-            'assigned_to' => [
-                'nullable',
-                $this->assignableAgentRule(),
-            ],
-            'status' => 'nullable|in:'.implode(',', Ticket::STATUSES),
-            'priority' => 'nullable|in:'.implode(',', Ticket::PRIORITIES),
-        ]);
-
         $selectedIds = collect($request->input('selected_ids', []))
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -989,15 +936,6 @@ class TicketController extends Controller
         return redirect()->back();
     }
 
-    private function assignableAgentRule(): \Illuminate\Validation\Rules\Exists
-    {
-        return Rule::exists('users', 'id')->where(function ($query) {
-            $query->whereIn('role', User::TICKET_CONSOLE_ROLES)
-                ->where('role', '!=', User::ROLE_SHADOW)
-                ->where('is_active', true);
-        });
-    }
-
     private function applyLifecycleTimestamps(?Ticket $ticket, array &$updateData): void
     {
         $status = $updateData['status'] ?? null;
@@ -1173,11 +1111,7 @@ class TicketController extends Controller
 
     private function authorizeTicketAccess(Ticket $ticket): void
     {
-        $user = auth()->user();
-
-        if ($user && $user->isTechnician() && (int) $ticket->assigned_to !== (int) $user->id) {
-            abort(403, 'Technical users can only access tickets assigned to them.');
-        }
+        $this->authorize('view', $ticket);
     }
 
     private function scopedTicketQueryForCurrentUser(): Builder

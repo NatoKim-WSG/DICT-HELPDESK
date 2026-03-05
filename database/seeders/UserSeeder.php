@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use App\Models\User;
 use App\Support\DefaultPasswordResolver;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
@@ -108,7 +108,7 @@ class UserSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array{email: string, password: string}> $credentials
+     * @param  array<int, array{email: string, password: string}>  $credentials
      */
     private function exportSeededClientCredentials(array $credentials): string
     {

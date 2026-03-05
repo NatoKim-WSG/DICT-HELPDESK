@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Notifications\DismissNotificationRequest;
 use App\Models\Ticket;
 use App\Models\TicketUserState;
 use Illuminate\Http\JsonResponse;
@@ -11,17 +12,10 @@ use Illuminate\Support\Carbon;
 
 class NotificationController extends Controller
 {
-    public function clientDismiss(Request $request): RedirectResponse
+    public function clientDismiss(DismissNotificationRequest $request): RedirectResponse
     {
-        $request->validate([
-            'ticket_id' => 'required|integer|exists:tickets,id',
-            'activity_at' => 'required|date',
-        ]);
-
         $ticket = Ticket::findOrFail($request->integer('ticket_id'));
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('view', $ticket);
 
         $activityAt = Carbon::parse($request->string('activity_at')->toString());
         $state = TicketUserState::query()->firstOrNew([
@@ -77,9 +71,7 @@ class NotificationController extends Controller
 
     public function clientSeen(Request $request, Ticket $ticket): JsonResponse
     {
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('view', $ticket);
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
@@ -92,9 +84,7 @@ class NotificationController extends Controller
 
     public function clientOpen(Request $request, Ticket $ticket): RedirectResponse
     {
-        if ((int) $ticket->user_id !== (int) auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('view', $ticket);
 
         $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
@@ -102,13 +92,8 @@ class NotificationController extends Controller
         return redirect()->route('client.tickets.show', $ticket);
     }
 
-    public function adminDismiss(Request $request): RedirectResponse
+    public function adminDismiss(DismissNotificationRequest $request): RedirectResponse
     {
-        $request->validate([
-            'ticket_id' => 'required|integer|exists:tickets,id',
-            'activity_at' => 'required|date',
-        ]);
-
         $ticket = Ticket::findOrFail($request->integer('ticket_id'));
         $this->assertAdminCanInteractWithTicket($ticket);
 
@@ -193,9 +178,6 @@ class NotificationController extends Controller
 
     private function assertAdminCanInteractWithTicket(Ticket $ticket): void
     {
-        $authUser = auth()->user();
-        if ($authUser && $authUser->isTechnician() && (int) $ticket->assigned_to !== (int) $authUser->id) {
-            abort(403);
-        }
+        $this->authorize('view', $ticket);
     }
 }

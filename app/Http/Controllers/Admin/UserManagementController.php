@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Users\StoreUserRequest;
+use App\Http\Requests\Admin\Users\UpdateUserRequest;
 use App\Models\CredentialHandoff;
 use App\Models\Ticket;
 use App\Models\TicketReply;
@@ -13,7 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
@@ -131,27 +132,12 @@ class UserManagementController extends Controller
         return view('admin.users.create', compact('availableRoles'));
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
         $user = auth()->user();
 
-        $availableRoles = $this->availableRolesFor($user);
-        $allowedDepartments = User::allowedDepartments();
         $requestedRole = User::normalizeRole($request->string('role')->toString());
         $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
-        $canManageClientNotes = $user->isShadow() && $willBeClientRole;
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email|max:255',
-            'phone' => 'required|string|max:20',
-            'department' => ['required', Rule::in($allowedDepartments)],
-            'role' => ['required', Rule::in($availableRoles)],
-            'client_notes' => $canManageClientNotes
-                ? 'nullable|string|max:2000'
-                : 'prohibited',
-            'password' => 'nullable|string|min:8|confirmed',
-        ]);
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());
@@ -378,7 +364,7 @@ class UserManagementController extends Controller
         return view('admin.users.edit', compact('user', 'availableRoles', 'canEditPassword', 'returnTo'));
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
         $currentUser = auth()->user();
         $stayOnEdit = $request->boolean('stay_on_edit');
@@ -403,34 +389,10 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to edit this user.');
         }
 
-        $availableRoles = $this->availableRolesFor($currentUser);
-        $allowedDepartments = User::allowedDepartments();
         $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
         $requestedRole = User::normalizeRole($request->string('role')->toString());
         $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
         $canManageClientNotes = $currentUser->isShadow() && $willBeClientRole;
-
-        $validationRules = [
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'phone' => 'nullable|string|max:20',
-            'department' => ['required', Rule::in($allowedDepartments)],
-            'role' => ['required', Rule::in($availableRoles)],
-            'client_notes' => $canManageClientNotes
-                ? 'nullable|string|max:2000'
-                : 'prohibited',
-            'password' => $canEditPassword
-                ? 'nullable|string|min:8|confirmed'
-                : 'prohibited',
-            'is_active' => 'boolean',
-            'is_profile_locked' => 'boolean',
-        ];
-
-        if (! $canEditPassword) {
-            $validationRules['password_confirmation'] = 'prohibited';
-        }
-
-        $request->validate($validationRules);
 
         $role = $request->string('role')->toString();
         $department = $this->departmentForRole($role, $request->string('department')->toString());

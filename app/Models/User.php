@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -59,6 +60,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name',
+        'username',
         'email',
         'phone',
         'department',
@@ -84,6 +86,25 @@ class User extends Authenticatable
             'is_profile_locked' => 'boolean',
             'must_change_password' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            if (trim((string) $user->username) !== '') {
+                return;
+            }
+
+            $user->username = self::generateAvailableUsername((string) $user->name);
+        });
+
+        static::updating(function (User $user): void {
+            if (trim((string) $user->username) !== '') {
+                return;
+            }
+
+            $user->username = self::generateAvailableUsername((string) $user->name, (int) $user->id);
+        });
     }
 
     public function tickets(): HasMany
@@ -291,6 +312,35 @@ class User extends Authenticatable
         usort($departments, fn (string $left, string $right) => strnatcasecmp($left, $right));
 
         return $departments;
+    }
+
+    public static function generateAvailableUsername(string $name, ?int $ignoreUserId = null): string
+    {
+        $baseUsername = Str::of($name)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '.')
+            ->trim('.')
+            ->value();
+
+        if ($baseUsername === '') {
+            $baseUsername = 'user';
+        }
+
+        $baseUsername = mb_substr($baseUsername, 0, 45);
+        $candidate = $baseUsername;
+        $suffix = 1;
+
+        while (self::query()
+            ->when($ignoreUserId !== null, fn (Builder $query) => $query->where('id', '!=', $ignoreUserId))
+            ->whereRaw('LOWER(username) = ?', [strtolower($candidate)])
+            ->exists()
+        ) {
+            $suffix++;
+            $candidate = mb_substr($baseUsername, 0, 40).'.'.$suffix;
+        }
+
+        return $candidate;
     }
 
     public function scopeVisibleDirectory(Builder $query): Builder

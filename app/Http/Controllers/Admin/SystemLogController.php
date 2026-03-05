@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\EnsureSystemLogsUnlocked;
+use App\Http\Requests\Admin\SystemLogs\UnlockSystemLogsRequest;
 use App\Models\SystemLog;
 use App\Models\User;
 use App\Services\SystemLogService;
@@ -21,12 +22,8 @@ class SystemLogController extends Controller
         return view('admin.system-logs.unlock');
     }
 
-    public function unlock(Request $request)
+    public function unlock(UnlockSystemLogsRequest $request)
     {
-        $request->validate([
-            'password' => ['required', 'string'],
-        ]);
-
         /** @var User|null $user */
         $user = $request->user();
         if (! $user || ! $user->isShadow()) {

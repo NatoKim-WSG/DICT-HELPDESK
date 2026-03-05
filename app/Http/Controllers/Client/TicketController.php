@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Client\Tickets\RateTicketRequest;
+use App\Http\Requests\Client\Tickets\StoreTicketReplyRequest;
+use App\Http\Requests\Client\Tickets\StoreTicketRequest;
+use App\Http\Requests\Client\Tickets\UpdateTicketReplyRequest;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
@@ -95,23 +99,8 @@ class TicketController extends Controller
         return view('client.tickets.create', compact('categories'));
     }
 
-    public function store(Request $request)
+    public function store(StoreTicketRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_number' => 'required|string|max:30',
-            'email' => 'required|email|max:255',
-            'province' => 'required|string|max:120',
-            'municipality' => 'required|string|max:120',
-            'subject' => 'required|string|max:255',
-            'description' => 'required|string',
-            'category_id' => 'required|exists:categories,id',
-            'priority' => 'required|in:'.implode(',', Ticket::PRIORITIES),
-            'ticket_consent' => 'accepted',
-            'attachments' => 'required|array|min:1',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
-        ]);
-
         $ticketData = [
             'name' => $request->name,
             'contact_number' => $request->contact_number,
@@ -185,16 +174,9 @@ class TicketController extends Controller
         ]);
     }
 
-    public function reply(Request $request, Ticket $ticket)
+    public function reply(StoreTicketReplyRequest $request, Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
-
-        $request->validate([
-            'message' => 'nullable|string|required_without:attachments',
-            'reply_to_id' => 'nullable|integer|exists:ticket_replies,id',
-            'attachments' => 'nullable|array|min:1|required_without:message',
-            'attachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx',
-        ]);
 
         if ($errorResponse = $this->invalidReplyTargetResponse($request, $ticket)) {
             return $errorResponse;
@@ -235,13 +217,14 @@ class TicketController extends Controller
         ]);
     }
 
-    public function updateReply(Request $request, Ticket $ticket, TicketReply $reply): JsonResponse
+    public function updateReply(UpdateTicketReplyRequest $request, Ticket $ticket, TicketReply $reply): JsonResponse
     {
         $this->assertTicketOwner($ticket);
 
-        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+        if ($reply->ticket_id !== $ticket->id) {
             abort(403);
         }
+        $this->authorize('update', $reply);
 
         if ($reply->deleted_at) {
             return response()->json(['message' => 'Deleted messages cannot be edited.'], 422);
@@ -250,10 +233,6 @@ class TicketController extends Controller
         if ($reply->created_at && $reply->created_at->lt(now()->subHours(3))) {
             return response()->json(['message' => 'Messages can only be edited within 3 hours.'], 422);
         }
-
-        $request->validate([
-            'message' => 'required|string',
-        ]);
 
         $reply->update([
             'message' => $request->string('message')->toString(),
@@ -270,9 +249,10 @@ class TicketController extends Controller
     {
         $this->assertTicketOwner($ticket);
 
-        if ($reply->ticket_id !== $ticket->id || $reply->user_id !== auth()->id()) {
+        if ($reply->ticket_id !== $ticket->id) {
             abort(403);
         }
+        $this->authorize('delete', $reply);
 
         if ($reply->created_at && $reply->created_at->lt(now()->subHours(3))) {
             return response()->json(['message' => 'Messages can only be deleted within 3 hours.'], 422);
@@ -333,14 +313,9 @@ class TicketController extends Controller
         return redirect()->back()->with('success', 'Ticket marked as resolved.');
     }
 
-    public function rate(Request $request, Ticket $ticket)
+    public function rate(RateTicketRequest $request, Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
-
-        $request->validate([
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string|max:1000',
-        ]);
 
         $ticket->update([
             'satisfaction_rating' => $request->rating,
@@ -366,9 +341,7 @@ class TicketController extends Controller
 
     private function assertTicketOwner(Ticket $ticket): void
     {
-        if ($ticket->user_id !== auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('view', $ticket);
     }
 
     private function invalidReplyTargetResponse(Request $request, Ticket $ticket): JsonResponse|RedirectResponse|null

@@ -5,16 +5,13 @@ use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
-use App\Models\Attachment;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -182,77 +179,6 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
 });
 
 // Download attachments
-Route::get('/attachments/{attachment}/download', function (Request $request, Attachment $attachment) {
-    $previewAllowedMimeTypes = Attachment::previewableMimeTypes();
-    $user = auth()->user();
-    $attachable = $attachment->attachable;
-
-    if ($attachable instanceof \App\Models\Ticket) {
-        if ($user->isClient() && $attachable->user_id !== $user->id) {
-            abort(403);
-        }
-        if ($user->isTechnician() && (int) $attachable->assigned_to !== (int) $user->id) {
-            abort(403);
-        }
-    } elseif ($attachable instanceof \App\Models\TicketReply) {
-        $ticket = $attachable->ticket;
-        if ($user->isClient()) {
-            if ($ticket->user_id !== $user->id) {
-                abort(403);
-            }
-
-            if ((bool) $attachable->is_internal) {
-                abort(403);
-            }
-        }
-        if ($user->isTechnician() && (int) $ticket->assigned_to !== (int) $user->id) {
-            abort(403);
-        }
-    } else {
-        abort(403);
-    }
-
-    $storageDisk = $attachment->resolvedDisk();
-    if (! Storage::disk($storageDisk)->exists($attachment->file_path)) {
-        abort(404);
-    }
-
-    if ($request->boolean('preview')) {
-        $storedMimeType = strtolower((string) $attachment->mime_type);
-        if ($storedMimeType !== '' && ! in_array($storedMimeType, $previewAllowedMimeTypes, true)) {
-            abort(415, 'Preview is not supported for this file type.');
-        }
-
-        $detectedMimeType = strtolower((string) (Storage::disk($storageDisk)->mimeType($attachment->file_path) ?: ''));
-        $previewMimeType = $detectedMimeType !== '' ? $detectedMimeType : $storedMimeType;
-        if ($previewMimeType === '' || ! in_array($previewMimeType, $previewAllowedMimeTypes, true)) {
-            abort(415, 'Preview is not supported for this file type.');
-        }
-
-        $stream = Storage::disk($storageDisk)->readStream($attachment->file_path);
-        if (! is_resource($stream)) {
-            abort(404);
-        }
-
-        $downloadName = (string) ($attachment->original_filename ?: $attachment->filename ?: 'attachment');
-        try {
-            $contentDisposition = HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $downloadName);
-        } catch (\Throwable) {
-            $fallbackName = preg_replace('/[^A-Za-z0-9._-]/', '_', $downloadName) ?: 'attachment';
-            $contentDisposition = 'inline; filename="'.$fallbackName.'"';
-        }
-
-        return response()->stream(function () use ($stream) {
-            fpassthru($stream);
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-        }, 200, [
-            'Content-Disposition' => $contentDisposition,
-            'Content-Type' => $previewMimeType,
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
-    }
-
-    return Storage::disk($storageDisk)->download($attachment->file_path, $attachment->original_filename);
-})->middleware(['auth', 'active', 'consent.accepted'])->name('attachments.download');
+Route::get('/attachments/{attachment}/download', [AttachmentController::class, 'download'])
+    ->middleware(['auth', 'active', 'consent.accepted'])
+    ->name('attachments.download');

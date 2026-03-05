@@ -100,4 +100,59 @@ class AuthLoginValidationTest extends TestCase
         $lockedResponse->assertSessionHasErrors('login');
         $this->assertGuest();
     }
+
+    public function test_user_can_login_with_generated_username(): void
+    {
+        $user = User::create([
+            'name' => 'Unique Username User',
+            'email' => 'unique-username@example.com',
+            'phone' => '09127778888',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->post(route('login'), [
+            'login' => (string) $user->username,
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect('/client/dashboard');
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_duplicate_full_name_login_requires_email_or_username(): void
+    {
+        User::create([
+            'name' => 'Same Login Name',
+            'email' => 'same-login-1@example.com',
+            'phone' => '09128889990',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Same Login Name',
+            'email' => 'same-login-2@example.com',
+            'phone' => '09128889991',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->from(route('login'))->post(route('login'), [
+            'login' => 'Same Login Name',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHasErrors([
+            'login' => 'Multiple accounts share this name. Please sign in with email or your username.',
+        ]);
+        $this->assertGuest();
+    }
 }

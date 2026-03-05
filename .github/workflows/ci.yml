@@ -80,6 +80,9 @@ jobs:
       - name: Run static analysis
         run: composer analyse
 
+      - name: Check coding style
+        run: vendor/bin/pint --test
+
       - name: Run test suite
         run: php artisan test
 

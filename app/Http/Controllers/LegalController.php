@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Legal\AcceptLegalConsentRequest;
 use App\Models\User;
 use App\Models\UserLegalConsent;
 use Illuminate\Http\RedirectResponse;
@@ -34,18 +35,8 @@ class LegalController extends Controller
         return view('legal.acceptance');
     }
 
-    public function accept(Request $request): RedirectResponse
+    public function accept(AcceptLegalConsentRequest $request): RedirectResponse
     {
-        $request->validate([
-            'accept_terms' => 'accepted',
-            'accept_privacy' => 'accepted',
-            'accept_platform_consent' => 'accepted',
-        ], [
-            'accept_terms.accepted' => 'Please review and accept the Terms of Service to continue.',
-            'accept_privacy.accepted' => 'Please review and accept the Privacy Notice and Consent to continue.',
-            'accept_platform_consent.accepted' => 'Please confirm the platform consent statement to continue.',
-        ]);
-
         $user = $request->user();
         if (! $user instanceof User) {
             abort(401);

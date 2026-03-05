@@ -2,16 +2,21 @@
 
 namespace App\Providers;
 
+use App\Models\Attachment;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Policies\AttachmentPolicy;
+use App\Policies\TicketPolicy;
+use App\Policies\TicketReplyPolicy;
 use App\Services\SystemLogService;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -39,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::policy(Ticket::class, TicketPolicy::class);
+        Gate::policy(TicketReply::class, TicketReplyPolicy::class);
+
         $this->deleteStaleViteHotFile();
         $this->registerSlowQueryTelemetry();
 

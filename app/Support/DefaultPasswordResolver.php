@@ -2,8 +2,8 @@
 
 namespace App\Support;
 
-use RuntimeException;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class DefaultPasswordResolver
 {
