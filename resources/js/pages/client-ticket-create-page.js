@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initClientTicketCreatePage = () => {
     const pageRoot = document.querySelector('[data-client-ticket-create-page]');
     if (!pageRoot) return;
@@ -32,12 +34,5 @@ const initClientTicketCreatePage = () => {
     });
 };
 
-const bootClientTicketCreatePage = () => {
-    window.setTimeout(initClientTicketCreatePage, 0);
-};
+bootPage(initClientTicketCreatePage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootClientTicketCreatePage, { once: true });
-} else {
-    bootClientTicketCreatePage();
-}

@@ -224,6 +224,8 @@ php artisan storage:link
 
 ```bash
 php artisan test
+npm run test:unit
+npm run lint
 ```
 
 - [ ] Build frontend:

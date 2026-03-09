@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initClientTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-client-tickets-index-page]');
     if (!pageRoot) return;
@@ -58,12 +60,5 @@ const initClientTicketsIndexPage = () => {
     window.setInterval(pollTicketListSnapshot, 30000);
 };
 
-const bootClientTicketsIndexPage = () => {
-    window.setTimeout(initClientTicketsIndexPage, 0);
-};
+bootPage(initClientTicketsIndexPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootClientTicketsIndexPage, { once: true });
-} else {
-    bootClientTicketsIndexPage();
-}

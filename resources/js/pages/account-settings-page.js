@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAccountSettingsPage = () => {
     const pageRoot = document.querySelector('[data-account-settings-page]');
     if (!pageRoot) return;
@@ -21,12 +23,5 @@ const initAccountSettingsPage = () => {
     });
 };
 
-const bootAccountSettingsPage = () => {
-    window.setTimeout(initAccountSettingsPage, 0);
-};
+bootPage(initAccountSettingsPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAccountSettingsPage, { once: true });
-} else {
-    bootAccountSettingsPage();
-}

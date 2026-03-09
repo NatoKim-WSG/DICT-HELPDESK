@@ -1,3 +1,6 @@
+import { bootPage } from './shared/boot-page';
+import { syncDepartmentByRole } from './shared/user-role';
+
 const initAdminUsersCreatePage = () => {
     const pageRoot = document.querySelector('[data-admin-users-create-page]');
     if (!pageRoot) return;
@@ -11,32 +14,6 @@ const initAdminUsersCreatePage = () => {
 
     if (!roleSelect || !departmentSelect || !departmentHidden) return;
 
-    const syncDepartmentByRole = () => {
-        const role = roleSelect.value;
-        const isInternal = role === 'shadow'
-            || role === 'admin'
-            || role === 'super_user'
-            || role === 'technical';
-
-        if (isInternal) {
-            departmentSelect.value = 'iOne';
-            departmentSelect.disabled = true;
-            departmentHidden.value = 'iOne';
-            departmentHidden.disabled = false;
-            if (hint) {
-                hint.textContent = 'Internal users are automatically assigned to iOne.';
-            }
-            return;
-        }
-
-        departmentSelect.disabled = false;
-        departmentHidden.value = '';
-        departmentHidden.disabled = true;
-        if (hint) {
-            hint.textContent = 'Select the client department.';
-        }
-    };
-
     const syncClientNotesByRole = () => {
         if (!clientNotesWrap || !clientNotesField) return;
 
@@ -46,20 +23,12 @@ const initAdminUsersCreatePage = () => {
     };
 
     roleSelect.addEventListener('change', () => {
-        syncDepartmentByRole();
+        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
         syncClientNotesByRole();
     });
 
-    syncDepartmentByRole();
+    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
     syncClientNotesByRole();
 };
 
-const bootAdminUsersCreatePage = () => {
-    window.setTimeout(initAdminUsersCreatePage, 0);
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminUsersCreatePage, { once: true });
-} else {
-    bootAdminUsersCreatePage();
-}
+bootPage(initAdminUsersCreatePage);

@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initClientDashboardPage = () => {
     const pageRoot = document.querySelector('[data-client-dashboard-page]');
     if (!pageRoot) return;
@@ -60,12 +62,5 @@ const initClientDashboardPage = () => {
     window.setInterval(pollSnapshot, 30000);
 };
 
-const bootClientDashboardPage = () => {
-    window.setTimeout(initClientDashboardPage, 0);
-};
+bootPage(initClientDashboardPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootClientDashboardPage, { once: true });
-} else {
-    bootClientDashboardPage();
-}

@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAdminReportsPage = () => {
     const pageRoot = document.querySelector('[data-admin-reports-page]');
     if (!pageRoot) return;
@@ -92,8 +94,5 @@ const initAdminReportsPage = () => {
     });
 };
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAdminReportsPage, { once: true });
-} else {
-    initAdminReportsPage();
-}
+bootPage(initAdminReportsPage, { defer: false });
+

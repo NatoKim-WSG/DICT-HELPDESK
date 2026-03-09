@@ -92,6 +92,12 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Lint frontend JavaScript
+        run: npm run lint
+
+      - name: Run frontend unit tests
+        run: npm run test:unit
+
       - name: Audit Node dependencies
         run: npm audit --audit-level=high
 

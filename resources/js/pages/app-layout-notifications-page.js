@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAppLayoutNotificationsPage = () => {
     const notificationList = document.querySelector('.js-header-notification-list');
     const emptyState = document.querySelector('.js-header-notification-empty');
@@ -239,12 +241,5 @@ const initAppLayoutNotificationsPage = () => {
     updateNotificationUi();
 };
 
-const bootAppLayoutNotificationsPage = () => {
-    window.setTimeout(initAppLayoutNotificationsPage, 0);
-};
+bootPage(initAppLayoutNotificationsPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAppLayoutNotificationsPage, { once: true });
-} else {
-    bootAppLayoutNotificationsPage();
-}

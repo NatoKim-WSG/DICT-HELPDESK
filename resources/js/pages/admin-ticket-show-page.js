@@ -1,3 +1,12 @@
+import { bootPage } from './shared/boot-page';
+import { createReplyComposer } from './shared/reply-composer';
+import { createTicketSeenSync } from './shared/ticket-seen-sync';
+import {
+    appendThreadSeparatorIfNeeded,
+    parseIsoMs,
+    resolveLatestThreadActivityIso,
+} from './shared/ticket-thread-time';
+
 const initAdminTicketShowPage = () => {
     const pageRoot = document.querySelector('[data-admin-ticket-show-page]');
     if (!pageRoot) return;
@@ -33,9 +42,6 @@ const initAdminTicketShowPage = () => {
     let isPollingReplies = false;
     let editingReplyId = '';
     let autoResize = function () {};
-    let isSyncingSeen = false;
-    let queuedSeenAtIso = '';
-    let latestSeenAtMs = 0;
     let pendingDeleteRow = null;
 
     const isEditingReply = function () {
@@ -112,79 +118,34 @@ const initAdminTicketShowPage = () => {
         updateAttachmentCount();
     }
 
-    const clearReplyTarget = function () {
-        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
-        replyToInput.value = '';
-        replyTargetText.textContent = '';
-        replyTargetBanner.classList.remove('flex');
-        replyTargetBanner.classList.add('hidden');
+    const setEditingReplyId = function (value) {
+        editingReplyId = value;
     };
 
-    const clearEditingTarget = function (options) {
-        const shouldResetInput = options && options.resetInput;
-        editingReplyId = '';
-
-        if (editTargetBanner) {
-            editTargetBanner.classList.remove('flex');
-            editTargetBanner.classList.add('hidden');
-        }
-        if (editTargetText) {
-            editTargetText.textContent = '';
-        }
-
-        if (attachmentInput) {
-            attachmentInput.value = '';
-        }
-        setAttachmentsEnabled(true);
-        updateAttachmentCount();
-        refreshSubmitButtonLabel();
-
-        if (shouldResetInput && messageInput) {
-            messageInput.value = '';
-            autoResize();
-        }
-    };
-
-    const setReplyTarget = function (replyId, message, isInternalTarget) {
-        clearEditingTarget({ resetInput: false });
-        if (!replyToInput || !replyTargetBanner || !replyTargetText) return;
-        replyToInput.value = String(replyId);
-        replyTargetText.textContent = 'Replying to: ' + (message || '').slice(0, 120);
-        if (isInternalTarget && internalNoteInput) {
-            internalNoteInput.checked = true;
-        }
-        replyTargetBanner.classList.remove('hidden');
-        replyTargetBanner.classList.add('flex');
-        if (messageInput) messageInput.focus();
-    };
-
-    const setEditingTarget = function (row) {
-        if (!row || !messageInput || !editTargetBanner || !editTargetText) return;
-
-        const replyId = row.dataset.replyId;
-        if (!replyId) return;
-
-        const bubble = row.querySelector('.js-chat-bubble');
-        const currentMessage = bubble ? (bubble.dataset.message || '') : '';
-        if (!currentMessage.trim()) return;
-
-        clearReplyTarget();
-        editingReplyId = String(replyId);
-        editTargetText.textContent = 'Editing message';
-        editTargetBanner.classList.remove('hidden');
-        editTargetBanner.classList.add('flex');
-
-        messageInput.value = currentMessage;
-        autoResize();
-        messageInput.focus();
-
-        if (attachmentInput) {
-            attachmentInput.value = '';
-        }
-        setAttachmentsEnabled(false);
-        updateAttachmentCount();
-        refreshSubmitButtonLabel();
-    };
+    const composer = createReplyComposer({
+        setEditingReplyId,
+        replyToInput,
+        replyTargetBanner,
+        replyTargetText,
+        editTargetBanner,
+        editTargetText,
+        messageInput,
+        attachmentInput,
+        setAttachmentsEnabled,
+        updateAttachmentCount,
+        refreshSubmitButtonLabel,
+        autoResize,
+        focusOnReplyTarget: true,
+        onSetReplyTarget: ({ isInternalTarget }) => {
+            if (isInternalTarget && internalNoteInput) {
+                internalNoteInput.checked = true;
+            }
+        },
+    });
+    const clearReplyTarget = composer.clearReplyTarget;
+    const clearEditingTarget = composer.clearEditingTarget;
+    const setReplyTarget = composer.setReplyTarget;
+    const setEditingTarget = composer.setEditingTarget;
 
     const closeMenus = function () {
         document.querySelectorAll('.js-more-menu').forEach(function (menu) {
@@ -238,146 +199,22 @@ const initAdminTicketShowPage = () => {
         return escapeHtml(value).replace(/\n/g, '<br>');
     };
 
-    const parseIso = function (value) {
-        const date = new Date(value);
-        return Number.isNaN(date.getTime()) ? null : date;
-    };
-
-    const parseIsoMs = function (value) {
-        const date = parseIso(value);
-        return date ? date.getTime() : 0;
-    };
-
     const latestThreadActivityIso = function () {
-        if (!thread) return '';
-
-        let latestIso = '';
-        let latestMs = 0;
-
-        thread.querySelectorAll('.js-chat-row[data-created-at]').forEach(function (row) {
-            const rowIso = row.dataset.createdAt || '';
-            const rowMs = parseIsoMs(rowIso);
-            if (rowMs > latestMs) {
-                latestMs = rowMs;
-                latestIso = rowIso;
-            }
-        });
-
-        return latestIso;
+        return resolveLatestThreadActivityIso(thread);
     };
 
-    const flushSeenSync = async function () {
-        if (!seenUrl || isSyncingSeen || !queuedSeenAtIso || document.visibilityState === 'hidden') {
-            return;
-        }
-
-        const activityAt = queuedSeenAtIso;
-        queuedSeenAtIso = '';
-        isSyncingSeen = true;
-
-        try {
-            const response = await fetch(seenUrl, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken,
-                },
-                body: JSON.stringify({ activity_at: activityAt }),
-                credentials: 'same-origin',
-            });
-
-            if (response.ok) {
-                const payload = await response.json().catch(function () { return {}; });
-                const acknowledgedIso = (payload && payload.seen_at) ? payload.seen_at : activityAt;
-                latestSeenAtMs = Math.max(latestSeenAtMs, parseIsoMs(acknowledgedIso));
-                window.dispatchEvent(new CustomEvent('ticket-notification-seen', {
-                    detail: {
-                        ticketId: Number(ticketId || 0),
-                        seenAt: acknowledgedIso,
-                    },
-                }));
-            } else {
-                const queuedMs = parseIsoMs(queuedSeenAtIso);
-                const activityMs = parseIsoMs(activityAt);
-                if (activityMs > queuedMs) {
-                    queuedSeenAtIso = activityAt;
-                }
-            }
-        } catch (error) {
-            const queuedMs = parseIsoMs(queuedSeenAtIso);
-            const activityMs = parseIsoMs(activityAt);
-            if (activityMs > queuedMs) {
-                queuedSeenAtIso = activityAt;
-            }
-        } finally {
-            isSyncingSeen = false;
-            if (queuedSeenAtIso) {
-                flushSeenSync();
-            }
-        }
-    };
-
-    const queueSeenSync = function (activityAtIso) {
-        if (!seenUrl || document.visibilityState === 'hidden') {
-            return;
-        }
-
-        const candidateIso = activityAtIso || latestThreadActivityIso();
-        const candidateMs = parseIsoMs(candidateIso);
-        if (!candidateMs || candidateMs <= latestSeenAtMs) {
-            return;
-        }
-
-        const queuedMs = parseIsoMs(queuedSeenAtIso);
-        if (candidateMs > queuedMs) {
-            queuedSeenAtIso = candidateIso;
-        }
-
-        flushSeenSync();
-    };
-
-    const formatTimestampLabel = function (date) {
-        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-            return '';
-        }
-
-        const diffMs = Date.now() - date.getTime();
-        const dayMs = 24 * 60 * 60 * 1000;
-
-        if (diffMs > dayMs) {
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-
-        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    };
-
-    const maybeAppendSeparator = function (isoDate) {
-        if (!thread || !isoDate) return;
-        const rows = Array.from(thread.querySelectorAll('.js-chat-row'));
-        const lastRow = rows.length ? rows[rows.length - 1] : null;
-
-        if (!lastRow) return;
-
-        const lastDate = parseIso(lastRow.dataset.createdAt);
-        const nextDate = parseIso(isoDate);
-        if (!lastDate || !nextDate) return;
-
-        const diffMinutes = Math.floor((nextDate.getTime() - lastDate.getTime()) / 60000);
-        if (diffMinutes < 15) return;
-
-        const separator = document.createElement('div');
-        separator.className = 'js-time-separator py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400';
-        separator.dataset.time = isoDate;
-        separator.textContent = formatTimestampLabel(nextDate);
-        thread.appendChild(separator);
-    };
+    const { queueSeenSync } = createTicketSeenSync({
+        seenUrl,
+        csrfToken,
+        ticketId,
+        getLatestActivityIso: latestThreadActivityIso,
+        parseIsoMs,
+    });
 
     const appendReply = function (payload) {
         if (!thread || !payload) return;
 
-        maybeAppendSeparator(payload.created_at_iso);
+        appendThreadSeparatorIfNeeded(thread, payload.created_at_iso, 15);
 
         const fromSupport = Boolean(payload.from_support);
         const canManage = Boolean(payload.can_manage);
@@ -537,7 +374,7 @@ const initAdminTicketShowPage = () => {
                 const messageNode = row.querySelector('.js-message-text');
                 const message = messageNode ? messageNode.textContent.trim() : '';
                 if (replyId) {
-                    setReplyTarget(replyId, message, isInternalTarget);
+                    setReplyTarget(replyId, message, { isInternalTarget });
                 }
                 closeMenus();
                 return;
@@ -840,12 +677,5 @@ const initAdminTicketShowPage = () => {
     syncRevertSubmitState();
 };
 
-const bootAdminTicketShowPage = () => {
-    window.setTimeout(initAdminTicketShowPage, 0);
-};
+bootPage(initAdminTicketShowPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminTicketShowPage, { once: true });
-} else {
-    bootAdminTicketShowPage();
-}

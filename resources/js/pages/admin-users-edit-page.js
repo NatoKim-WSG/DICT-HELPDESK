@@ -1,3 +1,6 @@
+import { bootPage } from './shared/boot-page';
+import { syncDepartmentByRole } from './shared/user-role';
+
 const initAdminUsersEditPage = () => {
     const pageRoot = document.querySelector('[data-admin-users-edit-page]');
     if (!pageRoot) return;
@@ -15,32 +18,6 @@ const initAdminUsersEditPage = () => {
     const lockableFields = document.querySelectorAll('[data-profile-edit-lockable]');
 
     if (!roleSelect || !departmentSelect || !departmentHidden || !profileLockInput || !profileLockToggle) return;
-
-    const syncDepartmentByRole = () => {
-        const role = roleSelect.value;
-        const isInternal = role === 'shadow'
-            || role === 'admin'
-            || role === 'super_user'
-            || role === 'technical';
-
-        if (isInternal) {
-            departmentSelect.value = 'iOne';
-            departmentSelect.disabled = true;
-            departmentHidden.value = 'iOne';
-            departmentHidden.disabled = false;
-            if (hint) {
-                hint.textContent = 'Internal users are automatically assigned to iOne.';
-            }
-            return;
-        }
-
-        departmentSelect.disabled = false;
-        departmentHidden.value = '';
-        departmentHidden.disabled = true;
-        if (hint) {
-            hint.textContent = 'Select the client department.';
-        }
-    };
 
     const applyProfileLockState = () => {
         const isLocked = profileLockInput.value === '1';
@@ -95,12 +72,12 @@ const initAdminUsersEditPage = () => {
     profileLockToggle.addEventListener('click', () => {
         profileLockInput.value = profileLockInput.value === '1' ? '0' : '1';
         applyProfileLockState();
-        syncDepartmentByRole();
+        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
     });
 
-    roleSelect.addEventListener('change', syncDepartmentByRole);
+    roleSelect.addEventListener('change', () => syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint }));
 
-    syncDepartmentByRole();
+    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
     applyProfileLockState();
 
     const revealTimers = new Map();
@@ -134,12 +111,4 @@ const initAdminUsersEditPage = () => {
     });
 };
 
-const bootAdminUsersEditPage = () => {
-    window.setTimeout(initAdminUsersEditPage, 0);
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminUsersEditPage, { once: true });
-} else {
-    bootAdminUsersEditPage();
-}
+bootPage(initAdminUsersEditPage);

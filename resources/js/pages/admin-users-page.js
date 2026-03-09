@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAdminUsersPage = () => {
     const pageRoot = document.querySelector('[data-admin-users-page]');
     if (!pageRoot) return;
@@ -322,12 +324,5 @@ const initAdminUsersPage = () => {
     bindAvatarFallbacks();
 };
 
-const bootAdminUsersPage = () => {
-    window.setTimeout(initAdminUsersPage, 0);
-};
+bootPage(initAdminUsersPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminUsersPage, { once: true });
-} else {
-    bootAdminUsersPage();
-}

@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAdminTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-admin-tickets-index-page]');
     if (!pageRoot) return;
@@ -505,12 +507,5 @@ const initAdminTicketsIndexPage = () => {
     syncMergeConfirmState();
 };
 
-const bootAdminTicketsIndexPage = () => {
-    window.setTimeout(initAdminTicketsIndexPage, 0);
-};
+bootPage(initAdminTicketsIndexPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminTicketsIndexPage, { once: true });
-} else {
-    bootAdminTicketsIndexPage();
-}

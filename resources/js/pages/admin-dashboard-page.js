@@ -1,3 +1,5 @@
+import { bootPage } from './shared/boot-page';
+
 const initAdminDashboardPage = () => {
     const pageRoot = document.querySelector('[data-admin-dashboard-page]');
     if (!pageRoot) return;
@@ -42,12 +44,5 @@ const initAdminDashboardPage = () => {
     window.setInterval(pollSnapshot, 10000);
 };
 
-const bootAdminDashboardPage = () => {
-    window.setTimeout(initAdminDashboardPage, 0);
-};
+bootPage(initAdminDashboardPage);
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootAdminDashboardPage, { once: true });
-} else {
-    bootAdminDashboardPage();
-}
