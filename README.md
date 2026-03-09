@@ -174,8 +174,6 @@ After `php artisan migrate --seed`, these accounts are created:
 - `shadow@ione.com` (`shadow`)
 - `cjose@ioneresources.net` (`super_user`)
 - `xtianjose02@gmail.com` (`technical`)
-- `Technical2@ioneresources.net` (`technical`)
-- `DICTR1@gmail.com` (`client`)
 - `AFPR2@gmail.com` (`client`)
 - `AFPR1@gmail.com` (`client`)
 

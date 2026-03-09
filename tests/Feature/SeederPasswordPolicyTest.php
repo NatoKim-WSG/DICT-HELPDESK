@@ -32,7 +32,6 @@ class SeederPasswordPolicyTest extends TestCase
             'admin@ioneresources.net',
             'cjose@ioneresources.net',
             'xtianjose02@gmail.com',
-            'Technical2@ioneresources.net',
         ];
 
         foreach ($staffEmails as $staffEmail) {
@@ -43,7 +42,6 @@ class SeederPasswordPolicyTest extends TestCase
         }
 
         $clientEmails = [
-            'DICTR1@gmail.com',
             'AFPR2@gmail.com',
             'AFPR1@gmail.com',
         ];
@@ -93,7 +91,6 @@ class SeederPasswordPolicyTest extends TestCase
         }
 
         $clientEmails = [
-            'DICTR1@gmail.com',
             'AFPR2@gmail.com',
             'AFPR1@gmail.com',
         ];
