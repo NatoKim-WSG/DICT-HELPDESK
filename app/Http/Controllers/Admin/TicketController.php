@@ -12,12 +12,12 @@ use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketPriorityRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketReplyRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketStatusRequest;
-use App\Models\Attachment;
 use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\Admin\TicketMutationService;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +36,7 @@ class TicketController extends Controller
     public function __construct(
         private TicketEmailAlertService $ticketEmailAlerts,
         private SystemLogService $systemLogs,
+        private TicketMutationService $ticketMutations,
     ) {}
 
     public function index(Request $request)
@@ -552,14 +553,7 @@ class TicketController extends Controller
         $ticketId = $ticket->id;
 
         DB::transaction(function () use ($ticket) {
-            $ticket->attachments()->get()->each->delete();
-            /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
-            $ticketReplies = $ticket->replies()->with('attachments')->get();
-            $ticketReplies->each(function (TicketReply $reply) {
-                $reply->attachments()->get()->each->delete();
-                $reply->delete();
-            });
-            $ticket->delete();
+            $this->ticketMutations->deleteTicketWithRelations($ticket);
         });
         $this->systemLogs->record(
             'ticket.deleted',
@@ -618,16 +612,7 @@ class TicketController extends Controller
         if ($action === 'delete') {
             $ticketNumbers = $tickets->pluck('ticket_number')->values()->all();
             DB::transaction(function () use ($tickets) {
-                $tickets->each(function (Ticket $ticket) {
-                    $ticket->attachments()->get()->each->delete();
-                    /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
-                    $ticketReplies = $ticket->replies()->with('attachments')->get();
-                    $ticketReplies->each(function (TicketReply $reply) {
-                        $reply->attachments()->get()->each->delete();
-                        $reply->delete();
-                    });
-                    $ticket->delete();
-                });
+                $this->ticketMutations->deleteManyTicketsWithRelations($tickets);
             });
             $this->systemLogs->record(
                 'ticket.bulk.delete',
@@ -781,24 +766,7 @@ class TicketController extends Controller
             $others = $orderedTickets->slice(1);
 
             DB::transaction(function () use ($primary, $others) {
-                foreach ($others as $ticket) {
-                    TicketReply::create([
-                        'ticket_id' => $primary->id,
-                        'user_id' => auth()->id(),
-                        'message' => "Merged ticket {$ticket->ticket_number}: {$ticket->subject}",
-                        'is_internal' => true,
-                    ]);
-
-                    TicketReply::where('ticket_id', $ticket->id)->update(['ticket_id' => $primary->id]);
-                    Attachment::where('attachable_type', Ticket::class)
-                        ->where('attachable_id', $ticket->id)
-                        ->update(['attachable_id' => $primary->id]);
-
-                    $ticket->update([
-                        'status' => 'closed',
-                        'closed_at' => now(),
-                    ]);
-                }
+                $this->ticketMutations->mergeTickets($primary, $others, auth()->id());
             });
             $this->systemLogs->record(
                 'ticket.bulk.merge',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\Admin\ReportBreakdownService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Connection;
@@ -28,6 +29,10 @@ class ReportController extends Controller
     private array $slaMetricsCache = [];
 
     private array $majorIssueSummaryCache = [];
+
+    public function __construct(
+        private ReportBreakdownService $reportBreakdowns,
+    ) {}
 
     public function index(Request $request)
     {
@@ -302,7 +307,7 @@ class ReportController extends Controller
             ->groupBy('priority')
             ->pluck('count', 'priority');
 
-        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets);
+        $categoryCounts = $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets);
         $ticketsByCategory = $categoryCounts
             ->map(fn (object $row) => [
                 'name' => (string) $row->category_name,
@@ -785,20 +790,11 @@ class ReportController extends Controller
             return $this->categoryBreakdownCache[$cacheKey];
         }
 
-        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets, $start, $end);
-        $total = max(1, (int) $categoryCounts->sum(fn (object $row) => (int) $row->count));
-
-        $breakdown = $categoryCounts
-            ->map(function (object $row) use ($total) {
-                $count = (int) $row->count;
-
-                return [
-                    'name' => (string) $row->category_name,
-                    'count' => $count,
-                    'share' => round(($count / $total) * 100, 1),
-                ];
-            })
-            ->values();
+        $breakdown = $this->reportBreakdowns->buildCategoryBreakdownForScope(
+            clone $scopedTickets,
+            $start,
+            $end
+        );
 
         $this->categoryBreakdownCache[$cacheKey] = $breakdown;
 
@@ -894,7 +890,7 @@ class ReportController extends Controller
             ->groupBy(function ($ticket): string {
                 /** @var Ticket $ticket */
 
-                return $this->normalizeCategoryBucket(optional($ticket->category)->name);
+                return $this->reportBreakdowns->normalizeCategoryBucket(optional($ticket->category)->name);
             })
             ->map(fn (Collection $group, string $name) => [
                 'name' => $name,
@@ -972,86 +968,12 @@ class ReportController extends Controller
 
     private function buildCategoryBucketsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
-        $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
-        $bucketCounts = array_fill_keys($bucketOrder, 0);
-
-        $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets, $start, $end);
-        foreach ($categoryCounts as $row) {
-            $bucket = $this->normalizeCategoryBucket((string) $row->category_name);
-            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
-        }
-
-        return collect($bucketCounts)->map(fn (int $count, string $name) => [
-            'name' => $name,
-            'count' => $count,
-        ])->values()->all();
-    }
-
-    private function categoryCountsForScope(
-        Builder $scopedTickets,
-        ?Carbon $start = null,
-        ?Carbon $end = null
-    ): Collection {
-        $query = (clone $scopedTickets)
-            ->leftJoin('categories', 'tickets.category_id', '=', 'categories.id')
-            ->reorder();
-
-        if ($start && $end) {
-            $query->whereBetween('tickets.created_at', [$start, $end]);
-        }
-
-        return $query
-            ->selectRaw("COALESCE(categories.name, 'Uncategorized') as category_name, COUNT(*) as count")
-            ->groupBy('categories.name')
-            ->orderByDesc('count')
-            ->get();
-    }
-
-    private function normalizeCategoryBucket(?string $categoryName): string
-    {
-        $value = strtolower(trim((string) $categoryName));
-
-        if ($value === '') {
-            return 'Other';
-        }
-
-        if (str_contains($value, 'hardware')) {
-            return 'Hardware';
-        }
-
-        if (str_contains($value, 'software') || str_contains($value, 'application')) {
-            return 'Software';
-        }
-
-        if (str_contains($value, 'network') || str_contains($value, 'connect')) {
-            return 'Network';
-        }
-
-        if (str_contains($value, 'access') || str_contains($value, 'permission') || str_contains($value, 'account')) {
-            return 'Access / Permissions';
-        }
-
-        if (str_contains($value, 'security')) {
-            return 'Security';
-        }
-
-        return 'Other';
+        return $this->reportBreakdowns->buildCategoryBucketsForScope(clone $scopedTickets, $start, $end);
     }
 
     private function buildPriorityBucketsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
-        $counts = (clone $scopedTickets)
-            ->whereBetween('created_at', [$start, $end])
-            ->selectRaw('priority, COUNT(*) as count')
-            ->groupBy('priority')
-            ->pluck('count', 'priority');
-
-        return [
-            ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
-            ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
-            ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],
-            ['name' => 'Low', 'count' => (int) ($counts['low'] ?? 0)],
-        ];
+        return $this->reportBreakdowns->buildPriorityBucketsForScope(clone $scopedTickets, $start, $end);
     }
 
     private function buildDailyVolumeSeries(Builder $scopedTickets, Carbon $start, Carbon $end): Collection

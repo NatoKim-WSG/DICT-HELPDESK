@@ -11,6 +11,22 @@ Laravel 12 help desk application with separate client and admin portals for tick
 - PostgreSQL (default) or MySQL/MariaDB
 - Vite 7 + Tailwind CSS 4 + Alpine.js
 
+## Application Scope
+
+- Authentication with role-based access (`client`, `technical`, `super_user`, `admin`, `shadow`)
+- Separate client/admin ticket consoles with controlled visibility and assignment scope
+- Ticket lifecycle rules (`open`, `in_progress`, `pending`, `resolved`, `closed`) with policy gates
+- Notification center with per-user seen/dismiss state
+- Legal consent gate and versioned acceptance tracking
+- Report dashboards with month/day drilldowns and PDF export
+
+## Core Services
+
+- [TicketEmailAlertService.php](app/Services/TicketEmailAlertService.php): assignment, SLA, and inactivity alert emails
+- [SystemLogService.php](app/Services/SystemLogService.php): centralized security/audit event logging
+- [TicketMutationService.php](app/Services/Admin/TicketMutationService.php): transactional destructive ticket operations (delete/merge)
+- [ReportBreakdownService.php](app/Services/Admin/ReportBreakdownService.php): reusable report category/priority breakdown logic
+
 ## Prerequisites
 
 - PHP with required extensions (`mbstring`, `openssl`, `pdo`, `tokenizer`, `xml`)
@@ -71,6 +87,31 @@ npm outdated
 # npm.cmd audit --audit-level=high
 # npm.cmd outdated
 ```
+
+## Local Quality Gate
+
+Run this full gate before push/release:
+
+```bash
+composer validate --strict
+composer audit --locked --no-interaction
+composer analyse
+vendor/bin/pint --test
+php artisan test
+
+# PowerShell-friendly npm invocations:
+npm.cmd run lint
+npm.cmd run test:unit
+npm.cmd run build
+npm.cmd audit --audit-level=high
+```
+
+## CI and CodeQL
+
+- CI workflow lives at `.github/workflows/ci.yml` and validates secret scanning, backend checks, frontend checks, and e2e.
+- CodeQL workflow lives at `.github/workflows/codeql.yml` and analyzes JavaScript/TypeScript.
+- PHP static/security checks are handled in CI (PHPStan/composer audit), not CodeQL language matrix.
+- GitHub Actions history keeps old failed runs; verify current health using the latest run or workflow badge status.
 
 ## Fix Composer SSL Certificate Errors (Windows)
 
@@ -223,9 +264,11 @@ php artisan storage:link
 - [ ] Run tests:
 
 ```bash
+composer analyse
+vendor/bin/pint --test
 php artisan test
-npm run test:unit
-npm run lint
+npm.cmd run test:unit
+npm.cmd run lint
 ```
 
 - [ ] Build frontend:
