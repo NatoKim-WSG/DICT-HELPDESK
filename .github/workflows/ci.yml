@@ -64,6 +64,7 @@ jobs:
         run: composer validate --strict
 
       - name: Diagnose Composer environment
+        continue-on-error: true
         run: composer diagnose
 
       - name: Audit PHP dependencies

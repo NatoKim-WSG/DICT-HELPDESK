@@ -20,7 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["php", "javascript-typescript"]
+        # CodeQL does not support PHP; keep PHP security/static checks in CI via PHPStan/composer audit.
+        language: ["javascript-typescript"]
 
     steps:
       - name: Checkout repository
