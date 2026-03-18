@@ -1,10 +1,7 @@
-<script>
-    (function () {
-        try {
-            if (window.localStorage.getItem('ione_theme') === 'dark') {
-                document.documentElement.classList.add('theme-dark');
-            }
-        } catch (error) {
-        }
-    })();
-</script>
+@php
+    $themeInitializerPath = public_path('js/theme-initializer.js');
+    $themeInitializerVersion = file_exists($themeInitializerPath)
+        ? (string) filemtime($themeInitializerPath)
+        : '1';
+@endphp
+<script src="{{ asset('js/theme-initializer.js') }}?v={{ $themeInitializerVersion }}"></script>

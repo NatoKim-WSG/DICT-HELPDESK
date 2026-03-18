@@ -26,6 +26,18 @@ class UiConsistencyGuardTest extends TestCase
         }
     }
 
+    public function test_theme_initializer_partial_uses_external_script_asset(): void
+    {
+        $contents = File::get(resource_path('views/partials/theme-initializer.blade.php'));
+
+        $this->assertStringContainsString(
+            "asset('js/theme-initializer.js')",
+            $contents,
+            'Expected the shared theme initializer partial to use the CSP-safe external script asset.'
+        );
+        $this->assertStringNotContainsString("window.localStorage.getItem('ione_theme')", $contents);
+    }
+
     public function test_modal_views_keep_shared_modal_structure_classes(): void
     {
         $modalViewFiles = [

@@ -100,7 +100,7 @@ class AuthController extends Controller
                 ]
             );
 
-            return redirect()->intended($this->dashboardPath($activeUser));
+            return redirect()->to($this->resolvePostLoginRedirectPath($request, $activeUser));
         }
 
         $inactiveMatch = $matchedUsers->first(function (User $user) use ($request) {
@@ -243,6 +243,73 @@ class AuthController extends Controller
         }
 
         return '/client/dashboard';
+    }
+
+    private function resolvePostLoginRedirectPath(Request $request, User $user): string
+    {
+        $fallbackPath = $this->dashboardPath($user);
+        $intendedUrl = $request->session()->pull('url.intended');
+
+        if (! is_string($intendedUrl)) {
+            return $fallbackPath;
+        }
+
+        $intendedUrl = trim($intendedUrl);
+        if ($intendedUrl === '') {
+            return $fallbackPath;
+        }
+
+        $parsedUrl = parse_url($intendedUrl);
+        if ($parsedUrl === false) {
+            return $fallbackPath;
+        }
+
+        if (
+            isset($parsedUrl['host'])
+            && strcasecmp((string) $parsedUrl['host'], (string) $request->getHost()) !== 0
+        ) {
+            return $fallbackPath;
+        }
+
+        if (isset($parsedUrl['scheme']) && ! isset($parsedUrl['host'])) {
+            return $fallbackPath;
+        }
+
+        $path = '/'.ltrim((string) ($parsedUrl['path'] ?? ''), '/');
+        $query = isset($parsedUrl['query']) && $parsedUrl['query'] !== ''
+            ? '?'.$parsedUrl['query']
+            : '';
+
+        if (! $this->userCanAccessPostLoginPath($user, $path)) {
+            return $fallbackPath;
+        }
+
+        return $path.$query;
+    }
+
+    private function userCanAccessPostLoginPath(User $user, string $path): bool
+    {
+        if (in_array($path, ['/', '/login', '/logout', '/register'], true)) {
+            return false;
+        }
+
+        if (str_starts_with($path, '/legal/acceptance')) {
+            return true;
+        }
+
+        if (str_starts_with($path, '/attachments/')) {
+            return true;
+        }
+
+        if (str_starts_with($path, '/account/settings')) {
+            return ! $user->isClient();
+        }
+
+        if ($user->canAccessAdminTickets()) {
+            return str_starts_with($path, '/admin/');
+        }
+
+        return str_starts_with($path, '/client/');
     }
 
     /**

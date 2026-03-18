@@ -155,4 +155,27 @@ class AuthLoginValidationTest extends TestCase
         ]);
         $this->assertGuest();
     }
+
+    public function test_client_login_ignores_admin_intended_url_and_redirects_to_client_dashboard(): void
+    {
+        $user = User::create([
+            'name' => 'Client Redirect User',
+            'email' => 'client-redirect@example.com',
+            'phone' => '09129990000',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $this->get('/admin/dashboard')->assertRedirect(route('login'));
+
+        $response = $this->post(route('login'), [
+            'login' => 'client-redirect@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect('/client/dashboard');
+        $this->assertAuthenticatedAs($user);
+    }
 }
