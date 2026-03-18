@@ -145,6 +145,9 @@ These project variables are used by seeders and account workflows:
 - `ATTACHMENTS_DISK` (defaults to `local`, keeps uploads in private storage)
 - `SEED_CLIENT_CREDENTIALS_DISK` (defaults to `local`)
 - `SEED_CLIENT_CREDENTIALS_PATH` (defaults to `private/seeded-client-credentials`)
+- `TICKET_IMPORT_DISK` (defaults to `local`)
+- `TICKET_IMPORT_PATH` (defaults to `imports`)
+- `TICKET_IMPORT_TIMEZONE` (defaults to `APP_TIMEZONE`)
 
 Legal/consent behavior is versioned and configurable using:
 
@@ -170,6 +173,28 @@ Optional infra/config variables currently used:
 - `SESSION_CONNECTION`, `SESSION_STORE`
 - `REDIS_URL`, `REDIS_PREFIX`, `REDIS_USERNAME`, `REDIS_CLUSTER`, `REDIS_DB`, `REDIS_CACHE_DB`
 - `MAIL_URL`, `MAIL_EHLO_DOMAIN`, `MAIL_LOG_CHANNEL`
+
+## Legacy Ticket Import
+
+Use the built-in importer for historical ticket batches instead of direct DB inserts. The importer refuses files without `created_at` so old tickets do not get stamped with the current import time again.
+
+Sample template:
+
+- [legacy-ticket-import-template.csv](docs/legacy-ticket-import-template.csv)
+
+Typical command:
+
+```bash
+php artisan tickets:import-csv legacy-batch.csv --default-user=35 --source-timezone=Asia/Manila
+```
+
+Notes:
+
+- Relative file paths resolve from `storage/app/private/imports/`
+- Supported user lookup columns are `user_id`, `user_email`, and `user_username`
+- Supported category lookup columns are `category_id` and `category`
+- If `updated_at` is omitted, the importer uses the source `created_at`
+- Existing rows are skipped unless you pass `--update-existing`
 
 ## Seeded Accounts
 

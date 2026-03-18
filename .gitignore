@@ -23,6 +23,8 @@
 !/storage/app/private/attachments/.gitignore
 /storage/app/private/seeded-client-credentials/*
 !/storage/app/private/seeded-client-credentials/.gitignore
+/storage/app/private/imports/*
+!/storage/app/private/imports/.gitignore
 /bootstrap/cache/*.php
 /vendor
 .env
