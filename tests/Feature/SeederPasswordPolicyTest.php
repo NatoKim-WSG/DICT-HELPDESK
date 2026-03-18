@@ -68,7 +68,7 @@ class SeederPasswordPolicyTest extends TestCase
         config()->set('helpdesk.client_default_password', 'client-fixed-password');
         config()->set('helpdesk.shadow_password', 'shadow-fixed-password');
         config()->set('helpdesk.seed_client_credentials_disk', 'local');
-        config()->set('helpdesk.seed_client_credentials_path', 'private/seeded-client-credentials');
+        config()->set('helpdesk.seed_client_credentials_path', 'seeded-client-credentials');
 
         $this->seed([
             ShadowSeeder::class,
@@ -76,7 +76,7 @@ class SeederPasswordPolicyTest extends TestCase
             UserSeeder::class,
         ]);
 
-        $files = Storage::disk('local')->files('private/seeded-client-credentials');
+        $files = Storage::disk('local')->files('seeded-client-credentials');
         $this->assertCount(1, $files);
 
         $content = trim((string) Storage::disk('local')->get($files[0]));

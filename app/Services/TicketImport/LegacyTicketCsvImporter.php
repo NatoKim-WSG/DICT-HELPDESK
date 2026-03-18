@@ -292,7 +292,7 @@ class LegacyTicketCsvImporter
         }
 
         $storageCandidate = Storage::disk((string) config('helpdesk.ticket_import_disk', 'local'))
-            ->path(trim((string) config('helpdesk.ticket_import_path', 'private/imports').'/'.$trimmedPath, '/'));
+            ->path(trim((string) config('helpdesk.ticket_import_path', 'imports').'/'.$trimmedPath, '/'));
 
         $candidates = [
             $trimmedPath,

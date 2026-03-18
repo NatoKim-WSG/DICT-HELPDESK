@@ -144,7 +144,7 @@ These project variables are used by seeders and account workflows:
 - `SHADOW_PASSWORD`
 - `ATTACHMENTS_DISK` (defaults to `local`, keeps uploads in private storage)
 - `SEED_CLIENT_CREDENTIALS_DISK` (defaults to `local`)
-- `SEED_CLIENT_CREDENTIALS_PATH` (defaults to `private/seeded-client-credentials`)
+- `SEED_CLIENT_CREDENTIALS_PATH` (defaults to `seeded-client-credentials`)
 - `TICKET_IMPORT_DISK` (defaults to `local`)
 - `TICKET_IMPORT_PATH` (defaults to `imports`)
 - `TICKET_IMPORT_TIMEZONE` (defaults to `APP_TIMEZONE`)

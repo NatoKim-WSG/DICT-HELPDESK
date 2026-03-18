@@ -95,7 +95,7 @@ class UserSeeder extends Seeder
     private function exportSeededClientCredentials(array $credentials): string
     {
         $disk = (string) config('helpdesk.seed_client_credentials_disk', 'local');
-        $basePath = trim((string) config('helpdesk.seed_client_credentials_path', 'private/seeded-client-credentials'), '/');
+        $basePath = trim((string) config('helpdesk.seed_client_credentials_path', 'seeded-client-credentials'), '/');
         $timestamp = now()->format('Ymd_His');
         $suffix = strtolower(Str::random(6));
         $exportPath = "{$basePath}/client-passwords-{$timestamp}-{$suffix}.csv";

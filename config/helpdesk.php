@@ -15,7 +15,7 @@ return [
     'client_default_password' => env('CLIENT_DEFAULT_PASSWORD'),
     'shadow_password' => env('SHADOW_PASSWORD'),
     'seed_client_credentials_disk' => env('SEED_CLIENT_CREDENTIALS_DISK', 'local'),
-    'seed_client_credentials_path' => env('SEED_CLIENT_CREDENTIALS_PATH', 'private/seeded-client-credentials'),
+    'seed_client_credentials_path' => env('SEED_CLIENT_CREDENTIALS_PATH', 'seeded-client-credentials'),
     'ticket_import_disk' => env('TICKET_IMPORT_DISK', 'local'),
     'ticket_import_path' => env('TICKET_IMPORT_PATH', 'imports'),
     'ticket_import_timezone' => env('TICKET_IMPORT_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
