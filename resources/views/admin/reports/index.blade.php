@@ -4,17 +4,9 @@
 
 @section('content')
 @php
-    $periodChange = (float) ($periodOverview['percent_change_vs_previous'] ?? 0);
-    $periodChangePrefix = $periodChange > 0 ? '+' : '';
-    $periodChangeTone = $periodChange > 0 ? 'text-emerald-600' : ($periodChange < 0 ? 'text-rose-600' : 'text-slate-600');
-    $slaRate = (float) ($periodOverview['sla_compliance_rate'] ?? 0);
     $monthlyPerformanceSeries = ($monthlyPerformanceGraphPoints ?? $monthlyGraphPoints)->values();
     $monthlyPerformanceFocusMonthKey = $monthlyPerformanceFocusMonthKey ?? $selectedMonthKey;
     $monthlyCountMax = max(1, (int) $monthlyPerformanceSeries->max(fn ($point) => max((int) $point['received'], (int) $point['resolved'])));
-    $averageResolutionMinutes = (int) ($stats['average_resolution_minutes'] ?? 0);
-    $averageResolutionLabel = $averageResolutionMinutes >= 60
-        ? number_format($averageResolutionMinutes / 60, 1).' hrs'
-        : $averageResolutionMinutes.' min';
     $chartHeight = 320;
     $chartWidth = max(760, ($monthlyPerformanceSeries->count() * 70));
     $paddingLeft = 44;
@@ -168,37 +160,15 @@
         </div>
 
         <div class="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3 sm:px-6">
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Tickets This Period</p>
-                <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $periodOverview['total_tickets'] }}</p>
-                <p class="mt-2 text-xs text-slate-500">{{ $periodOverview['label'] }}</p>
-            </div>
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">% Change Vs Previous Period</p>
-                <p class="mt-2 font-display text-3xl font-semibold {{ $periodChangeTone }}">{{ $periodChangePrefix }}{{ number_format($periodChange, 1) }}%</p>
-                <p class="mt-1 text-xs text-slate-500">Current: {{ $periodOverview['total_tickets'] }} | Previous: {{ $previousMonthRow['received'] ?? 0 }}</p>
-                <p class="mt-1 text-xs text-slate-500">Compared with {{ $previousMonthRow['month_label'] }}</p>
-            </div>
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">SLA Compliance Rate</p>
-                <p class="mt-2 font-display text-3xl font-semibold text-emerald-600">{{ number_format($slaRate, 1) }}%</p>
-                <p class="mt-2 text-xs text-slate-500">Completed tickets with due date met</p>
-            </div>
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Major Issues / Incidents</p>
-                <p class="mt-2 font-display text-3xl font-semibold text-rose-600">{{ $majorIssueSummary['major_count'] ?? 0 }}</p>
-                <p class="mt-2 text-xs text-slate-500">High or urgent tickets created this period</p>
-            </div>
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Backlog (Period End)</p>
-                <p class="mt-2 font-display text-3xl font-semibold text-amber-600">{{ $periodOverview['backlog_end'] }}</p>
-                <p class="mt-2 text-xs text-slate-500">Open tickets at period end</p>
-            </div>
-            <div class="stat-card">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Resolution Rate</p>
-                <p class="mt-2 font-display text-3xl font-semibold text-sky-600">{{ number_format((float) ($selectedMonthRow['resolution_rate'] ?? 0), 1) }}%</p>
-                <p class="mt-2 text-xs text-slate-500">Resolved/closed against created this period</p>
-            </div>
+            <x-ui.stat-card label="Total Tickets This Period" :value="$periodOverview['total_tickets']">
+                {{ $periodOverview['label'] }}
+            </x-ui.stat-card>
+            <x-ui.stat-card label="Major Issues / Incidents" :value="$majorIssueSummary['major_count'] ?? 0" value-class="text-rose-600">
+                High or urgent tickets created this period
+            </x-ui.stat-card>
+            <x-ui.stat-card label="Resolution Rate" :value="number_format((float) ($selectedMonthRow['resolution_rate'] ?? 0), 1) . '%'" value-class="text-sky-600">
+                Tickets created this period that are now resolved/closed
+            </x-ui.stat-card>
         </div>
     </div>
 
@@ -247,7 +217,6 @@
                             @foreach($ticketPieSlices as $slice)
                                 @php
                                     $sliceCount = (int) ($slice['count'] ?? 0);
-                                    $sliceShare = $ticketPieTotal > 0 ? ($sliceCount / $ticketPieTotal) * 100 : 0;
                                     $statusFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
                                         'in progress' => 'in_progress',
                                         'pending' => 'pending',
@@ -270,7 +239,6 @@
                                     </div>
                                     <div class="text-right">
                                         <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
-                                        <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
                                     </div>
                                 </a>
                             @endforeach
@@ -321,7 +289,6 @@
                         <div class="space-y-1.5">
                             @foreach($categoryPieSlices as $slice)
                                 @php
-                                    $sliceShare = $categoryPieTotal > 0 ? ($slice['count'] / $categoryPieTotal) * 100 : 0;
                                     $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
                                     $categoryLink = route('admin.tickets.index', array_merge($ticketHistoryScopeParams, [
                                         'tab' => 'tickets',
@@ -337,7 +304,6 @@
                                     </div>
                                     <div class="text-right">
                                         <span class="pie-legend-value font-semibold text-slate-900">{{ $slice['count'] }}</span>
-                                        <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
                                     </div>
                                 </a>
                             @endforeach
@@ -388,7 +354,6 @@
                         <div class="space-y-1.5">
                             @foreach($priorityPieSlices as $slice)
                                 @php
-                                    $sliceShare = $priorityPieTotal > 0 ? ($slice['count'] / $priorityPieTotal) * 100 : 0;
                                     $priorityFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
                                         'critical' => 'urgent',
                                         'high' => 'high',
@@ -409,7 +374,6 @@
                                     </div>
                                     <div class="text-right">
                                         <span class="pie-legend-value font-semibold text-slate-900">{{ $slice['count'] }}</span>
-                                        <span class="pie-legend-meta ml-1 text-xs text-slate-500">({{ number_format($sliceShare, 1) }}%)</span>
                                     </div>
                                 </a>
                             @endforeach
@@ -609,14 +573,6 @@
                 </div>
                 <div class="space-y-3 px-5 py-4">
                     <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                        <span class="text-slate-600">Average resolution time</span>
-                        <span class="font-semibold text-slate-900">{{ $averageResolutionLabel }}</span>
-                    </div>
-                    <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                        <span class="text-slate-600">SLA compliance (selection)</span>
-                        <span class="font-semibold text-slate-900">{{ number_format((float) ($detailOverview['sla_compliance_rate'] ?? 0), 1) }}%</span>
-                    </div>
-                    <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
                         <span class="text-slate-600">Open tickets (current)</span>
                         <span class="font-semibold text-slate-900">{{ $stats['open_tickets'] ?? 0 }}</span>
                     </div>
@@ -656,9 +612,9 @@
                         <div class="px-5 py-3">
                             <div class="mb-2 flex items-center justify-between text-sm">
                                 <span class="font-medium text-slate-700">{{ $category['name'] }}</span>
-                                <span class="text-slate-500">{{ $category['count'] }} tickets ({{ number_format($category['share'], 1) }}%)</span>
+                                <span class="text-slate-500">{{ $category['count'] }} tickets</span>
                             </div>
-                            <svg viewBox="0 0 100 8" class="h-2 w-full" role="img" aria-label="{{ $category['name'] }} share">
+                            <svg viewBox="0 0 100 8" class="h-2 w-full" role="img" aria-label="{{ $category['name'] }} category bar">
                                 <rect x="0" y="0" width="100" height="8" rx="4" fill="#e2e8f0"></rect>
                                 <rect x="0" y="0" width="{{ max(2, $category['share']) }}" height="8" rx="4" fill="#0f8d88"></rect>
                             </svg>

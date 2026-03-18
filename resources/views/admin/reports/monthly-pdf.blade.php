@@ -196,26 +196,11 @@
         }
     </style>
 </head>
-<body>
+    <body>
     @php
         $received = (int) ($selectedMonthRow['received'] ?? 0);
         $completed = (int) ($selectedMonthRow['resolved'] ?? 0);
-        $openEnd = (int) ($selectedMonthRow['open_end_of_month'] ?? 0);
         $completionRate = (float) ($selectedMonthRow['resolution_rate'] ?? 0);
-        $previousMonthKey = $selectedMonthRange['start']->copy()->subMonthNoOverflow()->format('Y-m');
-        $previousMonthRow = $monthlyReportRows->firstWhere('month_key', $previousMonthKey);
-        $previousReceived = (int) ($previousMonthRow['received'] ?? 0);
-        $previousCompleted = (int) ($previousMonthRow['resolved'] ?? 0);
-        $volumeDelta = $previousReceived > 0
-            ? (($received - $previousReceived) / $previousReceived) * 100
-            : ($received > 0 ? 100.0 : 0.0);
-        $completionDelta = $previousCompleted > 0
-            ? (($completed - $previousCompleted) / $previousCompleted) * 100
-            : ($completed > 0 ? 100.0 : 0.0);
-        $volumeDeltaClass = $volumeDelta > 0 ? 'delta-up' : ($volumeDelta < 0 ? 'delta-down' : 'delta-flat');
-        $completionDeltaClass = $completionDelta > 0 ? 'delta-up' : ($completionDelta < 0 ? 'delta-down' : 'delta-flat');
-        $statusTotal = (int) collect($statusBreakdown)->sum();
-        $priorityTotal = (int) collect($priorityBreakdown)->sum();
     @endphp
 
     <div class="header-wrap">
@@ -255,28 +240,7 @@
                 <td>
                     <div class="kpi-label">Completion Rate</div>
                     <div class="kpi-value">{{ number_format($completionRate, 1) }}%</div>
-                    <div class="kpi-note">Completed vs received</div>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <div class="kpi-label">Open Backlog (Month End)</div>
-                    <div class="kpi-value">{{ $openEnd }}</div>
-                    <div class="kpi-note">Open tickets as of {{ $selectedMonthRange['end']->format('M d, Y') }}</div>
-                </td>
-                <td>
-                    <div class="kpi-label">Volume Change vs Previous Month</div>
-                    <div class="kpi-value {{ $volumeDeltaClass }}">
-                        {{ $volumeDelta > 0 ? '+' : '' }}{{ number_format($volumeDelta, 1) }}%
-                    </div>
-                    <div class="kpi-note">Previous month received: {{ $previousReceived }}</div>
-                </td>
-                <td>
-                    <div class="kpi-label">Completion Change vs Previous Month</div>
-                    <div class="kpi-value {{ $completionDeltaClass }}">
-                        {{ $completionDelta > 0 ? '+' : '' }}{{ number_format($completionDelta, 1) }}%
-                    </div>
-                    <div class="kpi-note">Previous month completed: {{ $previousCompleted }}</div>
+                    <div class="kpi-note">Created this month that are now resolved/closed</div>
                 </td>
             </tr>
         </table>
@@ -292,19 +256,16 @@
                             <tr>
                                 <th>Status</th>
                                 <th style="width: 80px;">Count</th>
-                                <th style="width: 90px;">Share</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach(['open', 'in_progress', 'pending', 'resolved', 'closed'] as $status)
                                 @php
                                     $statusCount = (int) ($statusBreakdown[$status] ?? 0);
-                                    $statusShare = $statusTotal > 0 ? ($statusCount / $statusTotal) * 100 : 0;
                                 @endphp
                                 <tr>
                                     <td>{{ ucfirst(str_replace('_', ' ', $status)) }}</td>
                                     <td class="num">{{ $statusCount }}</td>
-                                    <td class="num">{{ number_format($statusShare, 1) }}%</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -316,19 +277,16 @@
                             <tr>
                                 <th>Priority</th>
                                 <th style="width: 80px;">Count</th>
-                                <th style="width: 90px;">Share</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach(['urgent', 'high', 'medium', 'low'] as $priority)
                                 @php
                                     $priorityCount = (int) ($priorityBreakdown[$priority] ?? 0);
-                                    $priorityShare = $priorityTotal > 0 ? ($priorityCount / $priorityTotal) * 100 : 0;
                                 @endphp
                                 <tr>
                                     <td>{{ ucfirst($priority) }}</td>
                                     <td class="num">{{ $priorityCount }}</td>
-                                    <td class="num">{{ number_format($priorityShare, 1) }}%</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -345,7 +303,6 @@
                 <tr>
                     <th>Category</th>
                     <th style="width: 90px;">Count</th>
-                    <th style="width: 90px;">Share</th>
                 </tr>
             </thead>
             <tbody>
@@ -353,11 +310,10 @@
                     <tr>
                         <td>{{ $category['name'] }}</td>
                         <td class="num">{{ $category['count'] }}</td>
-                        <td class="num">{{ number_format($category['share'], 1) }}%</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="3" class="muted">No tickets were created in this reporting month.</td>
+                        <td colspan="2" class="muted">No tickets were created in this reporting month.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -365,7 +321,7 @@
     </div>
 
     <div class="footnote">
-        <div><strong>Notes:</strong> "Completed" includes both resolved and closed tickets. Percentages are rounded to one decimal place.</div>
+        <div><strong>Notes:</strong> "Completed" includes both resolved and closed tickets.</div>
         <div class="small">Generated by iOne Helpdesk Reporting Module.</div>
     </div>
 </body>

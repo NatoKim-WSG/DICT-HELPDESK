@@ -26,6 +26,7 @@ Laravel 12 help desk application with separate client and admin portals for tick
 - [SystemLogService.php](app/Services/SystemLogService.php): centralized security/audit event logging
 - [TicketMutationService.php](app/Services/Admin/TicketMutationService.php): transactional destructive ticket operations (delete/merge)
 - [ReportBreakdownService.php](app/Services/Admin/ReportBreakdownService.php): reusable report category/priority breakdown logic
+- [report-metrics.md](docs/report-metrics.md): authoritative metric definitions for reporting and PDF output
 
 ## Prerequisites
 
@@ -93,6 +94,10 @@ npm outdated
 Run this full gate before push/release:
 
 ```bash
+composer qa
+npm.cmd run qa
+
+# Or run the individual commands:
 composer validate --strict
 composer audit --locked --no-interaction
 composer analyse

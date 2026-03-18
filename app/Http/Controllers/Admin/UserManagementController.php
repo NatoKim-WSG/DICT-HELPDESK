@@ -9,6 +9,7 @@ use App\Models\CredentialHandoff;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use App\Services\Admin\UserDirectoryService;
 use App\Services\SystemLogService;
 use App\Support\DefaultPasswordResolver;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class UserManagementController extends Controller
 {
     public function __construct(
         private SystemLogService $systemLogs,
+        private UserDirectoryService $userDirectory,
     ) {}
 
     public function index(Request $request)
@@ -36,93 +38,7 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (! $this->canManageStaffAccounts($currentUser)) {
-            $segment = 'clients';
-        }
-
-        $query = User::query()->where('email', 'not like', '%@system.local');
-        $departmentsQuery = User::query()->where('email', 'not like', '%@system.local');
-
-        $this->applyVisibilityScope($query, $currentUser);
-        $this->applyVisibilityScope($departmentsQuery, $currentUser);
-        $this->applySegmentScope($query, $segment, $currentUser);
-        $this->applySegmentScope($departmentsQuery, $segment, $currentUser);
-
-        if ($request->filled('role') && $request->role !== 'all') {
-            $requestedRole = User::normalizeRole($request->string('role')->toString());
-
-            if ($requestedRole === User::ROLE_ADMIN) {
-                $query->whereIn('role', [
-                    User::ROLE_SHADOW,
-                    User::ROLE_ADMIN,
-                ]);
-            } elseif ($requestedRole === User::ROLE_TECHNICAL) {
-                $query->where('role', User::ROLE_TECHNICAL);
-            } else {
-                $query->where('role', $requestedRole);
-            }
-        }
-
-        if ($request->filled('search')) {
-            $search = trim((string) $request->search);
-
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('department', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('department') && $request->department !== 'all') {
-            $query->where('department', $request->department);
-        }
-
-        if ($request->filled('status') && $request->status !== 'all') {
-            $query->where('is_active', $request->status === 'active');
-        }
-
-        $users = $query
-            ->orderByRaw("
-                CASE role
-                    WHEN 'shadow' THEN 1
-                    WHEN 'admin' THEN 2
-                    WHEN 'super_user' THEN 3
-                    WHEN 'technical' THEN 4
-                    WHEN 'client' THEN 5
-                    ELSE 6
-                END
-            ")
-            ->orderByRaw("LOWER(COALESCE(name, ''))")
-            ->orderBy('name')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15)
-            ->withQueryString();
-
-        $departments = $departmentsQuery
-            ->whereNotNull('department')
-            ->where('department', '!=', '')
-            ->distinct()
-            ->pluck('department')
-            ->sort(fn (string $left, string $right) => strnatcasecmp($left, $right))
-            ->values();
-
-        $availableRolesFilter = $this->availableRolesFilterForSegment($segment, $currentUser);
-        $segmentTitle = $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts';
-        $segmentDescription = $segment === 'clients'
-            ? 'Manage client accounts separately from internal staff.'
-            : ($currentUser->normalizedRole() === User::ROLE_ADMIN
-                ? 'Manage internal admin, super user, and technical accounts.'
-                : 'Manage internal admin, super user, and technical accounts.');
-
-        return view('admin.users.index', compact(
-            'users',
-            'departments',
-            'availableRolesFilter',
-            'segment',
-            'segmentTitle',
-            'segmentDescription'
-        ));
+        return view('admin.users.index', $this->userDirectory->buildIndexViewData($request, $currentUser, $segment));
     }
 
     public function create()
@@ -140,8 +56,8 @@ class UserManagementController extends Controller
         $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
 
         $role = $request->string('role')->toString();
-        $department = $this->departmentForRole($role, $request->string('department')->toString());
-        $persistedRole = $this->normalizeRoleForPersistence($role);
+        $department = $this->userDirectory->departmentForRole($role, $request->string('department')->toString());
+        $persistedRole = $this->userDirectory->normalizeRoleForPersistence($role);
         $isClientRole = $persistedRole === User::ROLE_CLIENT;
         if ($request->filled('password')) {
             $resolvedPassword = (string) $request->password;
@@ -194,14 +110,14 @@ class UserManagementController extends Controller
                 ->with('error', 'System archive users cannot be accessed from user management.');
         }
 
-        if ($this->cannotManageTarget($currentUser, $user)) {
+        if ($this->userDirectory->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to view this user.');
         }
 
-        $statistics = $this->buildUserTicketStatistics($user);
-        $statisticsLinks = $this->buildUserStatisticsLinks($user, $statistics['show_assigned']);
-        $recentTickets = $this->recentTicketsForUser($user);
+        $statistics = $this->userDirectory->buildUserTicketStatistics($user);
+        $statisticsLinks = $this->userDirectory->buildUserStatisticsLinks($user, $statistics['show_assigned']);
+        $recentTickets = $this->userDirectory->recentTicketsForUser($user);
         $canRevealManagedPassword = $currentUser->isShadow() && ! $user->isShadow() && $user->id !== $currentUser->id;
         $activeCredentialHandoff = null;
         if ($canRevealManagedPassword) {
@@ -352,7 +268,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if ($this->cannotManageTarget($currentUser, $user)) {
+        if ($this->userDirectory->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -384,7 +300,7 @@ class UserManagementController extends Controller
                 ->with('error', 'Use Account Settings to edit your own account.');
         }
 
-        if ($this->cannotManageTarget($currentUser, $user)) {
+        if ($this->userDirectory->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to edit this user.');
         }
@@ -395,8 +311,8 @@ class UserManagementController extends Controller
         $canManageClientNotes = $currentUser->isShadow() && $willBeClientRole;
 
         $role = $request->string('role')->toString();
-        $department = $this->departmentForRole($role, $request->string('department')->toString());
-        $persistedRole = $this->normalizeRoleForPersistence($role);
+        $department = $this->userDirectory->departmentForRole($role, $request->string('department')->toString());
+        $persistedRole = $this->userDirectory->normalizeRoleForPersistence($role);
         $requestedIsProfileLocked = $request->boolean('is_profile_locked');
 
         if ($user->is_profile_locked) {
@@ -511,7 +427,7 @@ class UserManagementController extends Controller
         }
 
         // Super users can only delete client accounts.
-        if ($this->cannotManageTarget($currentUser, $user)) {
+        if ($this->userDirectory->cannotManageTarget($currentUser, $user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You do not have permission to delete this user.');
         }
@@ -579,7 +495,7 @@ class UserManagementController extends Controller
             return response()->json(['error' => 'Admin users cannot be deactivated.'], 403);
         }
 
-        if ($this->cannotManageTarget($currentUser, $user)) {
+        if ($this->userDirectory->cannotManageTarget($currentUser, $user)) {
             return response()->json(['error' => 'You do not have permission to change this user status.'], 403);
         }
 
@@ -624,16 +540,6 @@ class UserManagementController extends Controller
         return $roles;
     }
 
-    private function manageableRolesForAdmin(): array
-    {
-        return [User::ROLE_CLIENT];
-    }
-
-    private function isManageableByNonSuperAdmin(User $user): bool
-    {
-        return in_array(User::normalizeRole($user->role), $this->manageableRolesForAdmin(), true);
-    }
-
     private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
     {
         if ($currentUser->isShadow()) {
@@ -648,127 +554,6 @@ class UserManagementController extends Controller
             $currentUser->normalizedRole() === User::ROLE_SUPER_USER
             && User::normalizeRole($targetUser->role) === User::ROLE_CLIENT
         );
-    }
-
-    private function applyVisibilityScope($query, User $currentUser): void
-    {
-        if ($currentUser->isShadow()) {
-            return;
-        }
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-            $query->where('role', '!=', User::ROLE_SHADOW);
-
-            return;
-        }
-
-        if (! $currentUser->isSuperAdmin()) {
-            $query->where('id', '!=', $currentUser->id)
-                ->whereIn('role', $this->manageableRolesForAdmin());
-        }
-    }
-
-    private function applySegmentScope($query, string $segment, User $currentUser): void
-    {
-        if ($segment === 'clients' || ! $this->canManageStaffAccounts($currentUser)) {
-            $query->where('role', User::ROLE_CLIENT);
-
-            return;
-        }
-
-        $query->whereIn('role', [
-            User::ROLE_SHADOW,
-            User::ROLE_ADMIN,
-            User::ROLE_SUPER_USER,
-            User::ROLE_TECHNICAL,
-        ]);
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-            $query->where('role', '!=', User::ROLE_SHADOW);
-        }
-    }
-
-    private function availableRolesFilterForSegment(string $segment, User $currentUser): array
-    {
-        if ($segment === 'clients') {
-            return [User::ROLE_CLIENT];
-        }
-
-        if ($this->canManageStaffAccounts($currentUser)) {
-            return [
-                User::ROLE_ADMIN,
-                User::ROLE_SUPER_USER,
-                User::ROLE_TECHNICAL,
-            ];
-        }
-
-        return [User::ROLE_CLIENT];
-    }
-
-    private function departmentForRole(string $role, string $department): string
-    {
-        $normalizedRole = User::normalizeRole($role);
-
-        if (in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
-            return 'iOne';
-        }
-
-        return $department;
-    }
-
-    private function normalizeRoleForPersistence(string $role): string
-    {
-        return User::normalizeRole($role);
-    }
-
-    private function buildUserTicketStatistics(User $user): array
-    {
-        $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
-        $baseTickets = $isClient
-            ? Ticket::query()->where('user_id', $user->id)
-            : Ticket::query()->where('assigned_to', $user->id);
-
-        return [
-            'total_tickets' => (clone $baseTickets)->count(),
-            'open_tickets' => (clone $baseTickets)->whereIn('status', Ticket::OPEN_STATUSES)->count(),
-            'closed_tickets' => (clone $baseTickets)->whereIn('status', Ticket::CLOSED_STATUSES)->count(),
-            'assigned_tickets' => $isClient ? null : (clone $baseTickets)->count(),
-            'show_assigned' => ! $isClient,
-        ];
-    }
-
-    private function buildUserStatisticsLinks(User $user, bool $showAssigned): array
-    {
-        $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
-        $primaryFilter = $isClient
-            ? ['account_id' => $user->id]
-            : ['assigned_to' => $user->id];
-
-        return [
-            'total_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
-            'open_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
-            'closed_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'history'])),
-            'assigned_tickets' => $showAssigned
-                ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id])
-                : null,
-        ];
-    }
-
-    private function recentTicketsForUser(User $user)
-    {
-        $normalizedRole = $user->normalizedRole();
-
-        return Ticket::query()
-            ->where(function ($query) use ($user, $normalizedRole) {
-                $query->where('user_id', $user->id);
-
-                if ($normalizedRole !== User::ROLE_CLIENT) {
-                    $query->orWhere('assigned_to', $user->id);
-                }
-            })
-            ->latest()
-            ->take(5)
-            ->get();
     }
 
     private function isSystemReplacementUser(User $user): bool
@@ -816,28 +601,6 @@ class UserManagementController extends Controller
     private function generateTemporaryManagedPassword(): string
     {
         return strtoupper(Str::random(4)).'-'.Str::random(8);
-    }
-
-    private function canManageStaffAccounts(User $currentUser): bool
-    {
-        return in_array($currentUser->normalizedRole(), [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
-    }
-
-    private function cannotManageTarget(User $currentUser, User $targetUser): bool
-    {
-        if ($currentUser->isShadow()) {
-            return false;
-        }
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN && $targetUser->isShadow()) {
-            return true;
-        }
-
-        if ($currentUser->isSuperAdmin()) {
-            return false;
-        }
-
-        return ! $this->isManageableByNonSuperAdmin($targetUser);
     }
 
     private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message, string $returnTo, bool $hasReturnTo)

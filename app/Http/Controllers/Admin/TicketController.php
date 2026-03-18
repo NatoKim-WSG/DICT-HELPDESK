@@ -17,13 +17,12 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -37,128 +36,33 @@ class TicketController extends Controller
         private TicketEmailAlertService $ticketEmailAlerts,
         private SystemLogService $systemLogs,
         private TicketMutationService $ticketMutations,
+        private TicketIndexService $ticketIndex,
     ) {}
 
     public function index(Request $request)
     {
-        $activeTab = $request->string('tab')->toString();
-        if (! in_array($activeTab, ['tickets', 'attention', 'history'], true)) {
-            $activeTab = 'tickets';
-        }
-        $selectedStatus = trim($request->string('status')->toString());
-        if ($selectedStatus === '') {
-            $selectedStatus = 'all';
-        }
-        $allowedStatuses = $activeTab === 'history'
-            ? array_merge(['all'], Ticket::CLOSED_STATUSES)
-            : array_merge(['all'], Ticket::OPEN_STATUSES);
-        if (! in_array($selectedStatus, $allowedStatuses, true)) {
-            $selectedStatus = 'all';
-        }
-        $createdDateRange = $this->resolveCreatedDateRange($request);
+        $currentUser = auth()->user();
+        $activeTab = $this->ticketIndex->resolveActiveTab($request->string('tab')->toString());
+        $selectedStatus = $this->ticketIndex->resolveSelectedStatus($request->string('status')->toString(), $activeTab);
+        $createdDateRange = $this->ticketIndex->resolveCreatedDateRange($request);
 
-        $query = $this->scopedTicketQueryForCurrentUser()
+        $query = $this->ticketIndex->scopedTicketQueryFor($currentUser)
             ->with(['user', 'category', 'assignedUser']);
+        $this->ticketIndex->applyTabScope($query, $activeTab);
+        $this->ticketIndex->applyFilters($query, $request, $selectedStatus, $createdDateRange);
 
-        if ($activeTab === 'history') {
-            $query->whereIn('status', Ticket::CLOSED_STATUSES);
-        } elseif ($activeTab === 'attention') {
-            $query->whereNotIn('status', Ticket::CLOSED_STATUSES)
-                ->where('created_at', '<=', now()->subHours(16));
-        } else {
-            $query->whereIn('status', Ticket::OPEN_STATUSES);
-        }
-
-        $query
-            ->when($selectedStatus !== 'all', function ($builder) use ($selectedStatus) {
-                $builder->where('status', $selectedStatus);
-            })
-            ->when($request->filled('priority') && $request->priority !== 'all', function ($builder) use ($request) {
-                $builder->where('priority', $request->string('priority')->toString());
-            })
-            ->when($request->filled('category') && $request->category !== 'all', function ($builder) use ($request) {
-                $builder->where('category_id', $request->integer('category'));
-            })
-            ->when($request->filled('category_bucket') && $request->category_bucket !== 'all', function (Builder $builder) use ($request) {
-                $bucket = $this->normalizeCategoryBucketFilter($request->string('category_bucket')->toString());
-                if ($bucket === null) {
-                    return;
-                }
-
-                $this->applyCategoryBucketFilter($builder, $bucket);
-            });
-
-        if ($request->filled('province') && $request->province !== 'all') {
-            $this->applyCaseInsensitiveExactMatch($query, 'province', (string) $request->province);
-        }
-
-        if ($request->filled('municipality') && $request->municipality !== 'all') {
-            $this->applyCaseInsensitiveExactMatch($query, 'municipality', (string) $request->municipality);
-        }
-
-        if ($request->filled('account_id') && $request->account_id !== 'all') {
-            $query->where('user_id', $request->integer('account_id'));
-        }
-
-        if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
-            $query->where('assigned_to', $request->integer('assigned_to'));
-        }
-
-        $query->when($request->filled('search'), function ($builder) use ($request) {
-            $search = mb_strtolower($request->string('search')->toString());
-            $pattern = '%'.$search.'%';
-
-            $builder->where(function ($q) use ($pattern) {
-                $q->whereRaw('LOWER(subject) LIKE ?', [$pattern])
-                    ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern])
-                    ->orWhereHas('user', function ($userQuery) use ($pattern) {
-                        $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
-                            ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
-                    });
-            });
-        });
-        if ($createdDateRange !== null) {
-            $query->whereBetween('created_at', [
-                $createdDateRange['start'],
-                $createdDateRange['end'],
-            ]);
-        }
-
-        $liveSnapshotToken = $this->buildTicketListSnapshotToken(clone $query);
+        $liveSnapshotToken = $this->ticketIndex->buildTicketListSnapshotToken(clone $query);
         if ($request->boolean('heartbeat')) {
             return response()->json([
                 'token' => $liveSnapshotToken,
             ]);
         }
 
-        $scopedTickets = $this->scopedTicketQueryForCurrentUser();
-        $provinceOptions = $this->distinctTicketColumnOptions('province', clone $scopedTickets);
-        $municipalityOptions = $this->distinctTicketColumnOptions('municipality', clone $scopedTickets);
+        $scopedTickets = $this->ticketIndex->scopedTicketQueryFor($currentUser);
+        $provinceOptions = $this->ticketIndex->distinctTicketColumnOptions('province', clone $scopedTickets);
+        $municipalityOptions = $this->ticketIndex->distinctTicketColumnOptions('municipality', clone $scopedTickets);
 
-        $currentUser = auth()->user();
-        if ($currentUser && $currentUser->isTechnician()) {
-            $accountOptionsQuery = User::where('role', User::ROLE_CLIENT)
-                ->where('is_active', true);
-            $visibleClientIds = (clone $scopedTickets)
-                ->whereNotNull('user_id')
-                ->select('user_id')
-                ->distinct()
-                ->pluck('user_id');
-
-            $accountOptionsQuery->whereIn('id', $visibleClientIds);
-            $accountOptions = $accountOptionsQuery
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->values();
-        } else {
-            $accountOptions = Cache::remember('admin_ticket_account_options_active_clients_v1', now()->addSeconds(60), function () {
-                return User::where('role', User::ROLE_CLIENT)
-                    ->where('is_active', true)
-                    ->orderBy('name')
-                    ->get(['id', 'name'])
-                    ->values();
-            });
-        }
+        $accountOptions = $this->ticketIndex->accountOptionsFor($currentUser, clone $scopedTickets);
 
         $tickets = $query->latest()->paginate(15);
         $ticketSeenTimestamps = TicketUserState::where('user_id', auth()->id())
@@ -176,7 +80,7 @@ class TicketController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name']);
         });
-        $assignees = $this->activeAssignableAgents();
+        $assignees = $this->ticketIndex->activeAssignableAgents();
 
         return view('admin.tickets.index', compact(
             'tickets',
@@ -199,7 +103,7 @@ class TicketController extends Controller
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $ticket->load(['user', 'category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
-        $assignees = $this->activeAssignableAgents();
+        $assignees = $this->ticketIndex->activeAssignableAgents();
 
         return view('admin.tickets.show', compact('ticket', 'assignees'));
     }
@@ -589,7 +493,7 @@ class TicketController extends Controller
 
         $action = $request->string('action')->toString();
         /** @var \Illuminate\Database\Eloquent\Collection<int, Ticket> $tickets */
-        $tickets = $this->scopedTicketQueryForCurrentUser()
+        $tickets = $this->ticketIndex->scopedTicketQueryFor(auth()->user())
             ->whereIn('id', $selectedIds)
             ->get();
 
@@ -839,51 +743,6 @@ class TicketController extends Controller
         return in_array($actor->normalizedRole(), [User::ROLE_TECHNICAL, User::ROLE_SUPER_USER], true);
     }
 
-    private function resolveCreatedDateRange(Request $request): ?array
-    {
-        $fromDate = $this->parseCreatedDate($request->query('created_from'));
-        $toDate = $this->parseCreatedDate($request->query('created_to'));
-        if (! $fromDate && ! $toDate) {
-            return null;
-        }
-
-        $startDate = $fromDate ?? $toDate;
-        $endDate = $toDate ?? $fromDate;
-        if (! $startDate || ! $endDate) {
-            return null;
-        }
-
-        if ($startDate->gt($endDate)) {
-            [$startDate, $endDate] = [$endDate, $startDate];
-        }
-
-        return [
-            'start' => $startDate->copy()->startOfDay(),
-            'end' => $endDate->copy()->endOfDay(),
-            'from' => $startDate->toDateString(),
-            'to' => $endDate->toDateString(),
-            'label' => trim((string) $request->query('report_scope')),
-        ];
-    }
-
-    private function parseCreatedDate(mixed $rawDate): ?Carbon
-    {
-        if (! is_string($rawDate)) {
-            return null;
-        }
-
-        $normalized = trim($rawDate);
-        if ($normalized === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::createFromFormat('Y-m-d', $normalized)->startOfDay();
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
     private function returnPathFromRequest(Request $request): ?string
     {
         $returnTo = trim($request->string('return_to')->toString());
@@ -1046,178 +905,8 @@ class TicketController extends Controller
         ]);
     }
 
-    private function distinctTicketColumnOptions(string $column, ?Builder $scopedBaseQuery = null): \Illuminate\Support\Collection
-    {
-        $this->assertSupportedLocationColumn($column);
-
-        $query = $scopedBaseQuery ? clone $scopedBaseQuery : Ticket::query();
-
-        return $query
-            ->whereNotNull($column)
-            ->where($column, '!=', '')
-            ->select($column)
-            ->distinct()
-            ->orderBy($column)
-            ->pluck($column)
-            ->values();
-    }
-
-    private function applyCaseInsensitiveExactMatch(Builder $query, string $column, string $value): void
-    {
-        $this->assertSupportedLocationColumn($column);
-
-        $normalizedValue = strtolower(trim($value));
-        $query->whereRaw("LOWER(COALESCE({$column}, '')) = ?", [$normalizedValue]);
-    }
-
-    private function assertSupportedLocationColumn(string $column): void
-    {
-        if (! in_array($column, ['province', 'municipality'], true)) {
-            throw new \InvalidArgumentException('Unsupported ticket location column.');
-        }
-    }
-
     private function authorizeTicketAccess(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
-    }
-
-    private function scopedTicketQueryForCurrentUser(): Builder
-    {
-        $query = Ticket::query();
-        $user = auth()->user();
-
-        if ($user && $user->isTechnician()) {
-            $query->where('assigned_to', $user->id);
-        }
-
-        return $query;
-    }
-
-    private function normalizeCategoryBucketFilter(string $raw): ?string
-    {
-        $normalized = strtolower(trim($raw));
-        if ($normalized === '') {
-            return null;
-        }
-
-        return match ($normalized) {
-            'hardware' => 'hardware',
-            'software' => 'software',
-            'network' => 'network',
-            'access_permissions', 'access/permissions', 'access / permissions' => 'access_permissions',
-            'security' => 'security',
-            'other' => 'other',
-            default => null,
-        };
-    }
-
-    private function applyCategoryBucketFilter(Builder $query, string $bucket): void
-    {
-        $hardwarePattern = '%hardware%';
-        $softwarePattern = '%software%';
-        $applicationPattern = '%application%';
-        $networkPattern = '%network%';
-        $connectPattern = '%connect%';
-        $accessPattern = '%access%';
-        $permissionPattern = '%permission%';
-        $accountPattern = '%account%';
-        $securityPattern = '%security%';
-
-        $query->where(function (Builder $builder) use (
-            $bucket,
-            $hardwarePattern,
-            $softwarePattern,
-            $applicationPattern,
-            $networkPattern,
-            $connectPattern,
-            $accessPattern,
-            $permissionPattern,
-            $accountPattern,
-            $securityPattern
-        ) {
-            if ($bucket === 'other') {
-                $builder->whereNull('category_id')
-                    ->orWhereHas('category', function (Builder $categoryQuery) use (
-                        $hardwarePattern,
-                        $softwarePattern,
-                        $applicationPattern,
-                        $networkPattern,
-                        $connectPattern,
-                        $accessPattern,
-                        $permissionPattern,
-                        $accountPattern,
-                        $securityPattern
-                    ) {
-                        $categoryQuery
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$hardwarePattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$softwarePattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$applicationPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$networkPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$connectPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accessPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$permissionPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accountPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$securityPattern]);
-                    });
-
-                return;
-            }
-
-            $builder->whereHas('category', function (Builder $categoryQuery) use (
-                $bucket,
-                $hardwarePattern,
-                $softwarePattern,
-                $applicationPattern,
-                $networkPattern,
-                $connectPattern,
-                $accessPattern,
-                $permissionPattern,
-                $accountPattern,
-                $securityPattern
-            ) {
-                match ($bucket) {
-                    'hardware' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$hardwarePattern]),
-                    'software' => $categoryQuery->where(function (Builder $q) use ($softwarePattern, $applicationPattern) {
-                        $q->whereRaw('LOWER(name) LIKE ?', [$softwarePattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$applicationPattern]);
-                    }),
-                    'network' => $categoryQuery->where(function (Builder $q) use ($networkPattern, $connectPattern) {
-                        $q->whereRaw('LOWER(name) LIKE ?', [$networkPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$connectPattern]);
-                    }),
-                    'access_permissions' => $categoryQuery->where(function (Builder $q) use ($accessPattern, $permissionPattern, $accountPattern) {
-                        $q->whereRaw('LOWER(name) LIKE ?', [$accessPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$permissionPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$accountPattern]);
-                    }),
-                    'security' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$securityPattern]),
-                    default => null,
-                };
-            });
-        });
-    }
-
-    private function buildTicketListSnapshotToken(Builder $query): string
-    {
-        $latestUpdatedAt = (clone $query)->max('updated_at');
-        $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
-        $totalTickets = (clone $query)->count();
-
-        return sha1(json_encode([
-            'latest_updated_at' => $latestUpdatedTimestamp,
-            'total_tickets' => $totalTickets,
-        ]));
-    }
-
-    private function activeAssignableAgents(): \Illuminate\Support\Collection
-    {
-        return Cache::remember('admin_ticket_active_agents_v2', now()->addSeconds(45), function () {
-            return User::whereIn('role', User::TICKET_CONSOLE_ROLES)
-                ->visibleDirectory()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'role']);
-        });
     }
 }

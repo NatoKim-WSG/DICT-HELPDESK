@@ -72,6 +72,11 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Category Breakdown');
         $response->assertSee('Top Technical Users');
         $response->assertSee('Monthly Performance (Last 12 Months)');
+        $response->assertDontSee('% Change Vs Previous Period');
+        $response->assertDontSee('SLA Compliance Rate');
+        $response->assertDontSee('Backlog (Period End)');
+        $response->assertDontSee('Average resolution time');
+        $response->assertDontSee('SLA compliance (selection)');
     }
 
     public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics_for_selected_date(): void
@@ -764,6 +769,48 @@ class AdminReportsPageTest extends TestCase
             return (int) $row['received'] === 1
                 && (int) $row['resolved'] === 1
                 && (int) $row['open_end_of_month'] === 0
+                && (float) $row['resolution_rate'] === 100.0;
+        });
+    }
+
+    public function test_monthly_resolution_rate_counts_tickets_completed_after_the_creation_month(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Cohort Super', 'cohort-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Cohort Client', 'cohort-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $ticket = Ticket::create([
+            'name' => 'Cross Month Requester',
+            'contact_number' => '09180000201',
+            'email' => 'cross-month-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Created in January, resolved in February',
+            'description' => 'Should still count toward January completion rate.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'resolved_at' => Carbon::create(2026, 2, 2, 14, 30, 0),
+            'closed_at' => Carbon::create(2026, 2, 2, 14, 30, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::query()->whereKey($ticket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 31, 16, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 2, 14, 30, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-01',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('selectedMonthRow', function (array $row) {
+            return (int) $row['received'] === 1
+                && (int) $row['resolved'] === 0
+                && (int) $row['open_end_of_month'] === 1
                 && (float) $row['resolution_rate'] === 100.0;
         });
     }

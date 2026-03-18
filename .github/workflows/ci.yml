@@ -143,10 +143,12 @@ jobs:
           New-Item -ItemType File -Path database/database.sqlite -Force | Out-Null
           Add-Content -Path .env -Value "DB_CONNECTION=sqlite"
           Add-Content -Path .env -Value "DB_DATABASE=database/database.sqlite"
+          Add-Content -Path .env -Value "LEGAL_REQUIRE_ACCEPTANCE=false"
           php artisan migrate --force
+          php artisan db:seed --class=E2eSmokeSeeder --force
 
       - name: Build frontend assets
         run: npm run build
 
       - name: Run end-to-end UI checks
-        run: npm run test:e2e -- tests/e2e/ui-sync.spec.js tests/e2e/accessibility-visual.spec.js
+        run: npm run test:e2e -- tests/e2e/ui-sync.spec.js tests/e2e/accessibility-visual.spec.js tests/e2e/admin-smoke.spec.js

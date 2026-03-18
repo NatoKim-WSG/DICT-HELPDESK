@@ -6,18 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Admin\ReportBreakdownService;
+use App\Services\Admin\Reports\MonthlyReportDatasetService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
-use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    private array $openTicketCountCache = [];
-
     private array $resolvedTicketCountCache = [];
 
     private array $statusBreakdownCache = [];
@@ -32,13 +29,14 @@ class ReportController extends Controller
 
     public function __construct(
         private ReportBreakdownService $reportBreakdowns,
+        private MonthlyReportDatasetService $monthlyReportDatasets,
     ) {}
 
     public function index(Request $request)
     {
         $user = auth()->user();
         $scopedTickets = $this->scopedTicketQueryForUser($user);
-        [$monthlyReportRows, $monthlyGraphPoints] = $this->buildMonthlyReportData(clone $scopedTickets);
+        [$monthlyReportRows, $monthlyGraphPoints] = $this->monthlyReportDatasets->build(clone $scopedTickets);
         $selectedMonthKey = $this->resolveSelectedMonthKey($request->query('month'), $monthlyReportRows);
         $selectedMonthRange = $this->monthRangeFromKey($selectedMonthKey);
         $selectedMonthRow = $monthlyReportRows->firstWhere('month_key', $selectedMonthKey)
@@ -158,8 +156,8 @@ class ReportController extends Controller
         $totalTicketsThisPeriod = (int) ($selectedMonthRow['received'] ?? 0);
         $totalTicketsPreviousPeriod = (int) ($previousMonthRow['received'] ?? 0);
         $periodPercentChange = $this->percentageChange($totalTicketsThisPeriod, $totalTicketsPreviousPeriod);
-        $backlogThisPeriod = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $selectedPeriodEnd);
-        $backlogPreviousPeriod = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $previousPeriodEnd);
+        $backlogThisPeriod = $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $selectedPeriodEnd);
+        $backlogPreviousPeriod = $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $previousPeriodEnd);
         $slaThisPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
         $slaPreviousPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd);
         $majorIssueSummary = $this->buildMajorIssueSummary(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
@@ -283,7 +281,7 @@ class ReportController extends Controller
             'pending' => (int) ($detailStatusSummary['pending'] ?? 0),
             'resolved' => (int) ($detailStatusSummary['resolved'] ?? 0),
             'closed' => (int) ($detailStatusSummary['closed'] ?? 0),
-            'backlog_end' => $this->countOpenTicketsAtCutoff(clone $scopedTickets, $detailScopeEnd),
+            'backlog_end' => $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $detailScopeEnd),
             'sla_compliance_rate' => (float) ($detailSlaMetrics['rate'] ?? 0),
         ];
 
@@ -291,7 +289,7 @@ class ReportController extends Controller
         if ($detailFilterApplied) {
             $monthlyPerformanceScopedTickets = (clone $scopedTickets)
                 ->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
-            [, $monthlyPerformanceGraphPoints] = $this->buildMonthlyReportData(clone $monthlyPerformanceScopedTickets);
+            [, $monthlyPerformanceGraphPoints] = $this->monthlyReportDatasets->build(clone $monthlyPerformanceScopedTickets);
         }
         $monthlyPerformanceFocusMonthKey = $detailFilterApplied
             ? $detailMonthKey
@@ -450,7 +448,7 @@ class ReportController extends Controller
     {
         $user = auth()->user();
         $scopedTickets = $this->scopedTicketQueryForUser($user);
-        [$monthlyReportRows] = $this->buildMonthlyReportData(clone $scopedTickets);
+        [$monthlyReportRows] = $this->monthlyReportDatasets->build(clone $scopedTickets);
         $selectedMonthKey = $this->resolveSelectedMonthKey($request->query('month'), $monthlyReportRows);
         $selectedMonthRange = $this->monthRangeFromKey($selectedMonthKey);
         $selectedMonthRow = $monthlyReportRows->firstWhere('month_key', $selectedMonthKey)
@@ -548,114 +546,6 @@ class ReportController extends Controller
             'unassigned_open_tickets' => (int) ($summaryRow['unassigned_open_tickets'] ?? 0),
             'urgent_open_tickets' => (int) ($summaryRow['urgent_open_tickets'] ?? 0),
         ];
-    }
-
-    private function buildMonthlyReportData(Builder $scopedTickets): array
-    {
-        $startMonth = Carbon::now()->startOfMonth()->subMonths(11);
-        $endMonth = Carbon::now()->startOfMonth();
-        $reportingRangeStart = $startMonth->copy()->startOfMonth();
-        $reportingRangeEnd = $endMonth->copy()->endOfMonth()->endOfDay();
-        $monthKeyExpressionForCreatedAt = $this->monthKeyExpression('created_at', $scopedTickets);
-        $monthKeyExpressionForResolvedAt = $this->monthKeyExpression('resolved_at', $scopedTickets);
-        $monthKeyExpressionForClosedAt = $this->monthKeyExpression('closed_at', $scopedTickets);
-
-        $receivedByMonth = (clone $scopedTickets)
-            ->whereBetween('created_at', [$reportingRangeStart, $reportingRangeEnd])
-            ->selectRaw("{$monthKeyExpressionForCreatedAt} as month_key, COUNT(*) as count")
-            ->groupBy('month_key')
-            ->pluck('count', 'month_key');
-
-        $resolvedSubQuery = (clone $scopedTickets)
-            ->whereNotNull('resolved_at')
-            ->whereBetween('resolved_at', [$reportingRangeStart, $reportingRangeEnd])
-            ->selectRaw("id as ticket_id, {$monthKeyExpressionForResolvedAt} as month_key");
-        $closedSubQuery = (clone $scopedTickets)
-            ->whereNotNull('closed_at')
-            ->whereBetween('closed_at', [$reportingRangeStart, $reportingRangeEnd])
-            ->selectRaw("id as ticket_id, {$monthKeyExpressionForClosedAt} as month_key");
-
-        $resolvedByMonth = DB::query()
-            ->fromSub($resolvedSubQuery->unionAll($closedSubQuery), 'completion_points')
-            ->selectRaw('month_key, COUNT(DISTINCT ticket_id) as count')
-            ->groupBy('month_key')
-            ->pluck('count', 'month_key');
-
-        $monthDefinitions = collect();
-        for ($cursor = $startMonth->copy(); $cursor->lte($endMonth); $cursor->addMonth()) {
-            $monthDefinitions->push([
-                'key' => $cursor->format('Y-m'),
-                'label' => $cursor->format('M Y'),
-                'start' => $cursor->copy()->startOfMonth(),
-                'end' => $cursor->copy()->endOfMonth(),
-            ]);
-        }
-
-        $rangeBacklogCutoff = $reportingRangeStart->copy()->subSecond();
-        $openBeforeReportingRange = $this->countOpenTicketsAtCutoff(clone $scopedTickets, $rangeBacklogCutoff);
-        $runningOpenCount = $openBeforeReportingRange;
-
-        $reportRows = $monthDefinitions->map(function (array $row) use (
-            &$runningOpenCount,
-            $receivedByMonth,
-            $resolvedByMonth
-        ) {
-            $monthKey = (string) $row['key'];
-            $receivedCount = (int) ($receivedByMonth[$monthKey] ?? 0);
-            $resolvedCount = (int) ($resolvedByMonth[$monthKey] ?? 0);
-            $runningOpenCount += $receivedCount - $resolvedCount;
-            if ($runningOpenCount < 0) {
-                $runningOpenCount = 0;
-            }
-
-            return [
-                'month_key' => $monthKey,
-                'month_label' => (string) $row['label'],
-                'month_start' => $row['start']->toDateString(),
-                'month_end' => $row['end']->toDateString(),
-                'received' => $receivedCount,
-                'resolved' => $resolvedCount,
-                'open_end_of_month' => $runningOpenCount,
-                'resolution_rate' => $receivedCount > 0
-                    ? round(($resolvedCount / $receivedCount) * 100, 1)
-                    : 0.0,
-            ];
-        });
-
-        $graphPoints = $reportRows->map(fn (array $row) => [
-            'key' => $row['month_key'],
-            'month_label' => $row['month_label'],
-            'label' => Carbon::createFromFormat('Y-m', $row['month_key'])->format('M'),
-            'received' => $row['received'],
-            'resolved' => $row['resolved'],
-            'resolution_rate' => $row['resolution_rate'],
-        ]);
-
-        return [$reportRows, $graphPoints];
-    }
-
-    private function countOpenTicketsAtCutoff(Builder $scopedTickets, Carbon $cutoff): int
-    {
-        $cacheKey = $this->queryScopeSignature($scopedTickets).'|'.$cutoff->toIso8601String();
-        if (array_key_exists($cacheKey, $this->openTicketCountCache)) {
-            return $this->openTicketCountCache[$cacheKey];
-        }
-
-        $count = (clone $scopedTickets)
-            ->where('created_at', '<=', $cutoff)
-            ->where(function ($query) use ($cutoff) {
-                $query->whereNull('resolved_at')
-                    ->orWhere('resolved_at', '>', $cutoff);
-            })
-            ->where(function ($query) use ($cutoff) {
-                $query->whereNull('closed_at')
-                    ->orWhere('closed_at', '>', $cutoff);
-            })
-            ->count();
-
-        $this->openTicketCountCache[$cacheKey] = (int) $count;
-
-        return (int) $count;
     }
 
     private function countResolvedTicketsWithinRange(Builder $scopedTickets, Carbon $start, Carbon $end): int
@@ -1104,19 +994,6 @@ class ReportController extends Controller
     private function queryScopeSignature(Builder $scopedTickets): string
     {
         return sha1($scopedTickets->toSql().'|'.json_encode($scopedTickets->getBindings()));
-    }
-
-    private function monthKeyExpression(string $column, Builder $query): string
-    {
-        /** @var Connection $connection */
-        $connection = $query->getQuery()->getConnection();
-        $driver = $connection->getDriverName();
-
-        return match ($driver) {
-            'pgsql' => "TO_CHAR({$column}, 'YYYY-MM')",
-            'sqlite' => "strftime('%Y-%m', {$column})",
-            default => "DATE_FORMAT({$column}, '%Y-%m')",
-        };
     }
 
     private function buildDateOptionsForRange(Carbon $start, Carbon $end): Collection

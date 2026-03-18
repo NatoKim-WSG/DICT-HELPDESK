@@ -59,6 +59,62 @@ class SystemPerformanceGuardTest extends TestCase
         );
     }
 
+    public function test_admin_users_index_stays_within_query_budget(): void
+    {
+        [$adminUser] = $this->createSupportUsers();
+
+        for ($index = 1; $index <= 18; $index++) {
+            User::create([
+                'name' => "Managed User {$index}",
+                'email' => "managed-user-{$index}@example.com",
+                'phone' => '0916'.str_pad((string) $index, 7, '0', STR_PAD_LEFT),
+                'department' => $index % 2 === 0 ? 'DICT' : 'iOne',
+                'role' => $index % 3 === 0 ? User::ROLE_CLIENT : User::ROLE_TECHNICAL,
+                'password' => Hash::make('password123'),
+                'is_active' => true,
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($adminUser)->get(route('admin.users.index'));
+
+        $response->assertOk();
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(
+            25,
+            $queryCount,
+            "Admin users index query budget exceeded. Queries executed: {$queryCount}"
+        );
+    }
+
+    public function test_admin_ticket_show_stays_within_query_budget(): void
+    {
+        [$adminUser, $technicalUser] = $this->createSupportUsers();
+        $categories = $this->seedCategories();
+        $this->seedTicketDataset($technicalUser, $categories, 8, true);
+
+        $ticket = Ticket::query()->latest('id')->firstOrFail();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($adminUser)->get(route('admin.tickets.show', $ticket));
+
+        $response->assertOk();
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(
+            22,
+            $queryCount,
+            "Admin ticket show query budget exceeded. Queries executed: {$queryCount}"
+        );
+    }
+
     private function createSupportUsers(): array
     {
         $adminUser = User::create([

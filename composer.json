@@ -55,6 +55,13 @@
         ],
         "analyse": [
             "@php vendor/bin/phpstan analyse --memory-limit=1G --no-progress"
+        ],
+        "qa": [
+            "@composer validate --strict",
+            "@composer audit --locked --no-interaction",
+            "@composer analyse",
+            "@php vendor/bin/pint --test",
+            "@php artisan test --stop-on-failure"
         ]
     },
     "extra": {

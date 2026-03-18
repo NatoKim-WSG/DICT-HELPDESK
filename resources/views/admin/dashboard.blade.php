@@ -30,53 +30,45 @@
     </div>
 
     <div class="stagger-fade mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <a href="{{ $totalTicketsUrl }}" class="stat-card block" aria-label="View total tickets">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Tickets</p>
+        <x-ui.stat-card :href="$totalTicketsUrl" label="Total Tickets" :value="$stats['total_tickets']" aria-label="View total tickets">
+            <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
                     </svg>
                 </span>
-            </div>
-            <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['total_tickets'] }}</p>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $openTicketsUrl }}" class="stat-card block" aria-label="View open tickets">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Open Tickets</p>
+        <x-ui.stat-card :href="$openTicketsUrl" label="Open Tickets" :value="$stats['open_tickets']" aria-label="View open tickets">
+            <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z" />
                     </svg>
                 </span>
-            </div>
-            <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['open_tickets'] }}</p>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $attentionTicketsUrl }}" class="stat-card block" aria-label="View tickets that need attention">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Needs Attention</p>
+        <x-ui.stat-card :href="$attentionTicketsUrl" label="Needs Attention" :value="$stats['attention_tickets']" value-class="text-amber-600" aria-label="View tickets that need attention">
+            <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 2.7 17.5A1.5 1.5 0 0 0 4 19.8h16a1.5 1.5 0 0 0 1.3-2.3L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z" />
                     </svg>
                 </span>
-            </div>
-            <p class="mt-2 font-display text-3xl font-semibold text-amber-600">{{ $stats['attention_tickets'] }}</p>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $urgentTicketsUrl }}" class="stat-card block" aria-label="View urgent tickets">
-            <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Urgent Tickets</p>
+        <x-ui.stat-card :href="$urgentTicketsUrl" label="Urgent Tickets" :value="$stats['urgent_tickets']" value-class="text-rose-600" aria-label="View urgent tickets">
+            <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M8.25 6.75h7.5m-7.5 10.5h7.5M4.5 12A7.5 7.5 0 1 0 19.5 12a7.5 7.5 0 0 0-15 0Z" />
                     </svg>
                 </span>
-            </div>
-            <p class="mt-2 font-display text-3xl font-semibold text-rose-600">{{ $stats['urgent_tickets'] }}</p>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
     </div>
 
     <div class="grid grid-cols-1 gap-8 xl:grid-cols-3">

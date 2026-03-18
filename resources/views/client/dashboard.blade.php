@@ -20,61 +20,45 @@
     </div>
 
     <div class="stagger-fade mb-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <a href="{{ $totalTicketsUrl }}" class="stat-card block">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Tickets</p>
-                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['total_tickets'] }}</p>
-                </div>
+        <x-ui.stat-card :href="$totalTicketsUrl" label="Total Tickets" :value="$stats['total_tickets']">
+            <x-slot:icon>
                 <div class="rounded-xl bg-ione-blue-100 p-3 text-ione-blue-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                 </div>
-            </div>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $openTicketsUrl }}" class="stat-card block">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Open Tickets</p>
-                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['open_tickets'] }}</p>
-                </div>
+        <x-ui.stat-card :href="$openTicketsUrl" label="Open Tickets" :value="$stats['open_tickets']">
+            <x-slot:icon>
                 <div class="rounded-xl bg-emerald-100 p-3 text-emerald-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
-            </div>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $inProgressTicketsUrl }}" class="stat-card block">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">In Progress</p>
-                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['in_progress_tickets'] }}</p>
-                </div>
+        <x-ui.stat-card :href="$inProgressTicketsUrl" label="In Progress" :value="$stats['in_progress_tickets']">
+            <x-slot:icon>
                 <div class="rounded-xl bg-sky-100 p-3 text-sky-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0Z" />
                     </svg>
                 </div>
-            </div>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
 
-        <a href="{{ $urgentTicketsUrl }}" class="stat-card block">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Urgent Tickets</p>
-                    <p class="mt-2 font-display text-3xl font-semibold text-slate-900">{{ $stats['urgent_tickets'] }}</p>
-                </div>
+        <x-ui.stat-card :href="$urgentTicketsUrl" label="Urgent Tickets" :value="$stats['urgent_tickets']">
+            <x-slot:icon>
                 <div class="rounded-xl bg-rose-100 p-3 text-rose-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                     </svg>
                 </div>
-            </div>
-        </a>
+            </x-slot:icon>
+        </x-ui.stat-card>
     </div>
 
     <div class="panel overflow-hidden">
