@@ -291,7 +291,7 @@
                                 @php
                                     $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
                                     $categoryLink = route('admin.tickets.index', array_merge($ticketHistoryScopeParams, [
-                                        'tab' => 'tickets',
+                                        'tab' => 'all',
                                         'category_bucket' => $categoryBucket,
                                     ]));
                                 @endphp
@@ -362,8 +362,8 @@
                                         default => null,
                                     };
                                     $priorityLink = $priorityFilter
-                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets', 'priority' => $priorityFilter]))
-                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets']));
+                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'all', 'priority' => $priorityFilter]))
+                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'all']));
                                 @endphp
                                 <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
@@ -386,7 +386,7 @@
                 <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Monthly Performance (Last 12 Months)</h2>
-                        <p class="mt-1 text-sm text-slate-500">Received and completed bars by month.</p>
+                        <p class="mt-1 text-sm text-slate-500">Received and completed bars by month, based on tickets created in that month.</p>
                     </div>
                     <form method="GET" action="{{ route('admin.reports.index') }}" class="flex items-end gap-2" data-submit-feedback>
                         @if($detailFilterApplied)

@@ -5,12 +5,14 @@
 @section('content')
 @php
     $tab = $activeTab ?? 'tickets';
+    $isAllTab = $tab === 'all';
     $isHistoryTab = $tab === 'history';
     $closedRevertWindowDays = 7;
     $canDeleteTickets = auth()->user()->isSuperAdmin();
     $canRunDestructiveAction = auth()->user()->isAdminLevel();
     $requiresDelayedClose = in_array(auth()->user()->normalizedRole(), [\App\Models\User::ROLE_TECHNICAL, \App\Models\User::ROLE_SUPER_USER], true);
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
+    $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
@@ -31,6 +33,7 @@
         <div class="border-b border-slate-200 px-5 pt-4 sm:px-6">
             <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200">
                 <div class="flex items-center gap-7">
+                    <a href="{{ $tabAllUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'all' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">All</a>
                     <a href="{{ $tabTicketsUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'tickets' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Tickets</a>
                     <a href="{{ $tabAttentionUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Needs Attention</a>
                     <a href="{{ $tabHistoryUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'history' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">History</a>
@@ -45,6 +48,12 @@
                         >
                             <option value="all" {{ request('status', 'all') === 'all' ? 'selected' : '' }}>Select view</option>
                             @if($isHistoryTab)
+                                <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
+                                <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
+                            @elseif($isAllTab)
+                                <option value="open" {{ request('status') === 'open' ? 'selected' : '' }}>Open</option>
+                                <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                                <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
                                 <option value="resolved" {{ request('status') === 'resolved' ? 'selected' : '' }}>Resolved</option>
                                 <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Closed</option>
                             @elseif($tab === 'attention')
@@ -167,7 +176,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
-                            <select id="bulk-action-select" name="action" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <select id="bulk-action-select" name="action" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                 <option value="assign">Assign technical</option>
                                 <option value="status">Update status</option>
                                 <option value="priority">Update priority</option>
@@ -181,7 +190,7 @@
 
                             <div id="bulk-assign-wrap" class="hidden">
                                 <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
-                                <select id="bulk-assigned-to" name="assigned_to" data-enhanced-select class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <select id="bulk-assigned-to" name="assigned_to" class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                     <option value="">Choose technical</option>
                                     @foreach($assignees as $assignee)
                                         <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
@@ -191,7 +200,7 @@
 
                             <div id="bulk-status-wrap" class="hidden">
                                 <label for="bulk-status" class="sr-only">Status</label>
-                                <select id="bulk-status" name="status" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <select id="bulk-status" name="status" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                     <option value="open">Open</option>
                                     <option value="in_progress">In Progress</option>
                                     <option value="pending">Pending</option>
@@ -202,7 +211,7 @@
 
                             <div id="bulk-priority-wrap" class="hidden">
                                 <label for="bulk-priority" class="sr-only">Priority</label>
-                                <select id="bulk-priority" name="priority" data-enhanced-select class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <select id="bulk-priority" name="priority" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                     <option value="low">Low</option>
                                     <option value="medium">Medium</option>
                                     <option value="high">High</option>

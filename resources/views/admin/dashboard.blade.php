@@ -8,7 +8,7 @@
     data-heartbeat-url="{{ route('admin.dashboard', absolute: false) }}"
     data-snapshot-token="{{ $liveSnapshotToken ?? '' }}">
     @php
-        $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
+        $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'all']);
         $openTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
         $attentionTicketsUrl = route('admin.tickets.index', ['tab' => 'attention']);
         $urgentTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'priority' => 'urgent']);
@@ -17,7 +17,7 @@
     <div class="panel mb-8 px-5 py-5 sm:px-6">
         <h3 class="font-display text-lg font-semibold text-slate-900">Quick Actions</h3>
         <div class="mt-4 flex flex-wrap gap-3">
-            <a href="{{ route('admin.tickets.index') }}" class="btn-primary">View All Tickets</a>
+            <a href="{{ route('admin.tickets.index', ['tab' => 'all']) }}" class="btn-primary">View All Tickets</a>
             <a href="{{ route('admin.tickets.index', ['tab' => 'attention']) }}" class="btn-warning">Needs Attention</a>
             <a href="{{ route('admin.tickets.index', ['priority' => 'urgent']) }}" class="btn-danger">Urgent Tickets</a>
             @if(!$isTechnical)

@@ -37,6 +37,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+/.claude
 /database/database.sqlite
 /playwright-report
 /test-results

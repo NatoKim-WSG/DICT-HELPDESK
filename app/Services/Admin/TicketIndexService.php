@@ -14,7 +14,7 @@ class TicketIndexService
 {
     public function resolveActiveTab(string $requestedTab): string
     {
-        return in_array($requestedTab, ['tickets', 'attention', 'history'], true)
+        return in_array($requestedTab, ['all', 'tickets', 'attention', 'history'], true)
             ? $requestedTab
             : 'tickets';
     }
@@ -28,7 +28,9 @@ class TicketIndexService
 
         $allowedStatuses = $activeTab === 'history'
             ? array_merge(['all'], Ticket::CLOSED_STATUSES)
-            : array_merge(['all'], Ticket::OPEN_STATUSES);
+            : ($activeTab === 'all'
+                ? array_merge(['all'], Ticket::OPEN_STATUSES, Ticket::CLOSED_STATUSES)
+                : array_merge(['all'], Ticket::OPEN_STATUSES));
 
         return in_array($selectedStatus, $allowedStatuses, true)
             ? $selectedStatus
@@ -75,6 +77,10 @@ class TicketIndexService
 
     public function applyTabScope(Builder $query, string $activeTab): void
     {
+        if ($activeTab === 'all') {
+            return;
+        }
+
         if ($activeTab === 'history') {
             $query->whereIn('status', Ticket::CLOSED_STATUSES);
 
@@ -126,6 +132,15 @@ class TicketIndexService
 
         if ($request->filled('account_id') && $request->account_id !== 'all') {
             $query->where('user_id', $request->integer('account_id'));
+        }
+
+        if ($request->filled('related_user_id') && $request->related_user_id !== 'all') {
+            $relatedUserId = $request->integer('related_user_id');
+
+            $query->where(function (Builder $builder) use ($relatedUserId) {
+                $builder->where('user_id', $relatedUserId)
+                    ->orWhere('assigned_to', $relatedUserId);
+            });
         }
 
         if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {

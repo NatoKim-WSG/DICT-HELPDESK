@@ -13,6 +13,8 @@ class AdminUserStatisticsLinkTest extends TestCase
 
     public function test_super_user_client_profile_statistics_have_clickable_ticket_links(): void
     {
+        config(['legal.require_acceptance' => false]);
+
         $superUser = $this->createUser(
             'Stats Super User',
             'stats-super-user@example.com',
@@ -30,6 +32,7 @@ class AdminUserStatisticsLinkTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('User Statistics');
+        $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=all"', false);
         $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=tickets"', false);
         $response->assertSee('href="'.e(route('admin.tickets.index')).'?account_id='.$client->id.'&amp;tab=history"', false);
         $response->assertDontSee('Assigned Tickets');
@@ -37,6 +40,8 @@ class AdminUserStatisticsLinkTest extends TestCase
 
     public function test_super_admin_technical_profile_shows_assigned_tickets_link(): void
     {
+        config(['legal.require_acceptance' => false]);
+
         $superAdmin = $this->createUser(
             'Stats Super Admin',
             'stats-super-admin@example.com',
@@ -55,14 +60,35 @@ class AdminUserStatisticsLinkTest extends TestCase
         $response->assertOk();
         $response->assertSee('Assigned Tickets');
         $response->assertSee(
-            'href="'.e(route('admin.tickets.index')).'?assigned_to='.$technical->id.'&amp;tab=tickets"',
+            'href="'.e(route('admin.tickets.index')).'?related_user_id='.$technical->id.'&amp;tab=all"',
             false
         );
         $response->assertSee(
-            'href="'.e(route('admin.tickets.index')).'?assigned_to='.$technical->id.'&amp;tab=history"',
+            'href="'.e(route('admin.tickets.index')).'?related_user_id='.$technical->id.'&amp;tab=tickets"',
+            false
+        );
+        $response->assertSee(
+            'href="'.e(route('admin.tickets.index')).'?related_user_id='.$technical->id.'&amp;tab=history"',
             false
         );
         $response->assertSee('href="'.e(route('admin.tickets.index')).'?tab=tickets&amp;assigned_to='.$technical->id.'"', false);
+    }
+
+    public function test_admin_dashboard_total_ticket_actions_link_to_all_tab(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser(
+            'Dashboard Stats User',
+            'dashboard-stats-user@example.com',
+            User::ROLE_SUPER_USER,
+            'iOne'
+        );
+
+        $response = $this->actingAs($superUser)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('href="'.e(route('admin.tickets.index', ['tab' => 'all'])).'"', false);
     }
 
     private function createUser(string $name, string $email, string $role, string $department): User

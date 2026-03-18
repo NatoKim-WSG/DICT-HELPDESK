@@ -114,15 +114,21 @@ class UserDirectoryService
     public function buildUserTicketStatistics(User $user): array
     {
         $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
-        $baseTickets = $isClient
+        $relatedTickets = $isClient
             ? Ticket::query()->where('user_id', $user->id)
+            : Ticket::query()->where(function (Builder $query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhere('assigned_to', $user->id);
+            });
+        $assignedTickets = $isClient
+            ? null
             : Ticket::query()->where('assigned_to', $user->id);
 
         return [
-            'total_tickets' => (clone $baseTickets)->count(),
-            'open_tickets' => (clone $baseTickets)->whereIn('status', Ticket::OPEN_STATUSES)->count(),
-            'closed_tickets' => (clone $baseTickets)->whereIn('status', Ticket::CLOSED_STATUSES)->count(),
-            'assigned_tickets' => $isClient ? null : (clone $baseTickets)->count(),
+            'total_tickets' => (clone $relatedTickets)->count(),
+            'open_tickets' => (clone $relatedTickets)->whereIn('status', Ticket::OPEN_STATUSES)->count(),
+            'closed_tickets' => (clone $relatedTickets)->whereIn('status', Ticket::CLOSED_STATUSES)->count(),
+            'assigned_tickets' => $assignedTickets ? (clone $assignedTickets)->count() : null,
             'show_assigned' => ! $isClient,
         ];
     }
@@ -130,14 +136,20 @@ class UserDirectoryService
     public function buildUserStatisticsLinks(User $user, bool $showAssigned): array
     {
         $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
-        $primaryFilter = $isClient
+        $openFilter = $isClient
             ? ['account_id' => $user->id]
-            : ['assigned_to' => $user->id];
+            : ['related_user_id' => $user->id];
+        $allFilter = $isClient
+            ? ['account_id' => $user->id]
+            : ['related_user_id' => $user->id];
+        $historyFilter = $isClient
+            ? ['account_id' => $user->id]
+            : ['related_user_id' => $user->id];
 
         return [
-            'total_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
-            'open_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'tickets'])),
-            'closed_tickets' => route('admin.tickets.index', array_merge($primaryFilter, ['tab' => 'history'])),
+            'total_tickets' => route('admin.tickets.index', array_merge($allFilter, ['tab' => 'all'])),
+            'open_tickets' => route('admin.tickets.index', array_merge($openFilter, ['tab' => 'tickets'])),
+            'closed_tickets' => route('admin.tickets.index', array_merge($historyFilter, ['tab' => 'history'])),
             'assigned_tickets' => $showAssigned
                 ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id])
                 : null,

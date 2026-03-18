@@ -139,7 +139,6 @@ class ReportController extends Controller
             'resolution_rate' => $totalTickets > 0
                 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1)
                 : 0,
-            'average_resolution_minutes' => $this->averageResolutionMinutes((clone $kpiScopedTickets)),
         ];
 
         $periodStatusSummary = $this->buildStatusBreakdownForPeriod(
@@ -496,32 +495,6 @@ class ReportController extends Controller
         }
 
         return $query;
-    }
-
-    private function averageResolutionMinutes(Builder $scopedTickets): int
-    {
-        $durations = $scopedTickets
-            ->where(function ($query) {
-                $query->whereNotNull('resolved_at')
-                    ->orWhereNotNull('closed_at');
-            })
-            ->get(['created_at', 'resolved_at', 'closed_at'])
-            ->map(function ($ticket) {
-                /** @var Ticket $ticket */
-                $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
-                if (! $ticket->created_at || ! $completedAt) {
-                    return null;
-                }
-
-                return $ticket->created_at->diffInMinutes($completedAt);
-            })
-            ->filter();
-
-        if ($durations->isEmpty()) {
-            return 0;
-        }
-
-        return (int) round($durations->avg());
     }
 
     private function buildKpiSummary(Builder $scopedTickets): array

@@ -809,10 +809,43 @@ class AdminReportsPageTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('selectedMonthRow', function (array $row) {
             return (int) $row['received'] === 1
-                && (int) $row['resolved'] === 0
+                && (int) $row['resolved'] === 1
+                && (int) ($row['completed_in_period'] ?? 0) === 0
                 && (int) $row['open_end_of_month'] === 1
                 && (float) $row['resolution_rate'] === 100.0;
         });
+    }
+
+    public function test_report_mix_drilldowns_keep_created_period_scope_but_use_all_tickets_tab(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Mix Drilldown Super', 'mix-drilldown-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Mix Drilldown Client', 'mix-drilldown-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        Ticket::create([
+            'name' => 'Mix Drilldown Requester',
+            'contact_number' => '09180000202',
+            'email' => 'mix-drilldown-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Priority and category drilldown',
+            'description' => 'Ensures report links keep full created-period scope.',
+            'priority' => 'high',
+            'status' => 'closed',
+            'closed_at' => Carbon::create(2026, 2, 8, 12, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('tab=all&amp;category_bucket=', false);
+        $response->assertSee('tab=all&amp;priority=high', false);
     }
 
     private function createUser(string $name, string $email, string $role, string $department = 'iOne'): User

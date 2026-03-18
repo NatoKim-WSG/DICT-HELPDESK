@@ -47,7 +47,7 @@ class MonthlyReportDatasetService
             ->whereBetween('closed_at', [$reportingRangeStart, $reportingRangeEnd])
             ->selectRaw("id as ticket_id, {$monthKeyExpressionForClosedAt} as month_key");
 
-        $resolvedByMonth = DB::query()
+        $completedInPeriodByMonth = DB::query()
             ->fromSub($resolvedSubQuery->unionAll($closedSubQuery), 'completion_points')
             ->selectRaw('month_key, COUNT(DISTINCT ticket_id) as count')
             ->groupBy('month_key')
@@ -71,13 +71,13 @@ class MonthlyReportDatasetService
             &$runningOpenCount,
             $receivedByMonth,
             $completedByCreatedMonth,
-            $resolvedByMonth
+            $completedInPeriodByMonth
         ) {
             $monthKey = (string) $row['key'];
             $receivedCount = (int) ($receivedByMonth[$monthKey] ?? 0);
-            $resolvedCount = (int) ($resolvedByMonth[$monthKey] ?? 0);
+            $completedInPeriodCount = (int) ($completedInPeriodByMonth[$monthKey] ?? 0);
             $completedFromCreatedCount = (int) ($completedByCreatedMonth[$monthKey] ?? 0);
-            $runningOpenCount += $receivedCount - $resolvedCount;
+            $runningOpenCount += $receivedCount - $completedInPeriodCount;
             if ($runningOpenCount < 0) {
                 $runningOpenCount = 0;
             }
@@ -88,7 +88,8 @@ class MonthlyReportDatasetService
                 'month_start' => $row['start']->toDateString(),
                 'month_end' => $row['end']->toDateString(),
                 'received' => $receivedCount,
-                'resolved' => $resolvedCount,
+                'resolved' => $completedFromCreatedCount,
+                'completed_in_period' => $completedInPeriodCount,
                 'open_end_of_month' => $runningOpenCount,
                 'resolution_rate' => $receivedCount > 0
                     ? round(($completedFromCreatedCount / $receivedCount) * 100, 1)
@@ -102,6 +103,7 @@ class MonthlyReportDatasetService
             'label' => Carbon::createFromFormat('Y-m', $row['month_key'])->format('M'),
             'received' => $row['received'],
             'resolved' => $row['resolved'],
+            'completed_in_period' => $row['completed_in_period'],
             'resolution_rate' => $row['resolution_rate'],
         ]);
 
