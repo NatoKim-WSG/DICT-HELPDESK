@@ -40,6 +40,7 @@ export const registerEnhancedSelects = () => {
         if (!canEnhanceSelect(select)) return;
         select.dataset.enhancedReady = '1';
         enhancedSelects.add(select);
+        const capitalizeDisplay = select.dataset.textTransform === 'capitalize';
 
         const minWidth = window.getComputedStyle(select).minWidth;
         const nativeArrow = select.nextElementSibling
@@ -69,6 +70,9 @@ export const registerEnhancedSelects = () => {
 
         const label = document.createElement('span');
         label.className = 'truncate';
+        if (capitalizeDisplay) {
+            label.classList.add('capitalize');
+        }
 
         const caret = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         caret.setAttribute('viewBox', '0 0 24 24');
@@ -114,6 +118,9 @@ export const registerEnhancedSelects = () => {
                 const optionButton = document.createElement('button');
                 optionButton.type = 'button';
                 optionButton.className = 'app-select-option';
+                if (capitalizeDisplay) {
+                    optionButton.classList.add('capitalize');
+                }
                 optionButton.dataset.value = option.value;
                 optionButton.textContent = option.textContent.trim();
                 optionButton.disabled = option.disabled;

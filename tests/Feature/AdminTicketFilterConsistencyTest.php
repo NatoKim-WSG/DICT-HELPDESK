@@ -285,6 +285,164 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $response->assertDontSee(route('admin.tickets.show', $outsideTicket), false);
     }
 
+    public function test_admin_ticket_filter_by_month_scopes_to_created_month(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Month Filter Client', 'month-filter-client@example.com');
+
+        $marchTicket = Ticket::create([
+            'name' => 'March Requester',
+            'contact_number' => '09110000121',
+            'email' => 'march-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'March-scoped ticket',
+            'description' => 'Created in March.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($marchTicket->id)->update([
+            'created_at' => Carbon::create(2026, 3, 5, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 3, 5, 9, 0, 0),
+        ]);
+
+        $februaryTicket = Ticket::create([
+            'name' => 'February Requester',
+            'contact_number' => '09110000122',
+            'email' => 'february-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'February-scoped ticket',
+            'description' => 'Created in February.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($februaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 20, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 20, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'month' => '2026-03',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.tickets.show', $marchTicket), false);
+        $response->assertDontSee(route('admin.tickets.show', $februaryTicket), false);
+    }
+
+    public function test_admin_ticket_filter_by_assigned_user_matches_ticket_assignment(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $assignedUser = $this->createAssignedSupportUser('Assigned Support One', 'assigned-support-one@example.com');
+        $otherAssignedUser = $this->createAssignedSupportUser('Assigned Support Two', 'assigned-support-two@example.com');
+        $category = $this->createCategory();
+        $client = $this->createClient('Assigned Filter Client', 'assigned-filter-client@example.com');
+
+        $matchingTicket = Ticket::create([
+            'name' => 'Assigned Requester',
+            'contact_number' => '09110000131',
+            'email' => 'assigned-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Assigned to matching user',
+            'description' => 'Assigned to matching support user.',
+            'priority' => 'medium',
+            'status' => 'in_progress',
+            'assigned_to' => $assignedUser->id,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $otherTicket = Ticket::create([
+            'name' => 'Other Assigned Requester',
+            'contact_number' => '09110000132',
+            'email' => 'other-assigned-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Assigned to a different user',
+            'description' => 'Assigned to other support user.',
+            'priority' => 'medium',
+            'status' => 'in_progress',
+            'assigned_to' => $otherAssignedUser->id,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'assigned_to' => $assignedUser->id,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.tickets.show', $matchingTicket), false);
+        $response->assertDontSee(route('admin.tickets.show', $otherTicket), false);
+    }
+
+    public function test_admin_ticket_partial_filter_response_returns_rendered_results_html(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Partial Filter Client', 'partial-filter-client@example.com');
+
+        $marchTicket = Ticket::create([
+            'name' => 'Partial March Requester',
+            'contact_number' => '09110000141',
+            'email' => 'partial-march-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Partial March ticket',
+            'description' => 'Included in partial response.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($marchTicket->id)->update([
+            'created_at' => Carbon::create(2026, 3, 7, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 3, 7, 9, 0, 0),
+        ]);
+
+        $februaryTicket = Ticket::create([
+            'name' => 'Partial February Requester',
+            'contact_number' => '09110000142',
+            'email' => 'partial-february-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Partial February ticket',
+            'description' => 'Excluded from partial response.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($februaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 7, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 7, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($supportUser)->getJson(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'month' => '2026-03',
+            'partial' => '1',
+        ]));
+
+        $response->assertOk();
+        $response->assertJsonStructure(['html', 'token']);
+
+        $payload = $response->json();
+        $this->assertIsArray($payload);
+        $this->assertStringContainsString(route('admin.tickets.show', $marchTicket, false), $payload['html']);
+        $this->assertStringNotContainsString(route('admin.tickets.show', $februaryTicket, false), $payload['html']);
+        $this->assertStringContainsString('data-admin-tickets-results', $payload['html']);
+    }
+
     private function createSupportUser(): User
     {
         return User::create([
@@ -306,6 +464,19 @@ class AdminTicketFilterConsistencyTest extends TestCase
             'phone' => '09112223333',
             'department' => 'DICT',
             'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+    }
+
+    private function createAssignedSupportUser(string $name, string $email): User
+    {
+        return User::create([
+            'name' => $name,
+            'email' => $email,
+            'phone' => '09113334444',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);

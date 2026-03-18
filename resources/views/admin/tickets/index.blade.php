@@ -7,15 +7,13 @@
     $tab = $activeTab ?? 'tickets';
     $isAllTab = $tab === 'all';
     $isHistoryTab = $tab === 'history';
-    $closedRevertWindowDays = 7;
     $canDeleteTickets = auth()->user()->isSuperAdmin();
-    $canRunDestructiveAction = auth()->user()->isAdminLevel();
-    $requiresDelayedClose = in_array(auth()->user()->normalizedRole(), [\App\Models\User::ROLE_TECHNICAL, \App\Models\User::ROLE_SUPER_USER], true);
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
+    $selectedMonth = old('month', request('month', data_get($createdDateRange, 'month', '')));
 @endphp
 <div class="mx-auto max-w-[1460px]"
     data-admin-tickets-index-page
@@ -44,7 +42,8 @@
                         <select
                             id="admin-status-view"
                             name="status"
-                            class="h-10 min-w-[140px] appearance-none rounded-xl border border-[#64b5a8] bg-white pl-4 pr-10 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
+                            data-text-transform="capitalize"
+                            class="h-10 min-w-[140px] appearance-none rounded-xl border border-[#64b5a8] bg-white pl-4 pr-10 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize"
                         >
                             <option value="all" {{ request('status', 'all') === 'all' ? 'selected' : '' }}>Select view</option>
                             @if($isHistoryTab)
@@ -73,450 +72,139 @@
                 </div>
             </div>
 
-            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-2 xl:grid-cols-8" data-submit-feedback data-search-history-form data-search-history-key="admin-ticket-filters">
+            <form method="GET" class="space-y-3 py-4" data-submit-feedback data-search-history-form data-search-history-key="admin-ticket-filters">
                 <input type="hidden" name="tab" value="{{ $tab }}">
                 @if($createdDateRange)
-                    <input type="hidden" name="created_from" value="{{ $createdDateRange['from'] }}">
-                    <input type="hidden" name="created_to" value="{{ $createdDateRange['to'] }}">
-                    @if(!empty($createdDateRange['label']))
+                    @if(empty($createdDateRange['month']))
+                        <input type="hidden" name="created_from" value="{{ $createdDateRange['from'] }}">
+                        <input type="hidden" name="created_to" value="{{ $createdDateRange['to'] }}">
+                    @endif
+                    @if(!empty($createdDateRange['label']) && empty($createdDateRange['month']))
                         <input type="hidden" name="report_scope" value="{{ $createdDateRange['label'] }}">
                     @endif
                 @endif
-                <div class="relative xl:col-span-2">
-                    <label for="search" class="sr-only">Search</label>
-                    <input
-                        id="search"
-                        type="text"
-                        name="search"
-                        value="{{ request('search') }}"
-                        data-search-history-input
-                        class="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
-                        placeholder="Search tickets"
-                        autocomplete="off"
-                    >
-                    <div class="search-history-panel hidden" data-search-history-panel></div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+                    <div class="relative xl:col-span-2">
+                        <label for="search" class="sr-only">Search</label>
+                        <input
+                            id="search"
+                            type="text"
+                            name="search"
+                            value="{{ request('search') }}"
+                            data-search-history-input
+                            class="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
+                            placeholder="Search tickets"
+                            autocomplete="off"
+                        >
+                        <div class="search-history-panel hidden" data-search-history-panel></div>
+                    </div>
+
+                    <div>
+                        <label for="priority" class="sr-only">Priority</label>
+                        <select id="priority" name="priority" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
+                            <option value="all">All priorities</option>
+                            <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
+                            <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
+                            <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
+                            <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="category" class="sr-only">Category</label>
+                        <select id="category" name="category" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
+                            <option value="all">All categories</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="assigned_to" class="sr-only">Assigned user</label>
+                        <select id="assigned_to" name="assigned_to" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <option value="all">All assigned users</option>
+                            <option value="0" {{ request('assigned_to') === '0' ? 'selected' : '' }}>Unassigned</option>
+                            @foreach($assignees as $assignee)
+                                <option value="{{ $assignee->id }}" {{ (string) request('assigned_to') === (string) $assignee->id ? 'selected' : '' }}>
+                                    {{ $assignee->publicDisplayName() }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="account" class="sr-only">Account</label>
+                        <select id="account" name="account_id" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                            <option value="all">All accounts</option>
+                            @foreach($accountOptions as $account)
+                                <option value="{{ $account->id }}" {{ (string) request('account_id') === (string) $account->id ? 'selected' : '' }}>
+                                    {{ $account->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
 
-                <div>
-                    <label for="priority" class="sr-only">Priority</label>
-                    <select id="priority" name="priority" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All priorities</option>
-                        <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
-                        <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
-                        <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
-                        <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
-                    </select>
-                </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+                    <div>
+                        <label for="month" class="sr-only">Month</label>
+                        <select id="month" name="month" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
+                            <option value="">All months</option>
+                            @foreach($monthOptions as $monthOption)
+                                <option value="{{ $monthOption['value'] }}" {{ $selectedMonth === $monthOption['value'] ? 'selected' : '' }}>
+                                    {{ $monthOption['label'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                <div>
-                    <label for="category" class="sr-only">Category</label>
-                    <select id="category" name="category" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All categories</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
-                                {{ $category->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                    <div>
+                        <label for="province" class="sr-only">Province</label>
+                        <select id="province" name="province" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
+                            <option value="all">All provinces</option>
+                            @foreach($provinceOptions as $province)
+                                <option value="{{ $province }}" {{ request('province') === $province ? 'selected' : '' }}>
+                                    {{ $province }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                <div>
-                    <label for="province" class="sr-only">Province</label>
-                    <select id="province" name="province" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All provinces</option>
-                        @foreach($provinceOptions as $province)
-                            <option value="{{ $province }}" {{ request('province') === $province ? 'selected' : '' }}>
-                                {{ $province }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                    <div>
+                        <label for="municipality" class="sr-only">Municipality</label>
+                        <select id="municipality" name="municipality" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
+                            <option value="all">All municipalities</option>
+                            @foreach($municipalityOptions as $municipality)
+                                <option value="{{ $municipality }}" {{ request('municipality') === $municipality ? 'selected' : '' }}>
+                                    {{ $municipality }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                <div>
-                    <label for="municipality" class="sr-only">Municipality</label>
-                    <select id="municipality" name="municipality" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All municipalities</option>
-                        @foreach($municipalityOptions as $municipality)
-                            <option value="{{ $municipality }}" {{ request('municipality') === $municipality ? 'selected' : '' }}>
-                                {{ $municipality }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label for="account" class="sr-only">Account</label>
-                    <select id="account" name="account_id" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="all">All accounts</option>
-                        @foreach($accountOptions as $account)
-                            <option value="{{ $account->id }}" {{ (string) request('account_id') === (string) $account->id ? 'selected' : '' }}>
-                                {{ $account->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-4 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
-                    <a href="{{ route('admin.tickets.index', ['tab' => $tab]) }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
+                    <div class="flex items-center gap-2 xl:col-span-3 xl:justify-end">
+                        @if($canDeleteTickets)
+                            <button id="bulk-delete-submit" type="button" class="btn-danger h-10 px-4" disabled>Delete</button>
+                        @endif
+                        <a href="{{ route('admin.tickets.index', ['tab' => $tab]) }}" data-admin-ticket-clear class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
+                    </div>
                 </div>
             </form>
-            @if($createdDateRange)
-                <div class="pb-4">
-                    <p class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        Report scope: {{ !empty($createdDateRange['label']) ? $createdDateRange['label'] : ($createdDateRange['from'].' to '.$createdDateRange['to']) }}
-                    </p>
-                </div>
+
+            @if($canDeleteTickets)
+                <form id="bulk-ticket-delete-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="hidden" data-submit-feedback>
+                    @csrf
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="tab" value="{{ $tab }}">
+                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                    <div id="bulk-selected-ids"></div>
+                </form>
             @endif
-
-            <form id="bulk-action-form" method="POST" action="{{ route('admin.tickets.bulk-action') }}" class="hidden pb-4 lg:block" data-submit-feedback>
-                @csrf
-                <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span id="bulk-selection-summary" class="text-xs font-semibold uppercase tracking-wide text-slate-600">0 selected</span>
-                            <select id="bulk-action-select" name="action" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                <option value="assign">Assign technical</option>
-                                <option value="status">Update status</option>
-                                <option value="priority">Update priority</option>
-                                @if($canRunDestructiveAction)
-                                    <option value="merge">Merge tickets</option>
-                                @endif
-                                @if($canDeleteTickets)
-                                    <option value="delete">Delete tickets</option>
-                                @endif
-                            </select>
-
-                            <div id="bulk-assign-wrap" class="hidden">
-                                <label for="bulk-assigned-to" class="sr-only">Assign technical</label>
-                                <select id="bulk-assigned-to" name="assigned_to" class="h-10 min-w-[190px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                    <option value="">Choose technical</option>
-                                    @foreach($assignees as $assignee)
-                                        <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div id="bulk-status-wrap" class="hidden">
-                                <label for="bulk-status" class="sr-only">Status</label>
-                                <select id="bulk-status" name="status" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                    <option value="open">Open</option>
-                                    <option value="in_progress">In Progress</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="resolved">Resolved</option>
-                                    <option value="closed">Closed</option>
-                                </select>
-                            </div>
-
-                            <div id="bulk-priority-wrap" class="hidden">
-                                <label for="bulk-priority" class="sr-only">Priority</label>
-                                <select id="bulk-priority" name="priority" class="h-10 min-w-[170px] rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
-
-                            <textarea id="bulk-close-reason" name="close_reason" rows="1" class="hidden h-10 min-w-[230px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Close reason (required for closed status)"></textarea>
-                            <input type="hidden" name="tab" value="{{ $tab }}">
-                            <div id="bulk-selected-ids"></div>
-                        </div>
-                        <div class="ml-auto flex flex-wrap items-center gap-2">
-                            <button id="bulk-action-submit" type="submit" class="btn-primary h-10 px-4" data-loading-text="Applying..." disabled>Apply</button>
-                            <button id="bulk-clear-selection" type="button" class="btn-secondary h-10 px-4">Clear selection</button>
-                            @if($canDeleteTickets)
-                                <button id="bulk-delete-submit" type="button" class="btn-danger h-10 px-4" disabled>Delete selected</button>
-                            @endif
-                        </div>
-                    </div>
-                    <p id="bulk-action-feedback" class="mt-2 hidden rounded-lg border px-3 py-2 text-xs font-semibold"></p>
-                </div>
-            </form>
         </div>
-
-        <div class="space-y-3 px-4 pb-4 lg:hidden">
-            @forelse($tickets as $ticket)
-                @php
-                    $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
-                        ? $ticket->created_at->diffForHumans()
-                        : $ticket->created_at->format('M j, Y');
-                    $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
-                    $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
-                        && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
-                    $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
-                    $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
-                    $canRevertTicket = $ticket->status === 'resolved'
-                        || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
-                @endphp
-                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
-                        <p class="text-sm font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
-                        <p class="mt-1 text-xs text-[#af9257]">{{ $ticket->category->name }} - {{ $ticket->user->name }}</p>
-                        <p class="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                            <span>Created {{ $createdLabel }}</span>
-                            @if($isNew)
-                                <span data-ticket-new-badge="1" class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
-                            @endif
-                        </p>
-                    </a>
-
-                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                        <div>
-                            <span class="block text-[11px] uppercase tracking-wide text-slate-400">Assigned</span>
-                            @if($ticket->assignedUser)
-                                <button
-                                    type="button"
-                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned"
-                                    data-ticket-id="{{ $ticket->id }}"
-                                    data-ticket-number="{{ $ticket->ticket_number }}"
-                                    data-assigned-to="{{ $ticket->assigned_to }}"
-                                >
-                                    {{ $ticket->assignedUser->publicDisplayName() }}
-                                </button>
-                            @else
-                                <button
-                                    type="button"
-                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned"
-                                    data-ticket-id="{{ $ticket->id }}"
-                                    data-ticket-number="{{ $ticket->ticket_number }}"
-                                    data-assigned-to=""
-                                >
-                                    Assign
-                                </button>
-                            @endif
-                        </div>
-
-                        @if($isHistoryTab)
-                            <div>
-                                <span class="block text-[11px] uppercase tracking-wide text-slate-400">Completed</span>
-                                <span>{{ $completedAt ? $completedAt->format('M j, Y g:i A') : '-' }}</span>
-                            </div>
-                        @else
-                            <div>
-                                <span class="block text-[11px] uppercase tracking-wide text-slate-400">Activity</span>
-                                <span>{{ $ticket->activity_label }}</span>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="mt-3 flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="inline-flex min-w-16 items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $ticket->priority_badge_class }}">
-                                {{ $ticket->priority_label }}
-                            </span>
-                            <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
-                                {{ $ticket->status_label }}
-                            </span>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            @if(in_array($ticket->status, ['resolved', 'closed'], true))
-                                @if($canRevertTicket)
-                                    <button
-                                        type="button"
-                                        class="js-open-revert-modal inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
-                                        data-ticket-id="{{ $ticket->id }}"
-                                        data-ticket-number="{{ $ticket->ticket_number }}"
-                                    >
-                                        Revert
-                                    </button>
-                                @else
-                                    <button
-                                        type="button"
-                                        class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400"
-                                        disabled
-                                        title="Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days."
-                                    >
-                                        Revert expired
-                                    </button>
-                                @endif
-                            @endif
-                            <button
-                                type="button"
-                                class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                data-ticket-id="{{ $ticket->id }}"
-                                data-ticket-number="{{ $ticket->ticket_number }}"
-                                data-assigned-to="{{ $ticket->assigned_to }}"
-                                data-status="{{ $ticket->status }}"
-                                data-priority="{{ $ticket->priority }}"
-                                data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                                data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
-                                data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
-                            >
-                                Edit
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            @empty
-                <div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center">
-                    <p class="text-base font-semibold text-slate-700">No tickets found</p>
-                    <p class="mt-1 text-sm text-slate-500">Try adjusting your filters to broaden results.</p>
-                </div>
-            @endforelse
-        </div>
-
-        <div class="hidden max-h-[70vh] overflow-auto lg:block">
-            <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
-                <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    <tr>
-                        <th class="w-[4%] px-6 py-4">
-                            <input id="select-all-tickets" type="checkbox" class="ticket-checkbox">
-                        </th>
-                        <th class="w-[36%] px-6 py-4">Details</th>
-                        <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
-                        <th class="w-[10%] px-6 py-4 text-center">Priority</th>
-                        @if($isHistoryTab)
-                            <th class="w-[16%] px-6 py-4 text-center">Completed At</th>
-                        @else
-                            <th class="w-[16%] px-6 py-4 text-center">Activity Status</th>
-                        @endif
-                        <th class="w-[8%] px-6 py-4 text-center">Status</th>
-                        <th class="w-[10%] px-6 py-4 text-center">Action</th>
-                    </tr>
-                </thead>
-
-                <tbody class="app-table-body divide-y divide-slate-200 bg-white">
-                    @forelse($tickets as $ticket)
-                        @php
-                            $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
-                                ? $ticket->created_at->diffForHumans()
-                                : $ticket->created_at->format('M j, Y');
-                            $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
-                            $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
-                                && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
-                            $completedAt = $ticket->closed_at ?? $ticket->resolved_at;
-                            $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
-                            $canRevertTicket = $ticket->status === 'resolved'
-                                || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
-                        @endphp
-
-                        <tr class="admin-ticket-row transition hover:bg-slate-50">
-                            <td class="px-6 py-5 align-top">
-                                <input type="checkbox" value="{{ $ticket->id }}" class="js-ticket-checkbox ticket-checkbox">
-                            </td>
-
-                            <td class="px-6 py-5 align-top">
-                                <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
-                                    <p class="truncate text-base font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
-                                    <p class="mt-0.5 text-sm text-[#af9257]">{{ $ticket->category->name }} - {{ $ticket->user->name }}</p>
-                                    <p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                                        <span>Created {{ $createdLabel }}</span>
-                                        @if($isNew)
-                                            <span data-ticket-new-badge="1" class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
-                                        @endif
-                                    </p>
-                                </a>
-                            </td>
-
-                            <td class="px-6 py-5 align-top text-center text-sm text-slate-700">
-                                @if($ticket->assignedUser)
-                                    <button
-                                        type="button"
-                                        class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned justify-center"
-                                        data-ticket-id="{{ $ticket->id }}"
-                                        data-ticket-number="{{ $ticket->ticket_number }}"
-                                        data-assigned-to="{{ $ticket->assigned_to }}"
-                                    >
-                                        {{ $ticket->assignedUser->publicDisplayName() }}
-                                    </button>
-                                @else
-                                    <button
-                                        type="button"
-                                        class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned justify-center"
-                                        data-ticket-id="{{ $ticket->id }}"
-                                        data-ticket-number="{{ $ticket->ticket_number }}"
-                                        data-assigned-to=""
-                                    >
-                                        Assign
-                                    </button>
-                                @endif
-                            </td>
-
-                            <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
-                                    {{ $ticket->priority_label }}
-                                </span>
-                            </td>
-
-                            @if($isHistoryTab)
-                                <td class="px-6 py-5 text-center align-top text-sm text-slate-700">
-                                    {{ $completedAt ? $completedAt->format('M j, Y \a\t g:i A') : '-' }}
-                                </td>
-                            @else
-                                <td class="px-6 py-5 text-center align-top">
-                                    <span class="inline-flex items-center gap-2 text-sm text-slate-600">
-                                        <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
-                                        {{ $ticket->activity_label }}
-                                    </span>
-                                </td>
-                            @endif
-
-                            <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
-                                    {{ $ticket->status_label }}
-                                </span>
-                            </td>
-
-                            <td class="px-6 py-5 text-center align-top">
-                                <div class="flex flex-col items-center gap-2">
-                                    @if(in_array($ticket->status, ['resolved', 'closed'], true))
-                                        @if($canRevertTicket)
-                                            <button
-                                                type="button"
-                                                class="js-open-revert-modal inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
-                                                data-ticket-id="{{ $ticket->id }}"
-                                                data-ticket-number="{{ $ticket->ticket_number }}"
-                                            >
-                                                Revert
-                                            </button>
-                                        @else
-                                            <button
-                                                type="button"
-                                                class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400"
-                                                disabled
-                                                title="Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days."
-                                            >
-                                                Revert expired
-                                            </button>
-                                        @endif
-                                    @endif
-                                    <button
-                                        type="button"
-                                        class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                        data-ticket-id="{{ $ticket->id }}"
-                                        data-ticket-number="{{ $ticket->ticket_number }}"
-                                        data-assigned-to="{{ $ticket->assigned_to }}"
-                                        data-status="{{ $ticket->status }}"
-                                        data-priority="{{ $ticket->priority }}"
-                                        data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                                        data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
-                                        data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
-                                    >
-                                        Edit
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ $isHistoryTab ? 7 : 7 }}" class="px-6 py-14 text-center">
-                                <p class="text-base font-semibold text-slate-700">No tickets found</p>
-                                <p class="mt-1 text-sm text-slate-500">Try adjusting your filters to broaden results.</p>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        @if($tickets->count() > 0)
-            <div class="border-t border-slate-200 px-6 py-4">
-                {{ $tickets->appends(request()->query())->links() }}
-            </div>
-        @endif
+        @include('admin.tickets.partials.results')
     </section>
 </div>
 
@@ -692,32 +380,7 @@
             </div>
         </div>
     </div>
-@endif
 
-@if($canRunDestructiveAction)
-    <div id="merge-confirm-modal" class="app-modal-root fixed inset-0 z-50 hidden">
-        <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-modal-overlay="merge"></div>
-        <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
-            <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="border-b border-slate-200 px-5 py-4">
-                    <h3 class="text-base font-semibold text-slate-900">Merge Selected Tickets</h3>
-                    <p class="mt-1 text-sm text-slate-500">Selected tickets will be merged into the oldest selected ticket.</p>
-                </div>
-                <div class="space-y-4 px-5 py-4">
-                    <label for="merge-confirm-checkbox" class="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
-                        <input id="merge-confirm-checkbox" type="checkbox" class="ticket-checkbox mt-0.5">
-                        <span>I confirm that I want to merge the selected tickets.</span>
-                    </label>
-                    <div class="flex justify-end gap-2">
-                        <button type="button" class="btn-secondary" data-modal-close="merge">Cancel</button>
-                        <button id="merge-confirm-submit" type="button" class="btn-primary disabled:cursor-not-allowed disabled:opacity-60" disabled>
-                            Confirm Merge
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 @endif
 
 @endsection

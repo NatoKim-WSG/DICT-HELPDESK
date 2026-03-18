@@ -58,12 +58,6 @@ class TicketController extends Controller
             ]);
         }
 
-        $scopedTickets = $this->ticketIndex->scopedTicketQueryFor($currentUser);
-        $provinceOptions = $this->ticketIndex->distinctTicketColumnOptions('province', clone $scopedTickets);
-        $municipalityOptions = $this->ticketIndex->distinctTicketColumnOptions('municipality', clone $scopedTickets);
-
-        $accountOptions = $this->ticketIndex->accountOptionsFor($currentUser, clone $scopedTickets);
-
         $tickets = $query->latest()->paginate(15);
         $ticketSeenTimestamps = TicketUserState::where('user_id', auth()->id())
             ->whereIn('ticket_id', $tickets->pluck('id'))
@@ -74,6 +68,25 @@ class TicketController extends Controller
                 ];
             })
             ->all();
+
+        if ($request->boolean('partial')) {
+            return response()->json([
+                'html' => view('admin.tickets.partials.results', compact(
+                    'tickets',
+                    'ticketSeenTimestamps',
+                    'createdDateRange',
+                    'activeTab'
+                ))->render(),
+                'token' => $liveSnapshotToken,
+            ]);
+        }
+
+        $scopedTickets = $this->ticketIndex->scopedTicketQueryFor($currentUser);
+        $provinceOptions = $this->ticketIndex->distinctTicketColumnOptions('province', clone $scopedTickets);
+        $municipalityOptions = $this->ticketIndex->distinctTicketColumnOptions('municipality', clone $scopedTickets);
+
+        $accountOptions = $this->ticketIndex->accountOptionsFor($currentUser, clone $scopedTickets);
+        $monthOptions = $this->ticketIndex->monthOptionsFor(clone $scopedTickets);
 
         $categories = Cache::remember('admin_ticket_active_categories_v1', now()->addSeconds(120), function () {
             return Category::active()
@@ -89,6 +102,7 @@ class TicketController extends Controller
             'provinceOptions',
             'municipalityOptions',
             'accountOptions',
+            'monthOptions',
             'activeTab',
             'liveSnapshotToken',
             'ticketSeenTimestamps',

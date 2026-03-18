@@ -486,6 +486,17 @@
         opacity: 0.55;
     }
 
+    .ticket-checkbox--large {
+        @apply h-5 w-5 rounded-md;
+        border-width: 1.5px;
+    }
+
+    .ticket-checkbox--large::after {
+        width: 0.34rem;
+        height: 0.7rem;
+        border-width: 2.25px;
+    }
+
     .assigned-tech-btn {
         @apply inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-semibold transition;
     }

@@ -1,14 +1,14 @@
 import { bootPage } from './shared/boot-page';
 
+const DEFAULT_STATUS_VIEW = 'all';
+
 const initAdminTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-admin-tickets-index-page]');
     if (!pageRoot) return;
 
+    const filterForm = pageRoot.querySelector('form[data-search-history-form]');
     const statusView = document.getElementById('admin-status-view');
-    const selectAll = document.getElementById('select-all-tickets');
-    const rowCheckboxes = Array.from(document.querySelectorAll('.js-ticket-checkbox'));
-    const routeBase = pageRoot.dataset.routeBase || '';
-    const initialSnapshotToken = pageRoot.dataset.snapshotToken || '';
+    const routeBase = pageRoot.dataset.routeBase || window.location.pathname;
     const assignForm = document.getElementById('assign-ticket-form');
     const assignModal = document.getElementById('assign-ticket-modal');
     const assignTicketText = document.getElementById('assign-modal-ticket');
@@ -31,6 +31,9 @@ const initAdminTicketsIndexPage = () => {
     const deleteForm = document.getElementById('delete-ticket-form');
     const deleteModal = document.getElementById('delete-ticket-modal');
     const deleteTicketText = document.getElementById('delete-modal-ticket');
+    const bulkDeleteForm = document.getElementById('bulk-ticket-delete-form');
+    const bulkDeleteButton = document.getElementById('bulk-delete-submit');
+    const bulkSelectedIds = document.getElementById('bulk-selected-ids');
     const bulkDeleteConfirmModal = document.getElementById('bulk-delete-confirm-modal');
     const bulkDeleteConfirmCheckbox = document.getElementById('bulk-delete-confirm-checkbox');
     const bulkDeleteConfirmSubmit = document.getElementById('bulk-delete-confirm-submit');
@@ -38,148 +41,419 @@ const initAdminTicketsIndexPage = () => {
     const statusRouteTemplate = pageRoot.dataset.statusRouteTemplate || '';
     const quickUpdateRouteTemplate = pageRoot.dataset.quickUpdateRouteTemplate || '';
     const deleteRouteTemplate = pageRoot.dataset.deleteRouteTemplate || '';
-    const bulkActionForm = document.getElementById('bulk-action-form');
-    const bulkActionSelect = document.getElementById('bulk-action-select');
-    const bulkAssignWrap = document.getElementById('bulk-assign-wrap');
-    const bulkAssignedTo = document.getElementById('bulk-assigned-to');
-    const bulkStatusWrap = document.getElementById('bulk-status-wrap');
-    const bulkStatus = document.getElementById('bulk-status');
-    const bulkPriorityWrap = document.getElementById('bulk-priority-wrap');
-    const bulkPriority = document.getElementById('bulk-priority');
-    const bulkCloseReason = document.getElementById('bulk-close-reason');
-    const bulkSelectedIds = document.getElementById('bulk-selected-ids');
-    const bulkSummary = document.getElementById('bulk-selection-summary');
-    const bulkSubmitButton = document.getElementById('bulk-action-submit');
-    const bulkClearButton = document.getElementById('bulk-clear-selection');
-    const bulkDeleteButton = document.getElementById('bulk-delete-submit');
-    const bulkActionFeedback = document.getElementById('bulk-action-feedback');
-    const mergeConfirmModal = document.getElementById('merge-confirm-modal');
-    const mergeConfirmCheckbox = document.getElementById('merge-confirm-checkbox');
-    const mergeConfirmSubmit = document.getElementById('merge-confirm-submit');
-    let snapshotToken = initialSnapshotToken;
-
-    const selectedTicketIds = function () {
-        return rowCheckboxes
-            .filter(function (checkbox) { return checkbox.checked; })
-            .map(function (checkbox) { return checkbox.value; });
-    };
-
-    const clearBulkActionFeedback = function () {
-        if (!bulkActionFeedback) return;
-        bulkActionFeedback.textContent = '';
-        bulkActionFeedback.classList.add('hidden');
-        bulkActionFeedback.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-800');
-        bulkActionFeedback.classList.remove('border-rose-200', 'bg-rose-50', 'text-rose-700');
-        bulkActionFeedback.classList.remove('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
-    };
-
-    const showBulkActionFeedback = function (message, tone) {
-        if (!bulkActionFeedback) return;
-        clearBulkActionFeedback();
-        bulkActionFeedback.textContent = message;
-        bulkActionFeedback.classList.remove('hidden');
-
-        if (tone === 'error') {
-            bulkActionFeedback.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
-        } else if (tone === 'success') {
-            bulkActionFeedback.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
-        } else {
-            bulkActionFeedback.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-800');
-        }
-    };
-
-    const syncBulkSelection = function () {
-        const selectedCount = selectedTicketIds().length;
-        if (bulkSummary) {
-            bulkSummary.textContent = selectedCount + ' selected';
-        }
-        if (bulkSubmitButton) {
-            bulkSubmitButton.disabled = selectedCount === 0;
-        }
-        if (bulkDeleteButton) {
-            bulkDeleteButton.disabled = selectedCount === 0;
-        }
-    };
-
-    const resetBulkFieldRequirements = function () {
-        if (bulkAssignedTo) bulkAssignedTo.required = false;
-        if (bulkStatus) bulkStatus.required = false;
-        if (bulkPriority) bulkPriority.required = false;
-        if (bulkCloseReason) bulkCloseReason.required = false;
-    };
-
-    const syncBulkActionFields = function () {
-        if (!bulkActionSelect) return;
-
-        const action = bulkActionSelect.value || '';
-        if (bulkAssignWrap) bulkAssignWrap.classList.toggle('hidden', action !== 'assign');
-        if (bulkStatusWrap) bulkStatusWrap.classList.toggle('hidden', action !== 'status');
-        if (bulkPriorityWrap) bulkPriorityWrap.classList.toggle('hidden', action !== 'priority');
-
-        resetBulkFieldRequirements();
-
-        if (action === 'assign' && bulkAssignedTo) {
-            bulkAssignedTo.required = true;
-        }
-        if (action === 'status' && bulkStatus) {
-            bulkStatus.required = true;
-        }
-        if (action === 'priority' && bulkPriority) {
-            bulkPriority.required = true;
-        }
-
-        const requiresCloseReason = action === 'status' && bulkStatus && bulkStatus.value === 'closed';
-        if (bulkCloseReason) {
-            bulkCloseReason.classList.toggle('hidden', !requiresCloseReason);
-            bulkCloseReason.required = requiresCloseReason;
-            if (!requiresCloseReason) {
-                bulkCloseReason.value = '';
-            }
-        }
-    };
-
-    if (statusView) {
-        statusView.addEventListener('change', function () {
-            const params = new URLSearchParams(window.location.search);
-            params.set('status', statusView.value);
-            params.delete('page');
-            window.location.href = routeBase + '?' + params.toString();
-        });
-    }
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            rowCheckboxes.forEach(function (checkbox) {
-                checkbox.checked = selectAll.checked;
-            });
-            syncBulkSelection();
-        });
-    }
-
-    rowCheckboxes.forEach(function (checkbox) {
-        checkbox.addEventListener('change', function () {
-            if (!selectAll) return;
-            selectAll.checked = rowCheckboxes.length > 0 && rowCheckboxes.every(function (item) { return item.checked; });
-            syncBulkSelection();
-        });
-    });
+    const filterFieldSelectors = [
+        'select[name="priority"]',
+        'select[name="category"]',
+        'select[name="province"]',
+        'select[name="municipality"]',
+        'select[name="month"]',
+        'select[name="assigned_to"]',
+        'select[name="account_id"]',
+    ];
 
     const assignModalController = window.ModalKit ? window.ModalKit.bind(assignModal) : null;
     const revertModalController = window.ModalKit && revertModal ? window.ModalKit.bind(revertModal) : null;
     const editModalController = window.ModalKit ? window.ModalKit.bind(editModal) : null;
     const deleteModalController = window.ModalKit && deleteModal ? window.ModalKit.bind(deleteModal) : null;
     const bulkDeleteConfirmModalController = window.ModalKit && bulkDeleteConfirmModal ? window.ModalKit.bind(bulkDeleteConfirmModal) : null;
-    const mergeConfirmModalController = window.ModalKit && mergeConfirmModal ? window.ModalKit.bind(mergeConfirmModal) : null;
+
+    let snapshotToken = pageRoot.dataset.snapshotToken || '';
+    let filterSubmitTimeout = null;
+    let activeRequestId = 0;
+    let activeRequestController = null;
+    let isResultsLoading = false;
+    let isSyncingFilters = false;
     let allowBulkDeleteSubmit = false;
-    let allowMergeSubmit = false;
+
+    const getResultsContainer = () => pageRoot.querySelector('[data-admin-tickets-results]');
+    const getRowCheckboxes = () => Array.from(pageRoot.querySelectorAll('.js-ticket-checkbox'));
+    const getSelectAllCheckbox = () => pageRoot.querySelector('#select-all-tickets');
+
+    const selectedTicketIds = function () {
+        return getRowCheckboxes()
+            .filter(function (checkbox) { return checkbox.checked; })
+            .map(function (checkbox) { return checkbox.value; });
+    };
+
+    const relativePathForUrl = function (url) {
+        return `${url.pathname}${url.search}`;
+    };
+
+    const normalizeResultsUrl = function (url) {
+        const normalized = new URL(url, window.location.origin);
+        normalized.searchParams.delete('partial');
+        normalized.searchParams.delete('heartbeat');
+
+        return normalized;
+    };
+
+    const updateReturnPathInputs = function (path) {
+        document.querySelectorAll('input[name="return_to"]').forEach(function (input) {
+            input.value = path;
+        });
+    };
+
+    const syncBulkSelection = function () {
+        const selectedCount = selectedTicketIds().length;
+        const selectAllCheckbox = getSelectAllCheckbox();
+        const rowCheckboxes = getRowCheckboxes();
+
+        if (bulkDeleteButton) {
+            bulkDeleteButton.disabled = selectedCount === 0;
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = rowCheckboxes.length > 0 && rowCheckboxes.every(function (checkbox) { return checkbox.checked; });
+            selectAllCheckbox.indeterminate = selectedCount > 0 && !selectAllCheckbox.checked;
+        }
+    };
+
+    const resetBulkSelection = function () {
+        const selectAllCheckbox = getSelectAllCheckbox();
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+
+        getRowCheckboxes().forEach(function (checkbox) {
+            checkbox.checked = false;
+        });
+
+        if (bulkSelectedIds) {
+            bulkSelectedIds.innerHTML = '';
+        }
+
+        syncBulkSelection();
+    };
+
+    const syncBulkDeleteConfirmState = function () {
+        if (!bulkDeleteConfirmSubmit || !bulkDeleteConfirmCheckbox) return;
+
+        bulkDeleteConfirmSubmit.disabled = !bulkDeleteConfirmCheckbox.checked;
+    };
+
+    const resetValueForField = function (fieldName, params) {
+        const paramValue = params.get(fieldName);
+        if (paramValue !== null) {
+            return paramValue;
+        }
+
+        if (fieldName === 'tab') {
+            return 'tickets';
+        }
+
+        if (['search', 'month', 'created_from', 'created_to', 'report_scope'].includes(fieldName)) {
+            return '';
+        }
+
+        return 'all';
+    };
+
+    const syncFilterFormFromUrl = function (url) {
+        if (!filterForm) return;
+
+        const params = url.searchParams;
+        isSyncingFilters = true;
+
+        filterForm.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (field) {
+            if (field.disabled) return;
+
+            const tagName = field.tagName.toLowerCase();
+            const type = (field.getAttribute('type') || '').toLowerCase();
+            if (tagName === 'button' || ['button', 'submit', 'reset', 'checkbox', 'radio', 'file'].includes(type)) {
+                return;
+            }
+
+            const nextValue = resetValueForField(field.name, params);
+            const valueChanged = field.value !== nextValue;
+            field.value = nextValue;
+
+            if (valueChanged && tagName === 'select') {
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        if (statusView) {
+            statusView.value = params.get('status') ?? DEFAULT_STATUS_VIEW;
+        }
+
+        isSyncingFilters = false;
+    };
+
+    const applyLoadingState = function () {
+        const resultsContainer = getResultsContainer();
+        if (!resultsContainer) return;
+
+        resultsContainer.classList.toggle('opacity-60', isResultsLoading);
+        resultsContainer.classList.toggle('transition-opacity', true);
+        resultsContainer.setAttribute('aria-busy', isResultsLoading ? 'true' : 'false');
+    };
+
+    const buildFilterUrl = function () {
+        const targetUrl = new URL(routeBase, window.location.origin);
+        const selectedMonth = filterForm?.querySelector('select[name="month"]')?.value?.trim() || '';
+        const formData = filterForm ? new FormData(filterForm) : new FormData();
+
+        for (const [key, rawValue] of formData.entries()) {
+            const value = String(rawValue).trim();
+            if (value === '') {
+                continue;
+            }
+
+            if (key !== 'tab' && value === 'all') {
+                continue;
+            }
+
+            if (selectedMonth !== '' && ['created_from', 'created_to', 'report_scope'].includes(key)) {
+                continue;
+            }
+
+            targetUrl.searchParams.append(key, value);
+        }
+
+        if (statusView && statusView.value !== DEFAULT_STATUS_VIEW) {
+            targetUrl.searchParams.set('status', statusView.value);
+        }
+
+        return targetUrl;
+    };
+
+    const loadTicketResults = async function (url, { history = 'replace' } = {}) {
+        const normalizedUrl = normalizeResultsUrl(url);
+        const requestUrl = new URL(normalizedUrl.toString());
+        requestUrl.searchParams.set('partial', '1');
+
+        const requestId = ++activeRequestId;
+        if (activeRequestController) {
+            activeRequestController.abort();
+        }
+
+        activeRequestController = new AbortController();
+        isResultsLoading = true;
+        applyLoadingState();
+
+        try {
+            const response = await fetch(requestUrl.toString(), {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                signal: activeRequestController.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Ticket results request failed with status ${response.status}`);
+            }
+
+            const payload = await response.json();
+            if (activeRequestId !== requestId) {
+                return;
+            }
+
+            const resultsContainer = getResultsContainer();
+            if (!resultsContainer || typeof payload?.html !== 'string') {
+                throw new Error('Ticket results payload was incomplete.');
+            }
+
+            resultsContainer.outerHTML = payload.html;
+            snapshotToken = payload.token || '';
+            pageRoot.dataset.snapshotToken = snapshotToken;
+
+            if (history === 'push') {
+                window.history.pushState({ adminTickets: true }, '', relativePathForUrl(normalizedUrl));
+            } else if (history === 'replace') {
+                window.history.replaceState({ adminTickets: true }, '', relativePathForUrl(normalizedUrl));
+            }
+
+            syncFilterFormFromUrl(normalizedUrl);
+            updateReturnPathInputs(relativePathForUrl(normalizedUrl));
+            resetBulkSelection();
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            window.location.assign(relativePathForUrl(normalizedUrl));
+        } finally {
+            if (activeRequestId === requestId) {
+                activeRequestController = null;
+                isResultsLoading = false;
+                applyLoadingState();
+            }
+        }
+    };
+
+    const submitFilters = function () {
+        if (!filterForm) return;
+        if (isSyncingFilters) return;
+
+        if (filterSubmitTimeout) {
+            window.clearTimeout(filterSubmitTimeout);
+            filterSubmitTimeout = null;
+        }
+
+        const targetUrl = buildFilterUrl();
+        targetUrl.searchParams.delete('page');
+        void loadTicketResults(targetUrl, { history: 'replace' });
+    };
 
     const syncRevertSubmitState = function () {
         if (!revertSubmitButton || !revertConfirmCheckbox) return;
         revertSubmitButton.disabled = !revertConfirmCheckbox.checked;
     };
 
+    const syncEditCloseReasonVisibility = function () {
+        if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
+
+        const isClosed = editStatusSelect.value === 'closed';
+        editCloseReasonWrap.classList.toggle('hidden', !isClosed);
+        editCloseReasonInput.required = isClosed;
+        if (!isClosed) {
+            editCloseReasonInput.value = '';
+        }
+    };
+
+    const populateEditModal = function (button) {
+        const ticketId = button.dataset.ticketId;
+        if (!ticketId || !editForm) return;
+
+        editForm.action = quickUpdateRouteTemplate.replace('__TICKET__', ticketId);
+        if (editTicketText) {
+            editTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
+        }
+        if (editAssignedSelect) editAssignedSelect.value = button.dataset.assignedTo || '';
+        if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
+        if (editCloseReasonInput) editCloseReasonInput.value = '';
+        if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
+
+        if (editStatusSelect) {
+            const closeAllowed = button.dataset.canCloseNow === '1';
+            const canRevert = button.dataset.canRevert === '1';
+            const isClosedTicket = (button.dataset.status || '') === 'closed';
+            const closedOption = editStatusSelect.querySelector('option[value="closed"]');
+
+            ['open', 'in_progress', 'pending', 'resolved'].forEach(function (statusValue) {
+                const option = editStatusSelect.querySelector(`option[value="${statusValue}"]`);
+                if (option) {
+                    option.disabled = isClosedTicket && !canRevert;
+                }
+            });
+
+            if (closedOption) {
+                closedOption.disabled = !closeAllowed;
+                closedOption.textContent = closeAllowed ? 'Closed' : 'Closed (after 24h)';
+            }
+
+            if (isClosedTicket && !canRevert) {
+                editStatusSelect.value = 'closed';
+            }
+
+            if (!closeAllowed && editStatusSelect.value === 'closed') {
+                editStatusSelect.value = button.dataset.status || 'resolved';
+            }
+
+            if (editCloseHint) {
+                if (isClosedTicket && !canRevert) {
+                    editCloseHint.classList.remove('hidden');
+                    editCloseHint.textContent = 'Closed tickets cannot be reverted after 7 days.';
+                } else if (closeAllowed) {
+                    editCloseHint.classList.add('hidden');
+                    editCloseHint.textContent = '';
+                } else {
+                    const closeAvailableAt = button.dataset.closeAvailableAt || 'the 24-hour window after resolution';
+                    editCloseHint.classList.remove('hidden');
+                    editCloseHint.textContent = 'Close is available on ' + closeAvailableAt + '.';
+                }
+            }
+        }
+
+        syncEditCloseReasonVisibility();
+
+        if (editDeleteButton) {
+            editDeleteButton.dataset.ticketId = ticketId;
+            editDeleteButton.dataset.ticketNumber = button.dataset.ticketNumber || '';
+        }
+    };
+
+    const hasOpenModal = function () {
+        return [assignModal, revertModal, editModal, deleteModal, bulkDeleteConfirmModal].some(function (modal) {
+            return modal && !modal.classList.contains('hidden');
+        });
+    };
+
+    const pollTicketListSnapshot = async function () {
+        if (!snapshotToken || document.hidden || hasOpenModal() || isResultsLoading) return;
+
+        const heartbeatUrl = normalizeResultsUrl(window.location.href);
+        heartbeatUrl.searchParams.set('heartbeat', '1');
+
+        try {
+            const response = await fetch(heartbeatUrl.toString(), {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            if (!payload || !payload.token) return;
+
+            if (payload.token !== snapshotToken) {
+                await loadTicketResults(window.location.href, { history: 'none' });
+                return;
+            }
+
+            snapshotToken = payload.token;
+        } catch (error) {
+        }
+    };
+
+    if (filterForm) {
+        filterForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitFilters();
+        });
+
+        filterFieldSelectors.forEach(function (selector) {
+            const field = filterForm.querySelector(selector);
+            if (!field) return;
+
+            field.addEventListener('change', submitFilters);
+        });
+
+        const searchInput = filterForm.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                if (filterSubmitTimeout) {
+                    window.clearTimeout(filterSubmitTimeout);
+                }
+
+                filterSubmitTimeout = window.setTimeout(function () {
+                    submitFilters();
+                }, 350);
+            });
+        }
+    }
+
+    if (statusView) {
+        statusView.addEventListener('change', function () {
+            if (isSyncingFilters) return;
+
+            const targetUrl = buildFilterUrl();
+            targetUrl.searchParams.delete('page');
+            void loadTicketResults(targetUrl, { history: 'replace' });
+        });
+    }
+
     if (revertConfirmCheckbox) {
         revertConfirmCheckbox.addEventListener('change', syncRevertSubmitState);
+    }
+
+    if (bulkDeleteConfirmCheckbox) {
+        bulkDeleteConfirmCheckbox.addEventListener('change', syncBulkDeleteConfirmState);
     }
 
     if (revertForm) {
@@ -192,167 +466,87 @@ const initAdminTicketsIndexPage = () => {
         });
     }
 
-    const syncBulkDeleteConfirmState = function () {
-        if (!bulkDeleteConfirmSubmit || !bulkDeleteConfirmCheckbox) return;
-        bulkDeleteConfirmSubmit.disabled = !bulkDeleteConfirmCheckbox.checked;
-    };
-
-    if (bulkDeleteConfirmCheckbox) {
-        bulkDeleteConfirmCheckbox.addEventListener('change', syncBulkDeleteConfirmState);
-    }
-
-    if (bulkDeleteConfirmSubmit && bulkActionForm && bulkActionSelect) {
-        bulkDeleteConfirmSubmit.addEventListener('click', function () {
-            if (!bulkDeleteConfirmCheckbox || !bulkDeleteConfirmCheckbox.checked) {
-                return;
-            }
-
-            allowBulkDeleteSubmit = true;
-            if (bulkDeleteConfirmModalController) {
-                bulkDeleteConfirmModalController.close();
-            }
-            bulkActionSelect.value = 'delete';
-            syncBulkActionFields();
-            clearBulkActionFeedback();
-            bulkActionForm.requestSubmit();
-        });
-    }
-
-    const syncMergeConfirmState = function () {
-        if (!mergeConfirmSubmit || !mergeConfirmCheckbox) return;
-        mergeConfirmSubmit.disabled = !mergeConfirmCheckbox.checked;
-    };
-
-    if (mergeConfirmCheckbox) {
-        mergeConfirmCheckbox.addEventListener('change', syncMergeConfirmState);
-    }
-
-    if (mergeConfirmSubmit && bulkActionForm && bulkActionSelect) {
-        mergeConfirmSubmit.addEventListener('click', function () {
-            if (!mergeConfirmCheckbox || !mergeConfirmCheckbox.checked) {
-                return;
-            }
-
-            allowMergeSubmit = true;
-            if (mergeConfirmModalController) {
-                mergeConfirmModalController.close();
-            }
-            bulkActionSelect.value = 'merge';
-            syncBulkActionFields();
-            clearBulkActionFeedback();
-            bulkActionForm.requestSubmit();
-        });
-    }
-
-    const syncEditCloseReasonVisibility = function () {
-        if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
-        const isClosed = editStatusSelect.value === 'closed';
-        editCloseReasonWrap.classList.toggle('hidden', !isClosed);
-        editCloseReasonInput.required = isClosed;
-        if (!isClosed) {
-            editCloseReasonInput.value = '';
-        }
-    };
-
     if (editStatusSelect) {
         editStatusSelect.addEventListener('change', syncEditCloseReasonVisibility);
     }
 
-    document.querySelectorAll('.js-open-assign-modal').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const ticketId = button.dataset.ticketId;
+    pageRoot.addEventListener('click', function (event) {
+        const clearLink = event.target.closest('[data-admin-ticket-clear]');
+        if (clearLink) {
+            event.preventDefault();
+            void loadTicketResults(clearLink.href, { history: 'replace' });
+            return;
+        }
+
+        const selectAllCheckbox = event.target.closest('#select-all-tickets');
+        if (selectAllCheckbox) {
+            getRowCheckboxes().forEach(function (checkbox) {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            syncBulkSelection();
+            return;
+        }
+
+        const ticketCheckbox = event.target.closest('.js-ticket-checkbox');
+        if (ticketCheckbox) {
+            syncBulkSelection();
+            return;
+        }
+
+        const paginationLink = event.target.closest('[data-admin-ticket-pagination] a');
+        if (paginationLink) {
+            event.preventDefault();
+            void loadTicketResults(paginationLink.href, { history: 'push' });
+            return;
+        }
+
+        const assignButton = event.target.closest('.js-open-assign-modal');
+        if (assignButton) {
+            const ticketId = assignButton.dataset.ticketId;
             if (!ticketId || !assignForm) return;
 
             assignForm.action = assignRouteTemplate.replace('__TICKET__', ticketId);
             if (assignTicketText) {
-                assignTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
+                assignTicketText.textContent = 'Ticket #' + (assignButton.dataset.ticketNumber || '');
             }
             if (assignSelect) {
-                assignSelect.value = button.dataset.assignedTo || '';
+                assignSelect.value = assignButton.dataset.assignedTo || '';
             }
             if (assignModalController) assignModalController.open();
-        });
-    });
 
-    document.querySelectorAll('.js-open-edit-modal').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const ticketId = button.dataset.ticketId;
-            if (!ticketId || !editForm) return;
+            return;
+        }
 
-            editForm.action = quickUpdateRouteTemplate.replace('__TICKET__', ticketId);
-            if (editTicketText) {
-                editTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
-            }
-            if (editAssignedSelect) editAssignedSelect.value = button.dataset.assignedTo || '';
-            if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
-            if (editCloseReasonInput) editCloseReasonInput.value = '';
-            if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
-            if (editStatusSelect) {
-                const closeAllowed = button.dataset.canCloseNow === '1';
-                const canRevert = button.dataset.canRevert === '1';
-                const isClosedTicket = (button.dataset.status || '') === 'closed';
-                const closedOption = editStatusSelect.querySelector('option[value="closed"]');
-                ['open', 'in_progress', 'pending', 'resolved'].forEach(function (statusValue) {
-                    const option = editStatusSelect.querySelector('option[value="' + statusValue + '"]');
-                    if (option) {
-                        option.disabled = isClosedTicket && !canRevert;
-                    }
-                });
-                if (closedOption) {
-                    closedOption.disabled = !closeAllowed;
-                    closedOption.textContent = closeAllowed ? 'Closed' : 'Closed (after 24h)';
-                }
-                if (isClosedTicket && !canRevert) {
-                    editStatusSelect.value = 'closed';
-                }
-                if (!closeAllowed && editStatusSelect.value === 'closed') {
-                    editStatusSelect.value = button.dataset.status || 'resolved';
-                }
-                if (editCloseHint) {
-                    if (isClosedTicket && !canRevert) {
-                        editCloseHint.classList.remove('hidden');
-                        editCloseHint.textContent = 'Closed tickets cannot be reverted after 7 days.';
-                    } else if (closeAllowed) {
-                        editCloseHint.classList.add('hidden');
-                        editCloseHint.textContent = '';
-                    } else {
-                        const closeAvailableAt = button.dataset.closeAvailableAt || 'the 24-hour window after resolution';
-                        editCloseHint.classList.remove('hidden');
-                        editCloseHint.textContent = 'Close is available on ' + closeAvailableAt + '.';
-                    }
-                }
-            }
-            syncEditCloseReasonVisibility();
-
-            if (editDeleteButton) {
-                editDeleteButton.dataset.ticketId = ticketId;
-                editDeleteButton.dataset.ticketNumber = button.dataset.ticketNumber || '';
-            }
+        const editButton = event.target.closest('.js-open-edit-modal');
+        if (editButton) {
+            populateEditModal(editButton);
             if (editModalController) editModalController.open();
-        });
-    });
 
-    document.querySelectorAll('.js-open-revert-modal').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const ticketId = button.dataset.ticketId;
+            return;
+        }
+
+        const revertButton = event.target.closest('.js-open-revert-modal');
+        if (revertButton) {
+            const ticketId = revertButton.dataset.ticketId;
             if (!ticketId || !revertForm) return;
 
             revertForm.action = statusRouteTemplate.replace('__TICKET__', ticketId);
             if (revertTicketText) {
-                revertTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '') + ' will be reverted to In Progress.';
+                revertTicketText.textContent = 'Ticket #' + (revertButton.dataset.ticketNumber || '') + ' will be reverted to In Progress.';
             }
             if (revertConfirmCheckbox) {
                 revertConfirmCheckbox.checked = false;
             }
             syncRevertSubmitState();
             if (revertModalController) revertModalController.open();
-        });
+        }
     });
 
     if (editDeleteButton) {
         editDeleteButton.addEventListener('click', function () {
             const ticketId = editDeleteButton.dataset.ticketId;
             if (!ticketId || !deleteForm) return;
+
             deleteForm.action = deleteRouteTemplate.replace('__TICKET__', ticketId);
             if (deleteTicketText) {
                 deleteTicketText.textContent = 'Ticket #' + (editDeleteButton.dataset.ticketNumber || '');
@@ -362,53 +556,53 @@ const initAdminTicketsIndexPage = () => {
         });
     }
 
-    if (bulkActionSelect) {
-        bulkActionSelect.addEventListener('change', function () {
-            clearBulkActionFeedback();
-            syncBulkActionFields();
-        });
-    }
-
-    if (bulkStatus) {
-        bulkStatus.addEventListener('change', syncBulkActionFields);
-    }
-
-    if (bulkClearButton) {
-        bulkClearButton.addEventListener('click', function () {
-            if (selectAll) {
-                selectAll.checked = false;
-            }
-            rowCheckboxes.forEach(function (checkbox) {
-                checkbox.checked = false;
-            });
-            syncBulkSelection();
-        });
-    }
-
-    if (bulkDeleteButton && bulkActionForm && bulkActionSelect) {
+    if (bulkDeleteButton) {
         bulkDeleteButton.addEventListener('click', function () {
             if (selectedTicketIds().length === 0) {
-                showBulkActionFeedback('Select at least one ticket before deleting.', 'warning');
                 return;
             }
 
-            clearBulkActionFeedback();
-            bulkActionSelect.value = 'delete';
-            syncBulkActionFields();
-            bulkActionForm.requestSubmit();
+            allowBulkDeleteSubmit = false;
+            if (bulkDeleteConfirmCheckbox) {
+                bulkDeleteConfirmCheckbox.checked = false;
+            }
+            syncBulkDeleteConfirmState();
+
+            if (bulkDeleteConfirmModalController) {
+                bulkDeleteConfirmModalController.open();
+                return;
+            }
         });
     }
 
-    if (bulkActionForm) {
-        bulkActionForm.addEventListener('submit', function (event) {
+    if (bulkDeleteConfirmSubmit && bulkDeleteForm) {
+        bulkDeleteConfirmSubmit.addEventListener('click', function () {
+            if (!bulkDeleteConfirmCheckbox || !bulkDeleteConfirmCheckbox.checked) {
+                return;
+            }
+
+            allowBulkDeleteSubmit = true;
+            if (bulkDeleteConfirmModalController) {
+                bulkDeleteConfirmModalController.close();
+            }
+            bulkDeleteForm.requestSubmit();
+        });
+    }
+
+    if (bulkDeleteForm) {
+        bulkDeleteForm.addEventListener('submit', function (event) {
             const selectedIds = selectedTicketIds();
             if (selectedIds.length === 0) {
                 event.preventDefault();
-                showBulkActionFeedback('Select at least one ticket before applying a bulk action.', 'warning');
                 return;
             }
 
-            clearBulkActionFeedback();
+            if (!allowBulkDeleteSubmit) {
+                event.preventDefault();
+                return;
+            }
+
+            allowBulkDeleteSubmit = false;
 
             if (bulkSelectedIds) {
                 bulkSelectedIds.innerHTML = '';
@@ -420,92 +614,24 @@ const initAdminTicketsIndexPage = () => {
                     bulkSelectedIds.appendChild(hiddenInput);
                 });
             }
-
-            const action = bulkActionSelect ? bulkActionSelect.value : '';
-            if (action === 'delete') {
-                if (!allowBulkDeleteSubmit) {
-                    event.preventDefault();
-                    if (bulkDeleteConfirmCheckbox) {
-                        bulkDeleteConfirmCheckbox.checked = false;
-                    }
-                    syncBulkDeleteConfirmState();
-                    if (bulkDeleteConfirmModalController) {
-                        bulkDeleteConfirmModalController.open();
-                    } else {
-                        showBulkActionFeedback('Unable to open the delete confirmation modal.', 'error');
-                    }
-                    return;
-                }
-
-                allowBulkDeleteSubmit = false;
-            }
-
-            if (action === 'merge') {
-                if (!allowMergeSubmit) {
-                    event.preventDefault();
-                    if (mergeConfirmCheckbox) {
-                        mergeConfirmCheckbox.checked = false;
-                    }
-                    syncMergeConfirmState();
-                    if (mergeConfirmModalController) {
-                        mergeConfirmModalController.open();
-                    } else {
-                        showBulkActionFeedback('Unable to open the merge confirmation modal.', 'error');
-                    }
-                    return;
-                }
-
-                allowMergeSubmit = false;
-            }
         });
     }
 
-    const hasOpenModal = function () {
-        return [assignModal, revertModal, editModal, deleteModal, bulkDeleteConfirmModal, mergeConfirmModal].some(function (modal) {
-            return modal && !modal.classList.contains('hidden');
-        });
-    };
+    window.addEventListener('popstate', function () {
+        syncFilterFormFromUrl(normalizeResultsUrl(window.location.href));
+        void loadTicketResults(window.location.href, { history: 'none' });
+    });
 
-    const pollTicketListSnapshot = async function () {
-        if (!snapshotToken || document.hidden || hasOpenModal()) return;
-
-        const params = new URLSearchParams(window.location.search);
-        params.set('heartbeat', '1');
-
-        try {
-            const response = await fetch(routeBase + '?' + params.toString(), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            if (!response.ok) return;
-
-            const payload = await response.json();
-            if (!payload || !payload.token) return;
-
-            if (payload.token !== snapshotToken) {
-                window.location.reload();
-                return;
-            }
-
-            snapshotToken = payload.token;
-        } catch (error) {
-        }
-    };
+    updateReturnPathInputs(relativePathForUrl(normalizeResultsUrl(window.location.href)));
+    syncFilterFormFromUrl(normalizeResultsUrl(window.location.href));
+    syncEditCloseReasonVisibility();
+    syncRevertSubmitState();
+    syncBulkDeleteConfirmState();
+    syncBulkSelection();
 
     if (snapshotToken) {
         window.setInterval(pollTicketListSnapshot, 10000);
     }
-
-    syncEditCloseReasonVisibility();
-    syncBulkActionFields();
-    syncBulkSelection();
-    syncRevertSubmitState();
-    syncBulkDeleteConfirmState();
-    syncMergeConfirmState();
 };
 
 bootPage(initAdminTicketsIndexPage);
-

@@ -39,6 +39,21 @@ class TicketIndexService
 
     public function resolveCreatedDateRange(Request $request): ?array
     {
+        $selectedMonth = $this->parseMonthKey($request->query('month'));
+        if ($selectedMonth !== null) {
+            $monthStart = $selectedMonth->copy()->startOfMonth();
+            $monthEnd = $selectedMonth->copy()->endOfMonth();
+
+            return [
+                'start' => $monthStart,
+                'end' => $monthEnd,
+                'from' => $monthStart->toDateString(),
+                'to' => $monthEnd->toDateString(),
+                'label' => $monthStart->format('F Y'),
+                'month' => $monthStart->format('Y-m'),
+            ];
+        }
+
         $fromDate = $this->parseCreatedDate($request->query('created_from'));
         $toDate = $this->parseCreatedDate($request->query('created_to'));
         if (! $fromDate && ! $toDate) {
@@ -61,6 +76,7 @@ class TicketIndexService
             'from' => $startDate->toDateString(),
             'to' => $endDate->toDateString(),
             'label' => trim((string) $request->query('report_scope')),
+            'month' => null,
         ];
     }
 
@@ -144,7 +160,11 @@ class TicketIndexService
         }
 
         if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
-            $query->where('assigned_to', $request->integer('assigned_to'));
+            if ((string) $request->assigned_to === '0') {
+                $query->whereNull('assigned_to');
+            } else {
+                $query->where('assigned_to', $request->integer('assigned_to'));
+            }
         }
 
         $query->when($request->filled('search'), function (Builder $builder) use ($request) {
@@ -223,6 +243,24 @@ class TicketIndexService
         });
     }
 
+    public function monthOptionsFor(Builder $scopedTickets): Collection
+    {
+        return (clone $scopedTickets)
+            ->whereNotNull('created_at')
+            ->orderByDesc('created_at')
+            ->pluck('created_at')
+            ->map(function ($createdAt) {
+                $month = Carbon::parse($createdAt)->startOfMonth();
+
+                return [
+                    'value' => $month->format('Y-m'),
+                    'label' => $month->format('F Y'),
+                ];
+            })
+            ->unique('value')
+            ->values();
+    }
+
     public function activeAssignableAgents(): Collection
     {
         return Cache::remember('admin_ticket_active_agents_v2', now()->addSeconds(45), function () {
@@ -247,6 +285,24 @@ class TicketIndexService
 
         try {
             return Carbon::createFromFormat('Y-m-d', $normalized)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function parseMonthKey(mixed $rawMonth): ?Carbon
+    {
+        if (! is_string($rawMonth)) {
+            return null;
+        }
+
+        $normalized = trim($rawMonth);
+        if ($normalized === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m', $normalized)->startOfMonth();
         } catch (\Throwable) {
             return null;
         }
