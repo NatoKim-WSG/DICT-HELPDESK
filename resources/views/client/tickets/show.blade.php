@@ -10,8 +10,9 @@
     };
     $clientCompanyLogo = $departmentLogo(auth()->user()->department);
     $supportCompanyLogo = asset('images/iOne Logo.png');
+    $hasResolveValidationErrors = $errors->has('resolve_confirmation') || $errors->has('rating') || $errors->has('comment');
 @endphp
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-client-ticket-show-page>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-client-ticket-show-page data-resolve-modal-open="{{ $hasResolveValidationErrors ? 'true' : 'false' }}">
     <div class="mb-3">
         <a href="{{ route('client.tickets.index') }}" class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,35 +377,42 @@
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6 space-y-4">
                     @if($ticket->status === 'resolved' && !$ticket->satisfaction_rating)
-                        <!-- Satisfaction Rating -->
-                        <div class="bg-green-50 border border-green-200 rounded-md p-4">
-                            <h4 class="text-sm font-medium text-green-800 mb-3">Rate Our Support</h4>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="mb-3">
+                                <h4 class="text-sm font-semibold text-slate-900">Rate Our Support</h4>
+                                <p class="mt-1 text-sm text-slate-600">This feedback is now required to complete the client resolution flow.</p>
+                            </div>
                             <form action="{{ route('client.tickets.rate', $ticket) }}" method="POST">
                                 @csrf
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="form-label text-green-700">Rating (1-5 stars)</label>
+                                        <label class="form-label">Rating (1-5 stars)</label>
                                         <select name="rating" class="form-input" required>
-                                            <option value="">Select Rating</option>
-                                            <option value="5">5 - Excellent</option>
-                                            <option value="4">4 - Good</option>
-                                            <option value="3">3 - Average</option>
-                                            <option value="2">2 - Poor</option>
-                                            <option value="1">1 - Very Poor</option>
+                                            <option value="">Select rating</option>
+                                            <option value="5" {{ old('rating') == '5' ? 'selected' : '' }}>5 - Excellent</option>
+                                            <option value="4" {{ old('rating') == '4' ? 'selected' : '' }}>4 - Good</option>
+                                            <option value="3" {{ old('rating') == '3' ? 'selected' : '' }}>3 - Average</option>
+                                            <option value="2" {{ old('rating') == '2' ? 'selected' : '' }}>2 - Poor</option>
+                                            <option value="1" {{ old('rating') == '1' ? 'selected' : '' }}>1 - Very Poor</option>
                                         </select>
+                                        @error('rating')
+                                            <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                                        @enderror
                                     </div>
                                     <div>
-                                        <label class="form-label text-green-700">Comment (optional)</label>
-                                        <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience..."></textarea>
+                                        <label class="form-label">Comment (optional)</label>
+                                        <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience...">{{ old('comment') }}</textarea>
+                                        @error('comment')
+                                            <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                                        @enderror
                                     </div>
                                     <button type="submit" class="btn-success w-full">Submit Rating</button>
                                 </div>
                             </form>
                         </div>
                     @elseif($ticket->satisfaction_rating)
-                        <!-- Show Rating -->
-                        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <h4 class="text-sm font-medium text-blue-800 mb-2">Your Rating</h4>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <h4 class="text-sm font-semibold text-slate-900 mb-2">Your Rating</h4>
                             <div class="flex items-center mb-2">
                                 @for($i = 1; $i <= 5; $i++)
                                     <svg class="w-4 h-4 {{ $i <= $ticket->satisfaction_rating ? 'text-yellow-400' : 'text-gray-300' }}" fill="currentColor" viewBox="0 0 20 20">
@@ -413,7 +421,7 @@
                                 @endfor
                             </div>
                             @if($ticket->satisfaction_comment)
-                                <p class="text-sm text-blue-700">{{ $ticket->satisfaction_comment }}</p>
+                                <p class="text-sm text-slate-600">{{ $ticket->satisfaction_comment }}</p>
                             @endif
                         </div>
                     @endif
@@ -434,20 +442,51 @@
 <div id="resolve-ticket-modal" class="app-modal-root fixed inset-0 z-50 hidden">
     <div class="app-modal-overlay absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]" data-resolve-ticket-overlay="true"></div>
     <div class="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div class="app-modal-panel w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="px-5 py-4 border-b border-slate-200">
                 <h3 class="text-lg font-semibold text-slate-900">Mark Ticket as Resolved</h3>
-                <p class="mt-1 text-sm text-slate-600">Confirm this ticket is resolved before proceeding.</p>
+                <p class="mt-1 text-sm text-slate-600">Confirm the fix and submit the required satisfaction rating before proceeding.</p>
             </div>
             <form action="{{ route('client.tickets.resolve', $ticket) }}" method="POST" class="space-y-4 p-5" data-submit-feedback>
                 @csrf
+                @if($hasResolveValidationErrors)
+                    <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                        Please complete the required fields before resolving this ticket.
+                    </div>
+                @endif
+                <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div>
+                        <label for="resolve_rating" class="form-label">Rating (1-5 stars)</label>
+                        <select id="resolve_rating" name="rating" class="form-input" required aria-invalid="{{ $errors->has('rating') ? 'true' : 'false' }}">
+                            <option value="">Select rating</option>
+                            <option value="5" {{ old('rating') == '5' ? 'selected' : '' }}>5 - Excellent</option>
+                            <option value="4" {{ old('rating') == '4' ? 'selected' : '' }}>4 - Good</option>
+                            <option value="3" {{ old('rating') == '3' ? 'selected' : '' }}>3 - Average</option>
+                            <option value="2" {{ old('rating') == '2' ? 'selected' : '' }}>2 - Poor</option>
+                            <option value="1" {{ old('rating') == '1' ? 'selected' : '' }}>1 - Very Poor</option>
+                        </select>
+                        @error('rating')
+                            <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="resolve_comment" class="form-label">Comment (optional)</label>
+                        <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Tell us about your experience..." aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
+                        @error('comment')
+                            <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
                 <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
-                    <input id="resolve_confirm_checkbox" type="checkbox" required class="ticket-checkbox mt-0.5">
+                    <input id="resolve_confirm_checkbox" name="resolve_confirmation" type="checkbox" value="1" required {{ old('resolve_confirmation') ? 'checked' : '' }} class="ticket-checkbox mt-0.5">
                     <span class="leading-5">I confirm this ticket has been resolved and can be marked as closed for support follow-up.</span>
                 </label>
+                @error('resolve_confirmation')
+                    <p class="-mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
                 <div class="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
                     <button type="button" id="resolve-ticket-cancel" class="btn-secondary sm:min-w-[110px]">Cancel</button>
-                    <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[160px] disabled:cursor-not-allowed disabled:opacity-60" data-loading-text="Resolving..." disabled>Confirm Resolve</button>
+                    <button id="resolve-confirm-submit" type="submit" class="btn-success sm:min-w-[220px] disabled:cursor-not-allowed disabled:opacity-60" data-loading-text="Resolving..." disabled>Confirm Resolve and Submit Rating</button>
                 </div>
             </form>
         </div>

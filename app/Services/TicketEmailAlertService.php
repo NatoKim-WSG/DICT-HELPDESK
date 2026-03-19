@@ -265,8 +265,6 @@ class TicketEmailAlertService
     private function superUserRoles(): array
     {
         return [
-            User::ROLE_SHADOW,
-            User::ROLE_ADMIN,
             User::ROLE_SUPER_USER,
         ];
     }

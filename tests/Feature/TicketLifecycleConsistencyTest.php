@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketReply;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -58,6 +59,54 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertSame('open', $ticket->status);
         $this->assertNull($ticket->resolved_at);
         $this->assertNull($ticket->closed_at);
+    }
+
+    public function test_client_cannot_resolve_ticket_without_required_rating(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $response = $this->from(route('client.tickets.show', $ticket))
+            ->actingAs($client)
+            ->post(route('client.tickets.resolve', $ticket), [
+                'resolve_confirmation' => '1',
+                'comment' => 'Everything worked well.',
+            ]);
+
+        $response->assertRedirect(route('client.tickets.show', $ticket));
+        $response->assertSessionHasErrors(['rating']);
+
+        $ticket->refresh();
+        $this->assertSame('open', $ticket->status);
+        $this->assertNull($ticket->resolved_at);
+        $this->assertNull($ticket->satisfaction_rating);
+        $this->assertSame(0, TicketReply::query()->where('ticket_id', $ticket->id)->count());
+    }
+
+    public function test_client_resolve_requires_confirmation_and_submits_rating(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $response = $this->actingAs($client)
+            ->post(route('client.tickets.resolve', $ticket), [
+                'resolve_confirmation' => '1',
+                'rating' => '5',
+                'comment' => 'Fast and clear support.',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $ticket->refresh();
+        $this->assertSame('resolved', $ticket->status);
+        $this->assertNotNull($ticket->resolved_at);
+        $this->assertSame(5, $ticket->satisfaction_rating);
+        $this->assertSame('Fast and clear support.', $ticket->satisfaction_comment);
+        $this->assertDatabaseHas('ticket_replies', [
+            'ticket_id' => $ticket->id,
+            'user_id' => $client->id,
+            'message' => 'Client marked this ticket as resolved.',
+            'is_internal' => false,
+        ]);
     }
 
     public function test_resolving_unassigned_ticket_auto_assigns_reviewing_super_user(): void

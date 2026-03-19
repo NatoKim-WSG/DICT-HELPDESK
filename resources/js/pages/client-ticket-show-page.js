@@ -23,20 +23,31 @@ const initClientTicketShowPage = () => {
         triggerSelector: '.js-attachment-link',
     });
 
-    window.ModalKit.bindById('resolve-ticket-modal', {
+    const resolveModalController = window.ModalKit.bindById('resolve-ticket-modal', {
         openButtons: ['#open-resolve-ticket-modal'],
         closeButtons: ['#resolve-ticket-cancel'],
     });
 
     const resolveConfirmCheckbox = document.getElementById('resolve_confirm_checkbox');
+    const resolveRatingSelect = document.getElementById('resolve_rating');
     const resolveConfirmSubmit = document.getElementById('resolve-confirm-submit');
     if (resolveConfirmCheckbox && resolveConfirmSubmit) {
         const syncResolveConfirmState = function () {
-            resolveConfirmSubmit.disabled = !resolveConfirmCheckbox.checked;
+            const hasRating = !resolveRatingSelect || resolveRatingSelect.value !== '';
+            resolveConfirmSubmit.disabled = !resolveConfirmCheckbox.checked || !hasRating;
         };
 
         resolveConfirmCheckbox.addEventListener('change', syncResolveConfirmState);
+        if (resolveRatingSelect) {
+            resolveRatingSelect.addEventListener('change', syncResolveConfirmState);
+        }
         syncResolveConfirmState();
+    }
+
+    if (pageRoot.dataset.resolveModalOpen === 'true') {
+        if (resolveModalController) {
+            resolveModalController.open();
+        }
     }
 
 

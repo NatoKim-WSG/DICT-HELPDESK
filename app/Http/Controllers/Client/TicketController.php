@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Client\Tickets\RateTicketRequest;
+use App\Http\Requests\Client\Tickets\ResolveTicketRequest;
 use App\Http\Requests\Client\Tickets\StoreTicketReplyRequest;
 use App\Http\Requests\Client\Tickets\StoreTicketRequest;
 use App\Http\Requests\Client\Tickets\UpdateTicketReplyRequest;
@@ -271,7 +272,7 @@ class TicketController extends Controller
         ]);
     }
 
-    public function resolve(Ticket $ticket)
+    public function resolve(ResolveTicketRequest $request, Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
 
@@ -292,6 +293,8 @@ class TicketController extends Controller
                 'status' => 'resolved',
                 'resolved_at' => now(),
                 'closed_at' => null,
+                'satisfaction_rating' => $request->integer('rating'),
+                'satisfaction_comment' => $request->string('comment')->trim()->toString(),
             ]);
             $this->systemLogs->record(
                 'ticket.resolved_by_client',
@@ -304,13 +307,20 @@ class TicketController extends Controller
                         'ticket_number' => $ticket->ticket_number,
                         'previous_status' => $previousStatus,
                         'new_status' => 'resolved',
+                        'rating' => $request->integer('rating'),
                     ],
                     'request' => request(),
                 ]
             );
+            $this->recordSatisfactionLog(
+                $ticket,
+                $request->integer('rating'),
+                $request->string('comment')->trim()->toString(),
+                $request
+            );
         }
 
-        return redirect()->back()->with('success', 'Ticket marked as resolved.');
+        return redirect()->back()->with('success', 'Ticket marked as resolved and your rating has been submitted.');
     }
 
     public function rate(RateTicketRequest $request, Ticket $ticket)
@@ -318,22 +328,14 @@ class TicketController extends Controller
         $this->assertTicketOwner($ticket);
 
         $ticket->update([
-            'satisfaction_rating' => $request->rating,
-            'satisfaction_comment' => $request->comment,
+            'satisfaction_rating' => $request->integer('rating'),
+            'satisfaction_comment' => $request->string('comment')->trim()->toString(),
         ]);
-        $this->systemLogs->record(
-            'ticket.rating.submitted',
-            'Submitted ticket satisfaction rating.',
-            [
-                'category' => 'ticket',
-                'target_type' => Ticket::class,
-                'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'rating' => (int) $request->integer('rating'),
-                ],
-                'request' => $request,
-            ]
+        $this->recordSatisfactionLog(
+            $ticket,
+            $request->integer('rating'),
+            $request->string('comment')->trim()->toString(),
+            $request
         );
 
         return redirect()->back()->with('success', 'Rating submitted successfully!');
@@ -385,5 +387,24 @@ class TicketController extends Controller
         }
 
         return mb_strtoupper(mb_substr($trimmed, 0, 1)).mb_substr($trimmed, 1);
+    }
+
+    private function recordSatisfactionLog(Ticket $ticket, int $rating, string $comment, Request $request): void
+    {
+        $this->systemLogs->record(
+            'ticket.rating.submitted',
+            'Submitted ticket satisfaction rating.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'rating' => $rating,
+                    'has_comment' => $comment !== '',
+                ],
+                'request' => $request,
+            ]
+        );
     }
 }
