@@ -386,7 +386,7 @@
                                 @csrf
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="form-label">Rating (1-5 stars)</label>
+                                        <label class="form-label">Rating (1-5 stars)<span class="ml-1 text-rose-500">*</span></label>
                                         <select name="rating" class="form-input" required>
                                             <option value="">Select rating</option>
                                             <option value="5" {{ old('rating') == '5' ? 'selected' : '' }}>5 - Excellent</option>
@@ -400,7 +400,7 @@
                                         @enderror
                                     </div>
                                     <div>
-                                        <label class="form-label">Comment</label>
+                                        <label class="form-label">Comment<span class="ml-1 text-rose-500">*</span></label>
                                         <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience..." required>{{ old('comment') }}</textarea>
                                         @error('comment')
                                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
@@ -456,7 +456,7 @@
                 @endif
                 <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div>
-                        <label for="resolve_rating" class="form-label">Rating (1-5 stars)</label>
+                        <label for="resolve_rating" class="form-label">Rating (1-5 stars)<span class="ml-1 text-rose-500">*</span></label>
                         <select id="resolve_rating" name="rating" class="form-input" required aria-invalid="{{ $errors->has('rating') ? 'true' : 'false' }}">
                             <option value="">Select rating</option>
                             <option value="5" {{ old('rating') == '5' ? 'selected' : '' }}>5 - Excellent</option>
@@ -470,7 +470,7 @@
                         @enderror
                     </div>
                     <div>
-                        <label for="resolve_comment" class="form-label">Comment</label>
+                        <label for="resolve_comment" class="form-label">Comment<span class="ml-1 text-rose-500">*</span></label>
                         <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Tell us about your experience..." required aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
                         @error('comment')
                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
