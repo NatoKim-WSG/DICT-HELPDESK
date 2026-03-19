@@ -16,7 +16,7 @@ class ResolveTicketRequest extends FormRequest
         return [
             'resolve_confirmation' => ['accepted'],
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
-            'comment' => ['nullable', 'string', 'max:1000'],
+            'comment' => ['required', 'string', 'max:1000'],
         ];
     }
 
@@ -25,6 +25,7 @@ class ResolveTicketRequest extends FormRequest
         return [
             'resolve_confirmation.accepted' => 'Please confirm the ticket is resolved before continuing.',
             'rating.required' => 'Please rate the support you received before resolving this ticket.',
+            'comment.required' => 'Please add a short comment about your support experience before resolving this ticket.',
         ];
     }
 }

@@ -400,8 +400,8 @@
                                         @enderror
                                     </div>
                                     <div>
-                                        <label class="form-label">Comment (optional)</label>
-                                        <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience...">{{ old('comment') }}</textarea>
+                                        <label class="form-label">Comment</label>
+                                        <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience..." required>{{ old('comment') }}</textarea>
                                         @error('comment')
                                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                                         @enderror
@@ -470,8 +470,8 @@
                         @enderror
                     </div>
                     <div>
-                        <label for="resolve_comment" class="form-label">Comment (optional)</label>
-                        <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Tell us about your experience..." aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
+                        <label for="resolve_comment" class="form-label">Comment</label>
+                        <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Tell us about your experience..." required aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
                         @error('comment')
                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                         @enderror

@@ -82,6 +82,27 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertSame(0, TicketReply::query()->where('ticket_id', $ticket->id)->count());
     }
 
+    public function test_client_cannot_resolve_ticket_without_required_comment(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $response = $this->from(route('client.tickets.show', $ticket))
+            ->actingAs($client)
+            ->post(route('client.tickets.resolve', $ticket), [
+                'resolve_confirmation' => '1',
+                'rating' => '5',
+            ]);
+
+        $response->assertRedirect(route('client.tickets.show', $ticket));
+        $response->assertSessionHasErrors(['comment']);
+
+        $ticket->refresh();
+        $this->assertSame('open', $ticket->status);
+        $this->assertNull($ticket->resolved_at);
+        $this->assertNull($ticket->satisfaction_comment);
+        $this->assertSame(0, TicketReply::query()->where('ticket_id', $ticket->id)->count());
+    }
+
     public function test_client_resolve_requires_confirmation_and_submits_rating(): void
     {
         [, $client, $ticket] = $this->seedUsersAndTicket();
@@ -107,6 +128,29 @@ class TicketLifecycleConsistencyTest extends TestCase
             'message' => 'Client marked this ticket as resolved.',
             'is_internal' => false,
         ]);
+    }
+
+    public function test_client_cannot_submit_standalone_rating_without_required_comment(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $ticket->update([
+            'status' => 'resolved',
+            'resolved_at' => Carbon::now()->subMinutes(15),
+        ]);
+
+        $response = $this->from(route('client.tickets.show', $ticket))
+            ->actingAs($client)
+            ->post(route('client.tickets.rate', $ticket), [
+                'rating' => '4',
+            ]);
+
+        $response->assertRedirect(route('client.tickets.show', $ticket));
+        $response->assertSessionHasErrors(['comment']);
+
+        $ticket->refresh();
+        $this->assertNull($ticket->satisfaction_rating);
+        $this->assertNull($ticket->satisfaction_comment);
     }
 
     public function test_resolving_unassigned_ticket_auto_assigns_reviewing_super_user(): void

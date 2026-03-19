@@ -30,16 +30,21 @@ const initClientTicketShowPage = () => {
 
     const resolveConfirmCheckbox = document.getElementById('resolve_confirm_checkbox');
     const resolveRatingSelect = document.getElementById('resolve_rating');
+    const resolveCommentField = document.getElementById('resolve_comment');
     const resolveConfirmSubmit = document.getElementById('resolve-confirm-submit');
     if (resolveConfirmCheckbox && resolveConfirmSubmit) {
         const syncResolveConfirmState = function () {
             const hasRating = !resolveRatingSelect || resolveRatingSelect.value !== '';
-            resolveConfirmSubmit.disabled = !resolveConfirmCheckbox.checked || !hasRating;
+            const hasComment = !resolveCommentField || resolveCommentField.value.trim() !== '';
+            resolveConfirmSubmit.disabled = !resolveConfirmCheckbox.checked || !hasRating || !hasComment;
         };
 
         resolveConfirmCheckbox.addEventListener('change', syncResolveConfirmState);
         if (resolveRatingSelect) {
             resolveRatingSelect.addEventListener('change', syncResolveConfirmState);
+        }
+        if (resolveCommentField) {
+            resolveCommentField.addEventListener('input', syncResolveConfirmState);
         }
         syncResolveConfirmState();
     }
