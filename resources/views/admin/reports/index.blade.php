@@ -224,12 +224,7 @@
                                         <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
                                             <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
                                         </svg>
-                                        <div>
-                                            <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
-                                            @if($slice['label'] === 'Resolved')
-                                                <p class="text-[11px] text-slate-400">Includes tickets that were later closed.</p>
-                                            @endif
-                                        </div>
+                                        <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
                                     </div>
                                     <div class="text-right">
                                         <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
