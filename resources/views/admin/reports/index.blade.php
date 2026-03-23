@@ -19,22 +19,14 @@
     $selectedPerformancePoint = $monthlyPerformanceSeries->firstWhere('key', $monthlyPerformanceFocusMonthKey)
         ?? $monthlyPerformanceSeries->last();
 
-    $pieInProgress = (int) ($ticketsBreakdownOverview['in_progress'] ?? 0);
-    $piePending = (int) ($ticketsBreakdownOverview['pending'] ?? 0);
-    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
     $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
-    $pieOpen = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved), 0);
-
-    $ticketPieSlices = [
-        ['label' => 'In progress', 'count' => $pieInProgress, 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
-        ['label' => 'Pending', 'count' => $piePending, 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
-        ['label' => 'Resolved / Closed', 'count' => $pieResolved, 'color' => '#10b981', 'tab' => 'history', 'status' => null],
+    $ticketBreakdownRows = [
+        ['label' => 'Open', 'count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'],
+        ['label' => 'In Progress', 'count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
+        ['label' => 'Pending', 'count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
+        ['label' => 'Resolved', 'count' => (int) ($ticketsBreakdownOverview['resolved'] ?? 0), 'color' => '#10b981', 'tab' => 'history', 'status' => null],
+        ['label' => 'Closed', 'count' => (int) ($ticketsBreakdownOverview['closed'] ?? 0), 'color' => '#64748b', 'tab' => 'history', 'status' => 'closed'],
     ];
-    if ($pieOpen > 0) {
-        $ticketPieSlices[] = ['label' => 'Open', 'count' => $pieOpen, 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'];
-    }
-
-    $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
     $ticketPieRadius = 58;
     $ticketPieCircumference = 2 * pi() * $ticketPieRadius;
     $buildPieSegments = function (array $slices, int $total) use ($ticketPieCircumference): array {
@@ -63,7 +55,6 @@
 
         return $segments;
     };
-    $ticketPieSegments = $buildPieSegments($ticketPieSlices, $ticketPieTotal);
 
     $categoryPalette = [
         'hardware' => '#0ea5e9',
@@ -187,32 +178,14 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Tickets</p>
                         <span class="text-xs text-slate-500">{{ $pieTotalCreated }} total</span>
                     </div>
-                    <div class="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
-                        <div class="flex justify-center">
-                            <svg viewBox="0 0 180 180" class="js-total-pie-chart h-44 w-44" role="img" aria-label="Total tickets breakdown">
-                                <circle cx="90" cy="90" r="{{ $ticketPieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
-                                @if($ticketPieTotal > 0)
-                                    @foreach($ticketPieSegments as $segment)
-                                        <circle
-                                            cx="90"
-                                            cy="90"
-                                            r="{{ $ticketPieRadius }}"
-                                            fill="none"
-                                            stroke="{{ $segment['color'] }}"
-                                            stroke-width="20"
-                                            stroke-linecap="butt"
-                                            stroke-dasharray="{{ $segment['length'] }} {{ $ticketPieCircumference }}"
-                                            stroke-dashoffset="{{ $segment['offset'] }}"
-                                            transform="rotate(-90 90 90)"
-                                        ></circle>
-                                    @endforeach
-                                @endif
-                                <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Total</text>
-                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="24" font-weight="700">{{ $pieTotalCreated }}</text>
-                            </svg>
+                    <div class="grid gap-4 md:grid-cols-[220px_1fr] md:items-start">
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-5 text-center">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Created In Scope</p>
+                            <p class="mt-2 text-4xl font-semibold text-slate-900">{{ $pieTotalCreated }}</p>
+                            <p class="mt-2 text-xs text-slate-500">Resolved includes tickets that were later closed.</p>
                         </div>
-                        <div class="space-y-2">
-                            @foreach($ticketPieSlices as $slice)
+                        <div class="space-y-3">
+                            @foreach($ticketBreakdownRows as $slice)
                                 @php
                                     $sliceCount = (int) ($slice['count'] ?? 0);
                                     $statusFilter = $slice['status'] ?? null;
@@ -222,16 +195,25 @@
                                         $statusLinkParams['status'] = $statusFilter;
                                     }
                                     $statusLink = route('admin.tickets.index', $statusLinkParams);
+                                    $slicePercentage = $pieTotalCreated > 0
+                                        ? min(100, round(($sliceCount / $pieTotalCreated) * 100, 1))
+                                        : 0;
                                 @endphp
-                                <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
-                                            <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
-                                        </svg>
-                                        <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
+                                <a href="{{ $statusLink }}" class="pie-legend-row group block rounded-lg bg-slate-100 px-3 py-3 text-sm transition hover:bg-slate-200">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
+                                                <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
+                                            </svg>
+                                            <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
+                                            <span class="ml-2 text-xs text-slate-500">{{ number_format($slicePercentage, 1) }}%</span>
+                                        </div>
                                     </div>
-                                    <div class="text-right">
-                                        <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
+                                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                                        <div class="h-full rounded-full" style="width: {{ $slicePercentage }}%; background-color: {{ $slice['color'] }};"></div>
                                     </div>
                                 </a>
                             @endforeach
@@ -462,7 +444,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view tickets created in that scope and how many are now resolved or closed.</p>
+                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view tickets created in that scope with resolved and closed tracked separately.</p>
                         </div>
                         <form method="GET" action="{{ route('admin.reports.index') }}" class="flex flex-wrap items-end gap-2" data-submit-feedback>
                             <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
@@ -500,7 +482,7 @@
                         </form>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3 sm:p-6">
+                <div class="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4 sm:p-6">
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Received</p>
                         <p class="mt-1 text-2xl font-semibold text-sky-600">{{ $dailySelectedStats['received'] }}</p>
@@ -512,8 +494,13 @@
                         <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resolved / Closed</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resolved</p>
                         <p class="mt-1 text-2xl font-semibold text-emerald-600">{{ $dailySelectedStats['resolved'] }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Closed</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-700">{{ $dailySelectedStats['closed'] ?? 0 }}</p>
                         <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
                     </div>
                 </div>

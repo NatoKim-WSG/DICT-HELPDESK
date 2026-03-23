@@ -138,7 +138,8 @@ class AdminReportsPageTest extends TestCase
             return $dailyStats['date'] === '2026-02-24'
                 && (int) $dailyStats['received'] === 1
                 && (int) $dailyStats['in_progress'] === 1
-                && (int) $dailyStats['resolved'] === 0;
+                && (int) $dailyStats['resolved'] === 0
+                && (int) ($dailyStats['closed'] ?? 0) === 0;
         });
     }
 
@@ -296,11 +297,12 @@ class AdminReportsPageTest extends TestCase
                 && str_contains((string) ($dailyStats['label'] ?? ''), 'All days in Feb 2026')
                 && (int) $dailyStats['received'] === 2
                 && (int) $dailyStats['in_progress'] === 1
-                && (int) $dailyStats['resolved'] === 0;
+                && (int) $dailyStats['resolved'] === 0
+                && (int) ($dailyStats['closed'] ?? 0) === 0;
         });
     }
 
-    public function test_total_ticket_breakdown_combines_closed_into_resolved_display(): void
+    public function test_total_ticket_breakdown_shows_closed_separately_but_keeps_it_in_resolved_count(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -333,15 +335,15 @@ class AdminReportsPageTest extends TestCase
         ]));
 
         $response->assertOk();
-        $response->assertSee('Resolved / Closed');
-        $response->assertDontSee('>Closed<', false);
+        $response->assertSee('Resolved');
+        $response->assertSee('Closed');
         $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
             return (int) ($overview['resolved'] ?? 0) === 1
-                && (int) ($overview['closed'] ?? 0) === 0;
+                && (int) ($overview['closed'] ?? 0) === 1;
         });
         $response->assertViewHas('selectedMonthStatuses', function (array $statuses) {
             return (int) ($statuses['resolved'] ?? 0) === 1
-                && (int) ($statuses['closed'] ?? 0) === 0;
+                && (int) ($statuses['closed'] ?? 0) === 1;
         });
     }
 
@@ -591,7 +593,8 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewHas('dailySelectedStats', function (array $dailyStats) {
             return $dailyStats['date'] === '2026-02-12'
                 && (int) $dailyStats['received'] === 2
-                && (int) $dailyStats['resolved'] === 1;
+                && (int) $dailyStats['resolved'] === 1
+                && (int) ($dailyStats['closed'] ?? 0) === 0;
         });
         $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
             return (int) $overview['total_created'] === 2
