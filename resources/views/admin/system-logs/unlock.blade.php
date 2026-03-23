@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Unlock System Logs - DICT Helpdesk')
+@section('title', 'Unlock System Logs - ' . config('app.name'))
 
 @section('content')
 <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">

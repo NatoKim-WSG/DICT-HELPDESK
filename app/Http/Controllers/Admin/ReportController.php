@@ -645,8 +645,9 @@ class ReportController extends Controller
     private function buildReportStatusBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
         $breakdown = $this->buildStatusBreakdownForPeriod($scopedTickets, $start, $end);
-        $breakdown['resolved_only'] = (int) ($breakdown['resolved'] ?? 0);
-        $breakdown['resolved'] = (int) ($breakdown['resolved_only'] ?? 0) + (int) ($breakdown['closed'] ?? 0);
+        $resolvedOnlyCount = (int) $breakdown['resolved'];
+        $breakdown['resolved_only'] = $resolvedOnlyCount;
+        $breakdown['resolved'] = $resolvedOnlyCount + (int) ($breakdown['closed'] ?? 0);
 
         return $breakdown;
     }

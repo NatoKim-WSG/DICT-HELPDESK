@@ -100,7 +100,7 @@ class UserDirectoryService
         $normalizedRole = User::normalizeRole($role);
 
         if (in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
-            return 'iOne';
+            return User::supportDepartment();
         }
 
         return $department;

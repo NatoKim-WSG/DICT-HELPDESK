@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Ticket #' . $ticket->ticket_number . ' - iOne Resources Inc.')
+@section('title', 'Ticket #' . $ticket->ticket_number . ' - ' . config('app.name'))
 
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) return asset('images/iOne Logo.png');
+        if ($isSupport) return \App\Models\User::supportLogoUrl();
         return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
-    $supportCompanyLogo = asset('images/iOne Logo.png');
+    $supportCompanyLogo = \App\Models\User::supportLogoUrl();
     $actor = auth()->user();
     $requiresDelayedClose = $actor && in_array($actor->normalizedRole(), [
         \App\Models\User::ROLE_TECHNICAL,

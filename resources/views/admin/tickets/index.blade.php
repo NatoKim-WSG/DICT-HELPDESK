@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Tickets - DICT Helpdesk')
+@section('title', 'Tickets - ' . config('app.name'))
 
 @section('content')
 @php

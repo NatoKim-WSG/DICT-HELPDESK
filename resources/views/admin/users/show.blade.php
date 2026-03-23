@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'User Details - iOne Resources Inc.')
+@section('title', 'User Details - ' . config('app.name'))
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-page data-users-base-url="{{ route('admin.users.index', absolute: false) }}">

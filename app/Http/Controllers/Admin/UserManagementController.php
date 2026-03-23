@@ -577,7 +577,7 @@ class UserManagementController extends Controller
                 [
                     'name' => 'Deleted Support Account',
                     'phone' => null,
-                    'department' => 'iOne',
+                    'department' => User::supportDepartment(),
                     'role' => User::ROLE_TECHNICAL,
                     'password' => Hash::make(Str::random(64)),
                     'is_active' => false,
@@ -590,7 +590,7 @@ class UserManagementController extends Controller
             [
                 'name' => 'Deleted Client Account',
                 'phone' => null,
-                'department' => 'iOne',
+                'department' => User::supportDepartment(),
                 'role' => User::ROLE_CLIENT,
                 'password' => Hash::make(Str::random(64)),
                 'is_active' => false,

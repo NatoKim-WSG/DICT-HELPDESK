@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Notifications\DismissNotificationRequest;
 use App\Models\Ticket;
 use App\Models\TicketUserState;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -144,7 +146,10 @@ class NotificationController extends Controller
         $this->authorize('view', $ticket);
     }
 
-    private function clearNotificationsForTickets(\Illuminate\Database\Eloquent\Builder $ticketsQuery, int $userId): void
+    /**
+     * @param  Builder<Ticket>  $ticketsQuery
+     */
+    private function clearNotificationsForTickets(Builder $ticketsQuery, int $userId): void
     {
         $now = now();
 
@@ -152,6 +157,7 @@ class NotificationController extends Controller
             ->select('id')
             ->orderBy('id')
             ->chunkById(self::CLEAR_NOTIFICATION_CHUNK_SIZE, function ($tickets) use ($now, $userId): void {
+                /** @var Collection<int, Ticket> $tickets */
                 $rows = $tickets->map(fn (Ticket $ticket) => [
                     'ticket_id' => (int) $ticket->id,
                     'user_id' => $userId,

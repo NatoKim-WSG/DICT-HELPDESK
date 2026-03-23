@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit User - iOne Resources Inc.')
+@section('title', 'Edit User - ' . config('app.name'))
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-edit-page>

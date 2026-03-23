@@ -456,7 +456,8 @@ class LegacyTicketCsvImporter
     private function parseDateTime(int $line, string $value, string $field, string $sourceTimezone): Carbon
     {
         try {
-            return Carbon::parse($value, $sourceTimezone)->utc();
+            return Carbon::parse($value, $sourceTimezone)
+                ->setTimezone((string) config('app.timezone', 'UTC'));
         } catch (\Throwable $exception) {
             throw new RuntimeException(sprintf('Row %d has an invalid %s value: %s', $line, $field, $value), 0, $exception);
         }

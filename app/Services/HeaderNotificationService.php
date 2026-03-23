@@ -6,6 +6,7 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -160,7 +161,7 @@ class HeaderNotificationService
         User $user,
         Ticket $ticket,
         ?TicketReply $latestCounterpartReply
-    ): ?\Illuminate\Support\Carbon {
+    ): ?Carbon {
         if ($latestCounterpartReply && $latestCounterpartReply->created_at) {
             return $latestCounterpartReply->created_at;
         }

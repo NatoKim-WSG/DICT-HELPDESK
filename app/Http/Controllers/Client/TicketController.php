@@ -16,6 +16,7 @@ use App\Models\TicketUserState;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -159,7 +160,7 @@ class TicketController extends Controller
     {
         $this->assertTicketOwner($ticket);
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+        /** @var Collection<int, TicketReply> $ticketReplies */
         $ticketReplies = $ticket->replies()
             ->where('is_internal', false)
             ->with(['user', 'attachments', 'replyTo'])

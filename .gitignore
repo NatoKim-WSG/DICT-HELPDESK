@@ -31,6 +31,8 @@
 .env.backup
 .env.production
 .phpunit.result.cache
+/database/*.sqlite
+/resolvedb
 Homestead.json
 Homestead.yaml
 auth.json
@@ -40,6 +42,5 @@ yarn-error.log
 /.idea
 /.vscode
 /.claude
-/database/database.sqlite
 /playwright-report
 /test-results

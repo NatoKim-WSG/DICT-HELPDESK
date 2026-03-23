@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Sign In | iOne Helpdesk</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/iOne Logo.png') }}">
-    <link rel="shortcut icon" href="{{ asset('images/iOne Logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/iOne Logo.png') }}">
+    @php($supportLogoUrl = \App\Models\User::supportLogoUrl())
+    <title>Sign In | {{ config('app.name') }}</title>
+    <link rel="icon" type="image/png" href="{{ $supportLogoUrl }}">
+    <link rel="shortcut icon" href="{{ $supportLogoUrl }}">
+    <link rel="apple-touch-icon" href="{{ $supportLogoUrl }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
     @include('partials.theme-initializer')
@@ -39,10 +40,10 @@
         <div class="login-card relative mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-slate-200 shadow-2xl shadow-slate-200/70 backdrop-blur md:grid-cols-2">
             <div class="login-hero hero-glow hidden h-full flex-col justify-between p-10 md:flex">
                 <div>
-                    <img src="{{ asset('images/iOne Logo.png') }}" alt="iOne Logo" class="h-14 w-auto">
-                    <h1 class="mt-8 font-display text-3xl font-semibold text-slate-900">iOne Resources Inc. Helpdesk</h1>
+                    <img src="{{ $supportLogoUrl }}" alt="{{ \App\Models\User::supportOrganizationName() }} logo" class="h-14 w-auto">
+                    <h1 class="mt-8 font-display text-3xl font-semibold text-slate-900">{{ config('app.name') }}</h1>
                     <p class="mt-3 max-w-sm text-sm text-slate-600">
-                        Centralized ticket management for iOne Resources.
+                        Managed by {{ \App\Models\User::supportOrganizationName() }} for secure ticket intake and support coordination.
                     </p>
                 </div>
                 <p class="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Secure Internal Portal</p>

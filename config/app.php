@@ -1,5 +1,8 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\ObservabilityServiceProvider;
+use App\Providers\ViewComposerServiceProvider;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,7 +19,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'iOne Resources Ticketing System'),
+    'name' => env('APP_NAME', 'DICT Helpdesk'),
 
     'version' => env('APP_VERSION', '1.0.1'),
 
@@ -161,9 +164,9 @@ return [
         /*
          * Application Service Providers...
          */
-        App\Providers\AppServiceProvider::class,
-        App\Providers\ObservabilityServiceProvider::class,
-        App\Providers\ViewComposerServiceProvider::class,
+        AppServiceProvider::class,
+        ObservabilityServiceProvider::class,
+        ViewComposerServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,
         // App\Providers\EventServiceProvider::class,
         // App\Providers\RouteServiceProvider::class,

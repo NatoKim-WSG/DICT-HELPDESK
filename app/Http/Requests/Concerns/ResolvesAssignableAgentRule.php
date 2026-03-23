@@ -4,10 +4,11 @@ namespace App\Http\Requests\Concerns;
 
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 trait ResolvesAssignableAgentRule
 {
-    protected function assignableAgentRule(): \Illuminate\Validation\Rules\Exists
+    protected function assignableAgentRule(): Exists
     {
         return Rule::exists('users', 'id')->where(function ($query) {
             $query->whereIn('role', User::TICKET_CONSOLE_ROLES)

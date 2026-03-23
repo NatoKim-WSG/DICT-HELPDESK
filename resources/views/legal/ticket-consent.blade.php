@@ -1,6 +1,6 @@
 @extends('legal.public-layout')
 
-@section('title', 'Ticket Submission Consent | iOne Helpdesk')
+@section('title', 'Ticket Submission Consent | ' . config('app.name'))
 
 @section('content')
 @php

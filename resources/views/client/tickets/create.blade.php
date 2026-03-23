@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Ticket - iOne Resources Ticketing')
+@section('title', 'Create Ticket - ' . config('app.name'))
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-client-ticket-create-page>
@@ -80,7 +80,7 @@
                     </div>
                     <div class="xl:col-span-2">
                         <p class="ticket-contact-note inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            Contact details are visible only to the iOne technical team for emergency communication purposes.
+                            Contact details are visible only to the {{ config('helpdesk.support_team_name') }} for emergency communication purposes.
                         </p>
                     </div>
 

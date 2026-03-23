@@ -210,8 +210,44 @@ class User extends Authenticatable
     public function publicDisplayName(): string
     {
         return $this->isShadow()
-            ? 'iOne Technical Team'
+            ? self::supportTeamName()
             : (string) $this->name;
+    }
+
+    public static function supportDepartment(): string
+    {
+        return trim((string) config('helpdesk.support_department', 'iOne')) ?: 'iOne';
+    }
+
+    public static function supportBrandName(): string
+    {
+        return trim((string) config('helpdesk.support_brand_name', self::supportDepartment())) ?: self::supportDepartment();
+    }
+
+    public static function supportOrganizationName(): string
+    {
+        return trim((string) config('helpdesk.support_organization_name', 'iOne Resources Inc.')) ?: 'iOne Resources Inc.';
+    }
+
+    public static function supportTeamName(): string
+    {
+        return trim((string) config('helpdesk.support_team_name', 'iOne Technical Team')) ?: 'iOne Technical Team';
+    }
+
+    public static function supportLogoPath(): string
+    {
+        return trim((string) config('helpdesk.support_logo_path', 'images/iOne Logo.png')) ?: 'images/iOne Logo.png';
+    }
+
+    public static function supportLogoUrl(): string
+    {
+        $logoPath = self::supportLogoPath();
+
+        if (! file_exists(public_path($logoPath))) {
+            $logoPath = 'images/iOne Logo.png';
+        }
+
+        return asset($logoPath);
     }
 
     public static function normalizeRole(?string $role): string
@@ -253,7 +289,7 @@ class User extends Authenticatable
             in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
             $departmentToken === 'dict' => 'dict',
             $departmentToken === 'others' => 'others',
-            in_array($normalizedRole, [self::ROLE_SHADOW, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => 'ione',
+            in_array($normalizedRole, [self::ROLE_SHADOW, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => self::departmentBrandKey(self::supportDepartment()),
             default => 'dict',
         };
     }
@@ -281,8 +317,10 @@ class User extends Authenticatable
     {
         $brandKey = self::departmentBrandKey($department, $role);
         $brandMap = self::departmentBrandMap();
-        $brand = $brandMap[$brandKey] ?? $brandMap['ione'];
-        $defaultLogoPath = $brandMap['ione']['logo'] ?? 'images/iOne Logo.png';
+        $supportBrandKey = self::departmentBrandKey(self::supportDepartment());
+        $fallbackBrand = $brandMap[$supportBrandKey] ?? $brandMap['ione'];
+        $brand = $brandMap[$brandKey] ?? $fallbackBrand;
+        $defaultLogoPath = $fallbackBrand['logo'] ?? self::supportLogoPath();
         $logoPath = $brand['logo'] ?? $defaultLogoPath;
         $cacheKey = $brandKey.'|'.$logoPath;
 
@@ -296,7 +334,7 @@ class User extends Authenticatable
 
         $assets = [
             'key' => $brandKey,
-            'name' => $brand['name'] ?? 'iOne',
+            'name' => $brand['name'] ?? ($fallbackBrand['name'] ?? self::supportBrandName()),
             'logo_path' => $logoPath,
             'logo_url' => asset($logoPath),
         ];

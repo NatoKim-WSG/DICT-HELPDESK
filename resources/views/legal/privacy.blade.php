@@ -1,6 +1,6 @@
 @extends('legal.public-layout')
 
-@section('title', 'Privacy Notice and Consent | iOne Helpdesk')
+@section('title', 'Privacy Notice and Consent | ' . config('app.name'))
 
 @section('content')
 @php

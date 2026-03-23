@@ -80,7 +80,7 @@ trait InteractsWithTicketReplies
     protected function departmentLogoForUser(?User $user, bool $fromSupport): string
     {
         if ($fromSupport) {
-            return asset('images/iOne Logo.png');
+            return User::supportLogoUrl();
         }
 
         return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];

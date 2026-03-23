@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Account Settings - DICT Helpdesk')
+@section('title', 'Account Settings - ' . config('app.name'))
 
 @section('content')
 @php

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,9 +29,9 @@ use Illuminate\Support\Str;
  * @property-read User $user
  * @property-read User|null $assignedUser
  * @property-read Category|null $category
- * @property-read \Illuminate\Database\Eloquent\Collection<int, TicketReply> $replies
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Attachment> $attachments
- * @property-read \Illuminate\Database\Eloquent\Collection<int, TicketUserState> $userStates
+ * @property-read Collection<int, TicketReply> $replies
+ * @property-read Collection<int, Attachment> $attachments
+ * @property-read Collection<int, TicketUserState> $userStates
  *
  * @method static Builder<static> open()
  * @method static Builder<static> closed()

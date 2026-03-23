@@ -21,8 +21,10 @@ use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -126,7 +128,7 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
+        /** @var Collection<int, TicketReply> $ticketReplies */
         $ticketReplies = $ticket->replies()
             ->with(['user', 'attachments', 'replyTo'])
             ->orderBy('created_at')
@@ -362,7 +364,7 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        $incomingDueDateLabel = \Illuminate\Support\Carbon::parse($request->due_date)->format('Y-m-d H:i');
+        $incomingDueDateLabel = Carbon::parse($request->due_date)->format('Y-m-d H:i');
         $existingDueDateLabel = optional($ticket->due_date)->format('Y-m-d H:i');
         if ($existingDueDateLabel === $incomingDueDateLabel) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
@@ -506,7 +508,7 @@ class TicketController extends Controller
         }
 
         $action = $request->string('action')->toString();
-        /** @var \Illuminate\Database\Eloquent\Collection<int, Ticket> $tickets */
+        /** @var Collection<int, Ticket> $tickets */
         $tickets = $this->ticketIndex->scopedTicketQueryFor(auth()->user())
             ->whereIn('id', $selectedIds)
             ->get();

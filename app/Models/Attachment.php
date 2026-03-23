@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * @property \Illuminate\Database\Eloquent\Model|\App\Models\Ticket|\App\Models\TicketReply|null $attachable
+ * @property Model|Ticket|TicketReply|null $attachable
  */
 class Attachment extends Model
 {

@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @php($supportLogoUrl = \App\Models\User::supportLogoUrl())
     <title>@yield('title')</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/iOne Logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ $supportLogoUrl }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700|space-grotesk:500,600,700&display=swap" rel="stylesheet" />
     @include('partials.theme-initializer')
@@ -18,8 +19,8 @@
     <div class="motion-page-enter mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
             <a href="{{ route('login') }}" class="app-pressable inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                <img src="{{ asset('images/iOne Logo.png') }}" alt="iOne logo" class="h-6 w-auto">
-                <span>iOne Helpdesk</span>
+                <img src="{{ $supportLogoUrl }}" alt="{{ \App\Models\User::supportOrganizationName() }} logo" class="h-6 w-auto">
+                <span>{{ config('app.name') }}</span>
             </a>
             <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 <button

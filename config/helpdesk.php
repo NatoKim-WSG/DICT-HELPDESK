@@ -3,6 +3,21 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Branding
+    |--------------------------------------------------------------------------
+    |
+    | These values keep user-facing product copy aligned while still allowing
+    | the support organization and support department to be configured.
+    |
+    */
+    'support_department' => env('HELPDESK_SUPPORT_DEPARTMENT', 'iOne'),
+    'support_brand_name' => env('HELPDESK_SUPPORT_BRAND_NAME', 'iOne'),
+    'support_organization_name' => env('HELPDESK_SUPPORT_ORGANIZATION_NAME', 'iOne Resources Inc.'),
+    'support_team_name' => env('HELPDESK_SUPPORT_TEAM_NAME', 'iOne Technical Team'),
+    'support_logo_path' => env('HELPDESK_SUPPORT_LOGO_PATH', 'images/iOne Logo.png'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Seed Defaults
     |--------------------------------------------------------------------------
     |

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Reports - iOne Resources Inc.')
+@section('title', 'Reports - ' . config('app.name'))
 
 @section('content')
 @php

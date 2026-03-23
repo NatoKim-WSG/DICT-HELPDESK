@@ -32,7 +32,7 @@ return [
     | Organization Details
     |--------------------------------------------------------------------------
     */
-    'organization_name' => env('LEGAL_ORGANIZATION_NAME', 'iOne Resources Inc.'),
+    'organization_name' => env('LEGAL_ORGANIZATION_NAME', env('HELPDESK_SUPPORT_ORGANIZATION_NAME', 'iOne Resources Inc.')),
     'governing_law' => env('LEGAL_GOVERNING_LAW', 'Republic of the Philippines'),
     'dpo_email' => env('LEGAL_DPO_EMAIL', 'privacy@ioneresources.net'),
     'support_email' => env('LEGAL_SUPPORT_EMAIL', 'support@ioneresources.net'),

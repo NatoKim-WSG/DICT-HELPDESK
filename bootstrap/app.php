@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureLegalConsentAccepted;
+use App\Http\Middleware\EnsurePasswordChange;
+use App\Http\Middleware\EnsureSystemLogsUnlocked;
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SetSecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->append(\App\Http\Middleware\SetSecurityHeaders::class);
+        $middleware->append(SetSecurityHeaders::class);
         $trustedProxies = env('TRUSTED_PROXIES');
         if (is_string($trustedProxies) && trim($trustedProxies) !== '') {
             $parsedTrustedProxies = trim($trustedProxies) === '*'
@@ -33,11 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'active' => \App\Http\Middleware\EnsureActiveUser::class,
-            'consent.accepted' => \App\Http\Middleware\EnsureLegalConsentAccepted::class,
-            'system_logs.unlocked' => \App\Http\Middleware\EnsureSystemLogsUnlocked::class,
-            'password.change.required' => \App\Http\Middleware\EnsurePasswordChange::class,
+            'role' => RoleMiddleware::class,
+            'active' => EnsureActiveUser::class,
+            'consent.accepted' => EnsureLegalConsentAccepted::class,
+            'system_logs.unlocked' => EnsureSystemLogsUnlocked::class,
+            'password.change.required' => EnsurePasswordChange::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

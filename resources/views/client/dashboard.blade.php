@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard - DICT | iOne Resources Ticketing')
+@section('title', 'Dashboard - ' . config('app.name'))
 
 @section('content')
 <div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8"

@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Ticket #' . $ticket->ticket_number . ' - iOne Resources')
+@section('title', 'Ticket #' . $ticket->ticket_number . ' - ' . config('app.name'))
 
 @section('content')
 @php
     $departmentLogo = static function (?string $department, bool $isSupport = false): string {
-        if ($isSupport) return asset('images/iOne Logo.png');
+        if ($isSupport) return \App\Models\User::supportLogoUrl();
         return \App\Models\User::departmentBrandAssets($department)['logo_url'];
     };
     $clientCompanyLogo = $departmentLogo(auth()->user()->department);
-    $supportCompanyLogo = asset('images/iOne Logo.png');
+    $supportCompanyLogo = \App\Models\User::supportLogoUrl();
     $hasResolveValidationErrors = $errors->has('resolve_confirmation') || $errors->has('rating') || $errors->has('comment');
 @endphp
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-client-ticket-show-page data-resolve-modal-open="{{ $hasResolveValidationErrors ? 'true' : 'false' }}">

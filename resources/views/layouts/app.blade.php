@@ -8,14 +8,23 @@
         $tabUser = auth()->user();
         $tabYieldedTitle = trim((string) $__env->yieldContent('title'));
         $tabRouteName = (string) optional(request()->route())->getName();
+        $supportLogoUrl = \App\Models\User::supportLogoUrl();
         $tabDepartmentBrand = $tabUser
             ? \App\Models\User::departmentBrandAssets($tabUser->department, $tabUser->role)
-            : ['name' => 'iOne'];
+            : \App\Models\User::departmentBrandAssets(\App\Models\User::supportDepartment());
 
         $tabPageLabel = '';
         if ($tabYieldedTitle !== '') {
-            $tabPageLabel = preg_replace('/\s*[-|]\s*DICT.*$/i', '', $tabYieldedTitle) ?? '';
-            $tabPageLabel = preg_replace('/\s*[-|]\s*iOne Resources.*$/i', '', $tabPageLabel) ?? '';
+            $titleSuffixes = array_filter([
+                config('app.name'),
+                \App\Models\User::supportOrganizationName(),
+                \App\Models\User::supportBrandName(),
+            ]);
+
+            $tabPageLabel = $tabYieldedTitle;
+            foreach ($titleSuffixes as $titleSuffix) {
+                $tabPageLabel = preg_replace('/\s*[-|]\s*'.preg_quote((string) $titleSuffix, '/').'.*$/i', '', $tabPageLabel) ?? $tabPageLabel;
+            }
             $tabPageLabel = trim($tabPageLabel);
         }
 
@@ -50,10 +59,10 @@
         $tabTitle = trim($tabPageLabel . ' | ' . $tabContextLabel);
     @endphp
     <title>{{ $tabTitle }}</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/iOne Logo.png') }}">
-    <link rel="shortcut icon" href="{{ asset('images/iOne Logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/iOne Logo.png') }}">
-    <link rel="preload" as="image" href="{{ asset('images/iOne Logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ $supportLogoUrl }}">
+    <link rel="shortcut icon" href="{{ $supportLogoUrl }}">
+    <link rel="apple-touch-icon" href="{{ $supportLogoUrl }}">
+    <link rel="preload" as="image" href="{{ $supportLogoUrl }}">
     @if($tabUser)
         <link rel="preload" as="image" href="{{ $tabDepartmentBrand['logo_url'] }}">
     @endif

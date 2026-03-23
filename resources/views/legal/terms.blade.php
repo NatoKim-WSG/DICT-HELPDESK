@@ -1,6 +1,6 @@
 @extends('legal.public-layout')
 
-@section('title', 'Terms of Service | iOne Helpdesk')
+@section('title', 'Terms of Service | ' . config('app.name'))
 
 @section('content')
 @php

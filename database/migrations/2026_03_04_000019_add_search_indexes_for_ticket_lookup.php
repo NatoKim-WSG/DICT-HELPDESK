@@ -31,7 +31,7 @@ return new class extends Migration
     {
         try {
             DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Some managed Postgres providers do not allow extension installs.
             return;
         }

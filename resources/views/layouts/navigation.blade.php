@@ -80,7 +80,7 @@
                             class="h-20 w-auto lg:h-24"
                         >
                     </span>
-                    <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">iOne Resources. Inc</span>
+                    <span class="mt-1 text-[11px] font-medium tracking-wide text-slate-300">{{ $departmentName }}</span>
                 </span>
             </a>
 
