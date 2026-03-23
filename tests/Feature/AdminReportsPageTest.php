@@ -138,7 +138,7 @@ class AdminReportsPageTest extends TestCase
             return $dailyStats['date'] === '2026-02-24'
                 && (int) $dailyStats['received'] === 1
                 && (int) $dailyStats['in_progress'] === 1
-                && (int) $dailyStats['resolved'] === 1;
+                && (int) $dailyStats['resolved'] === 0;
         });
     }
 
@@ -296,8 +296,45 @@ class AdminReportsPageTest extends TestCase
                 && str_contains((string) ($dailyStats['label'] ?? ''), 'All days in Feb 2026')
                 && (int) $dailyStats['received'] === 2
                 && (int) $dailyStats['in_progress'] === 1
-                && (int) $dailyStats['resolved'] === 2;
+                && (int) $dailyStats['resolved'] === 0;
         });
+    }
+
+    public function test_total_ticket_breakdown_combines_closed_into_resolved_display(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Breakdown Super', 'breakdown-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Breakdown Client', 'breakdown-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $closedTicket = Ticket::create([
+            'name' => 'Breakdown Closed Requester',
+            'contact_number' => '09180000999',
+            'email' => 'breakdown-closed@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed ticket in month',
+            'description' => 'Should appear in resolved/closed report bucket.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'closed_at' => Carbon::create(2026, 2, 18, 14, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::query()->whereKey($closedTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 18, 14, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Resolved / Closed');
+        $response->assertDontSee('>Closed<', false);
     }
 
     public function test_reports_page_right_side_detail_filter_can_target_specific_day(): void

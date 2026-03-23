@@ -531,10 +531,8 @@ class ReportController extends Controller
         }
 
         $count = (clone $scopedTickets)
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('resolved_at', [$start, $end])
-                    ->orWhereBetween('closed_at', [$start, $end]);
-            })
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', Ticket::CLOSED_STATUSES)
             ->count();
 
         $this->resolvedTicketCountCache[$cacheKey] = (int) $count;

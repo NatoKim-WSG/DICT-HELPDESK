@@ -21,19 +21,17 @@
 
     $pieInProgress = (int) ($ticketsBreakdownOverview['in_progress'] ?? 0);
     $piePending = (int) ($ticketsBreakdownOverview['pending'] ?? 0);
-    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
-    $pieClosed = (int) ($ticketsBreakdownOverview['closed'] ?? 0);
+    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0) + (int) ($ticketsBreakdownOverview['closed'] ?? 0);
     $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
-    $pieOpen = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved + $pieClosed), 0);
+    $pieOpen = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved), 0);
 
     $ticketPieSlices = [
-        ['label' => 'In progress', 'count' => $pieInProgress, 'color' => '#0ea5e9'],
-        ['label' => 'Pending', 'count' => $piePending, 'color' => '#f59e0b'],
-        ['label' => 'Resolved', 'count' => $pieResolved, 'color' => '#10b981'],
-        ['label' => 'Closed', 'count' => $pieClosed, 'color' => '#64748b'],
+        ['label' => 'In progress', 'count' => $pieInProgress, 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
+        ['label' => 'Pending', 'count' => $piePending, 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
+        ['label' => 'Resolved / Closed', 'count' => $pieResolved, 'color' => '#10b981', 'tab' => 'history', 'status' => null],
     ];
     if ($pieOpen > 0) {
-        $ticketPieSlices[] = ['label' => 'Open', 'count' => $pieOpen, 'color' => '#8b5cf6'];
+        $ticketPieSlices[] = ['label' => 'Open', 'count' => $pieOpen, 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'];
     }
 
     $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
@@ -217,18 +215,13 @@
                             @foreach($ticketPieSlices as $slice)
                                 @php
                                     $sliceCount = (int) ($slice['count'] ?? 0);
-                                    $statusFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
-                                        'in progress' => 'in_progress',
-                                        'pending' => 'pending',
-                                        'resolved' => 'resolved',
-                                        'closed' => 'closed',
-                                        'open' => 'open',
-                                        default => null,
-                                    };
-                                    $statusTab = in_array($statusFilter, ['resolved', 'closed'], true) ? 'history' : 'tickets';
-                                    $statusLink = $statusFilter
-                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => $statusTab, 'status' => $statusFilter]))
-                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'tickets']));
+                                    $statusFilter = $slice['status'] ?? null;
+                                    $statusTab = $slice['tab'] ?? 'tickets';
+                                    $statusLinkParams = array_merge($ticketHistoryScopeParams, ['tab' => $statusTab]);
+                                    if ($statusFilter !== null) {
+                                        $statusLinkParams['status'] = $statusFilter;
+                                    }
+                                    $statusLink = route('admin.tickets.index', $statusLinkParams);
                                 @endphp
                                 <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
@@ -469,7 +462,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view received, in-progress, and resolved tickets.</p>
+                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view tickets created in that scope and how many are now resolved or closed.</p>
                         </div>
                         <form method="GET" action="{{ route('admin.reports.index') }}" class="flex flex-wrap items-end gap-2" data-submit-feedback>
                             <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
@@ -519,7 +512,7 @@
                         <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resolved</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Resolved / Closed</p>
                         <p class="mt-1 text-2xl font-semibold text-emerald-600">{{ $dailySelectedStats['resolved'] }}</p>
                         <p class="mt-1 text-xs text-slate-500">{{ $dailySelectedStats['label'] }}</p>
                     </div>
