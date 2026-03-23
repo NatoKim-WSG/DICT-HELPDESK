@@ -20,13 +20,17 @@
         ?? $monthlyPerformanceSeries->last();
 
     $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
-    $ticketBreakdownRows = [
-        ['label' => 'Open', 'count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'],
-        ['label' => 'In Progress', 'count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
-        ['label' => 'Pending', 'count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
-        ['label' => 'Resolved', 'count' => (int) ($ticketsBreakdownOverview['resolved'] ?? 0), 'color' => '#10b981', 'tab' => 'history', 'status' => null],
-        ['label' => 'Closed', 'count' => (int) ($ticketsBreakdownOverview['closed'] ?? 0), 'color' => '#64748b', 'tab' => 'history', 'status' => 'closed'],
+    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
+    $pieClosed = (int) ($ticketsBreakdownOverview['closed'] ?? 0);
+    $pieResolvedOnly = max($pieResolved - $pieClosed, 0);
+    $ticketPieSlices = [
+        ['label' => 'Open', 'count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'],
+        ['label' => 'In Progress', 'count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
+        ['label' => 'Pending', 'count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
+        ['label' => 'Resolved', 'count' => $pieResolvedOnly, 'display_count' => $pieResolved, 'color' => '#10b981', 'tab' => 'history', 'status' => null],
+        ['label' => 'Closed', 'count' => $pieClosed, 'display_count' => $pieClosed, 'color' => '#64748b', 'tab' => 'history', 'status' => 'closed'],
     ];
+    $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
     $ticketPieRadius = 58;
     $ticketPieCircumference = 2 * pi() * $ticketPieRadius;
     $buildPieSegments = function (array $slices, int $total) use ($ticketPieCircumference): array {
@@ -55,6 +59,7 @@
 
         return $segments;
     };
+    $ticketPieSegments = $buildPieSegments($ticketPieSlices, $ticketPieTotal);
 
     $categoryPalette = [
         'hardware' => '#0ea5e9',
@@ -178,16 +183,34 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Tickets</p>
                         <span class="text-xs text-slate-500">{{ $pieTotalCreated }} total</span>
                     </div>
-                    <div class="grid gap-4 md:grid-cols-[220px_1fr] md:items-start">
-                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-5 text-center">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Created In Scope</p>
-                            <p class="mt-2 text-4xl font-semibold text-slate-900">{{ $pieTotalCreated }}</p>
-                            <p class="mt-2 text-xs text-slate-500">Resolved includes tickets that were later closed.</p>
+                    <div class="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
+                        <div class="flex justify-center">
+                            <svg viewBox="0 0 180 180" class="js-total-pie-chart h-44 w-44" role="img" aria-label="Total tickets breakdown">
+                                <circle cx="90" cy="90" r="{{ $ticketPieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
+                                @if($ticketPieTotal > 0)
+                                    @foreach($ticketPieSegments as $segment)
+                                        <circle
+                                            cx="90"
+                                            cy="90"
+                                            r="{{ $ticketPieRadius }}"
+                                            fill="none"
+                                            stroke="{{ $segment['color'] }}"
+                                            stroke-width="20"
+                                            stroke-linecap="butt"
+                                            stroke-dasharray="{{ $segment['length'] }} {{ $ticketPieCircumference }}"
+                                            stroke-dashoffset="{{ $segment['offset'] }}"
+                                            transform="rotate(-90 90 90)"
+                                        ></circle>
+                                    @endforeach
+                                @endif
+                                <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Total</text>
+                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="24" font-weight="700">{{ $pieTotalCreated }}</text>
+                            </svg>
                         </div>
-                        <div class="space-y-3">
-                            @foreach($ticketBreakdownRows as $slice)
+                        <div class="space-y-2">
+                            @foreach($ticketPieSlices as $slice)
                                 @php
-                                    $sliceCount = (int) ($slice['count'] ?? 0);
+                                    $sliceCount = (int) ($slice['display_count'] ?? $slice['count'] ?? 0);
                                     $statusFilter = $slice['status'] ?? null;
                                     $statusTab = $slice['tab'] ?? 'tickets';
                                     $statusLinkParams = array_merge($ticketHistoryScopeParams, ['tab' => $statusTab]);
@@ -195,25 +218,21 @@
                                         $statusLinkParams['status'] = $statusFilter;
                                     }
                                     $statusLink = route('admin.tickets.index', $statusLinkParams);
-                                    $slicePercentage = $pieTotalCreated > 0
-                                        ? min(100, round(($sliceCount / $pieTotalCreated) * 100, 1))
-                                        : 0;
                                 @endphp
-                                <a href="{{ $statusLink }}" class="pie-legend-row group block rounded-lg bg-slate-100 px-3 py-3 text-sm transition hover:bg-slate-200">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="flex items-center gap-2">
-                                            <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
-                                                <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
-                                            </svg>
+                                <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
+                                            <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
+                                        </svg>
+                                        <div>
                                             <span class="pie-legend-text text-slate-600">{{ $slice['label'] }}</span>
-                                        </div>
-                                        <div class="text-right">
-                                            <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
-                                            <span class="ml-2 text-xs text-slate-500">{{ number_format($slicePercentage, 1) }}%</span>
+                                            @if($slice['label'] === 'Resolved')
+                                                <p class="text-[11px] text-slate-400">Includes tickets that were later closed.</p>
+                                            @endif
                                         </div>
                                     </div>
-                                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-                                        <div class="h-full rounded-full" style="width: {{ $slicePercentage }}%; background-color: {{ $slice['color'] }};"></div>
+                                    <div class="text-right">
+                                        <span class="pie-legend-value font-semibold text-slate-900">{{ $sliceCount }}</span>
                                     </div>
                                 </a>
                             @endforeach
