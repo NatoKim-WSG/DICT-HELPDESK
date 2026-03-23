@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -245,12 +246,16 @@ class TicketIndexService
 
     public function monthOptionsFor(Builder $scopedTickets): Collection
     {
+        $monthKeyExpression = $this->monthKeyExpression('created_at', $scopedTickets);
+
         return (clone $scopedTickets)
             ->whereNotNull('created_at')
-            ->orderByDesc('created_at')
-            ->pluck('created_at')
-            ->map(function ($createdAt) {
-                $month = Carbon::parse($createdAt)->startOfMonth();
+            ->selectRaw("{$monthKeyExpression} as month_key")
+            ->distinct()
+            ->orderByDesc('month_key')
+            ->pluck('month_key')
+            ->map(function (mixed $monthKey): array {
+                $month = Carbon::createFromFormat('Y-m', (string) $monthKey)->startOfMonth();
 
                 return [
                     'value' => $month->format('Y-m'),
@@ -306,6 +311,19 @@ class TicketIndexService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function monthKeyExpression(string $column, Builder $query): string
+    {
+        /** @var Connection $connection */
+        $connection = $query->getQuery()->getConnection();
+        $driver = $connection->getDriverName();
+
+        return match ($driver) {
+            'pgsql' => "TO_CHAR({$column}, 'YYYY-MM')",
+            'sqlite' => "strftime('%Y-%m', {$column})",
+            default => "DATE_FORMAT({$column}, '%Y-%m')",
+        };
     }
 
     private function applyCaseInsensitiveExactMatch(Builder $query, string $column, string $value): void

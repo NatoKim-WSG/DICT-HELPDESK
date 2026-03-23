@@ -696,28 +696,19 @@ class ReportController extends Controller
             return $this->slaMetricsCache[$cacheKey];
         }
 
-        $completedTickets = (clone $scopedTickets)
+        $openStatusesSqlList = "'".implode("','", Ticket::OPEN_STATUSES)."'";
+        $summary = (clone $scopedTickets)
+            ->toBase()
             ->where(function ($query) use ($start, $end) {
                 $query->whereBetween('resolved_at', [$start, $end])
                     ->orWhereBetween('closed_at', [$start, $end]);
             })
-            ->get(['resolved_at', 'closed_at', 'due_date']);
-
-        $eligible = 0;
-        $met = 0;
-
-        foreach ($completedTickets as $ticket) {
-            /** @var Ticket $ticket */
-            if (! $ticket->due_date) {
-                continue;
-            }
-
-            $eligible++;
-            $completedAt = $ticket->resolved_at ?? $ticket->closed_at;
-            if ($completedAt && $completedAt->lte($ticket->due_date)) {
-                $met++;
-            }
-        }
+            ->selectRaw('SUM(CASE WHEN due_date IS NOT NULL THEN 1 ELSE 0 END) as eligible')
+            ->selectRaw('SUM(CASE WHEN due_date IS NOT NULL AND COALESCE(resolved_at, closed_at) <= due_date THEN 1 ELSE 0 END) as met')
+            ->first();
+        $summaryRow = is_object($summary) ? (array) $summary : [];
+        $eligible = (int) ($summaryRow['eligible'] ?? 0);
+        $met = (int) ($summaryRow['met'] ?? 0);
 
         $metrics = [
             'eligible' => $eligible,
@@ -739,34 +730,42 @@ class ReportController extends Controller
             return $this->majorIssueSummaryCache[$cacheKey];
         }
 
-        $incidentTickets = (clone $scopedTickets)
-            ->whereBetween('created_at', [$start, $end])
-            ->whereIn('priority', ['urgent', 'high'])
-            ->with('category:id,name')
-            ->get(['id', 'priority', 'status', 'category_id']);
+        $incidentScopedTickets = (clone $scopedTickets)
+            ->whereBetween('tickets.created_at', [$start, $end])
+            ->whereIn('priority', ['urgent', 'high']);
 
-        $majorCount = $incidentTickets->count();
-        $urgentTotal = $incidentTickets->where('priority', 'urgent')->count();
-        $openMajorCount = $incidentTickets->whereIn('status', Ticket::OPEN_STATUSES)->count();
+        $openStatusesSqlList = "'".implode("','", Ticket::OPEN_STATUSES)."'";
+        $summary = (clone $incidentScopedTickets)
+            ->toBase()
+            ->selectRaw('COUNT(*) as major_count')
+            ->selectRaw("SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as urgent_total")
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_major_count")
+            ->first();
+        $summaryRow = is_object($summary) ? (array) $summary : [];
 
-        $incidentByCategory = $incidentTickets
-            ->groupBy(function ($ticket): string {
-                /** @var Ticket $ticket */
+        $incidentByCategory = $this->reportBreakdowns
+            ->categoryCountsForScope(clone $incidentScopedTickets)
+            ->map(function (object $row): array {
+                $count = (int) ($row->count ?? 0);
 
-                return $this->reportBreakdowns->normalizeCategoryBucket(optional($ticket->category)->name);
+                return [
+                    'name' => $this->reportBreakdowns->normalizeCategoryBucket((string) ($row->category_name ?? '')),
+                    'count' => $count,
+                ];
             })
+            ->groupBy('name')
             ->map(fn (Collection $group, string $name) => [
                 'name' => $name,
-                'count' => $group->count(),
+                'count' => (int) $group->sum('count'),
             ])
             ->sortByDesc('count')
             ->values()
             ->take(3);
 
         $summary = [
-            'major_count' => $majorCount,
-            'open_major_count' => $openMajorCount,
-            'urgent_total' => $urgentTotal,
+            'major_count' => (int) ($summaryRow['major_count'] ?? 0),
+            'open_major_count' => (int) ($summaryRow['open_major_count'] ?? 0),
+            'urgent_total' => (int) ($summaryRow['urgent_total'] ?? 0),
             'top_categories' => $incidentByCategory,
         ];
 

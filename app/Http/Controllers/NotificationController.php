@@ -12,6 +12,8 @@ use Illuminate\Support\Carbon;
 
 class NotificationController extends Controller
 {
+    private const CLEAR_NOTIFICATION_CHUNK_SIZE = 250;
+
     public function clientDismiss(DismissNotificationRequest $request): RedirectResponse
     {
         $ticket = Ticket::findOrFail($request->integer('ticket_id'));
@@ -36,31 +38,12 @@ class NotificationController extends Controller
 
     public function clientClear(Request $request): JsonResponse|RedirectResponse
     {
-        $ticketIds = Ticket::query()
-            ->where('user_id', (int) auth()->id())
-            ->pluck('id');
+        $userId = (int) auth()->id();
 
-        if ($ticketIds->isEmpty()) {
-            return $request->expectsJson()
-                ? response()->json(['ok' => true])
-                : back();
-        }
-
-        $now = now();
-        $rows = $ticketIds->map(fn ($ticketId) => [
-            'ticket_id' => (int) $ticketId,
-            'user_id' => (int) auth()->id(),
-            'last_seen_at' => $now,
-            'dismissed_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
-        TicketUserState::upsert(
-            $rows,
-            ['ticket_id', 'user_id'],
-            ['last_seen_at', 'dismissed_at', 'updated_at']
+        $this->clearNotificationsForTickets(
+            Ticket::query()->where('user_id', $userId),
+            $userId
         );
-        TicketUserState::forgetHeaderNotificationCacheForUser((int) auth()->id());
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -117,34 +100,14 @@ class NotificationController extends Controller
     public function adminClear(Request $request): JsonResponse|RedirectResponse
     {
         $authUser = auth()->user();
+        $userId = (int) auth()->id();
         $ticketsQuery = Ticket::query()->open();
 
         if ($authUser && $authUser->isTechnician()) {
             $ticketsQuery->where('assigned_to', $authUser->id);
         }
 
-        $ticketIds = $ticketsQuery->pluck('id');
-        if ($ticketIds->isEmpty()) {
-            return $request->expectsJson()
-                ? response()->json(['ok' => true])
-                : back();
-        }
-
-        $now = now();
-        $rows = $ticketIds->map(fn ($ticketId) => [
-            'ticket_id' => (int) $ticketId,
-            'user_id' => (int) auth()->id(),
-            'last_seen_at' => $now,
-            'dismissed_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
-        TicketUserState::upsert(
-            $rows,
-            ['ticket_id', 'user_id'],
-            ['last_seen_at', 'dismissed_at', 'updated_at']
-        );
-        TicketUserState::forgetHeaderNotificationCacheForUser((int) auth()->id());
+        $this->clearNotificationsForTickets($ticketsQuery, $userId);
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -179,5 +142,36 @@ class NotificationController extends Controller
     private function assertAdminCanInteractWithTicket(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
+    }
+
+    private function clearNotificationsForTickets(\Illuminate\Database\Eloquent\Builder $ticketsQuery, int $userId): void
+    {
+        $now = now();
+
+        (clone $ticketsQuery)
+            ->select('id')
+            ->orderBy('id')
+            ->chunkById(self::CLEAR_NOTIFICATION_CHUNK_SIZE, function ($tickets) use ($now, $userId): void {
+                $rows = $tickets->map(fn (Ticket $ticket) => [
+                    'ticket_id' => (int) $ticket->id,
+                    'user_id' => $userId,
+                    'last_seen_at' => $now,
+                    'dismissed_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])->all();
+
+                if ($rows === []) {
+                    return;
+                }
+
+                TicketUserState::upsert(
+                    $rows,
+                    ['ticket_id', 'user_id'],
+                    ['last_seen_at', 'dismissed_at', 'updated_at']
+                );
+            });
+
+        TicketUserState::forgetHeaderNotificationCacheForUser($userId);
     }
 }
