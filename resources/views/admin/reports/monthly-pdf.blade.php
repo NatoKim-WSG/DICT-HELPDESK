@@ -201,7 +201,7 @@
         $received = (int) ($selectedMonthRow['received'] ?? 0);
         $completed = (int) ($selectedMonthRow['resolved'] ?? 0);
         $completionRate = (float) ($selectedMonthRow['resolution_rate'] ?? 0);
-        $resolvedOrClosedStatusCount = (int) ($statusBreakdown['resolved'] ?? 0) + (int) ($statusBreakdown['closed'] ?? 0);
+        $resolvedOrClosedStatusCount = (int) ($statusBreakdown['resolved'] ?? 0);
     @endphp
 
     <div class="header-wrap">

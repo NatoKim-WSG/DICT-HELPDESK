@@ -21,7 +21,7 @@
 
     $pieInProgress = (int) ($ticketsBreakdownOverview['in_progress'] ?? 0);
     $piePending = (int) ($ticketsBreakdownOverview['pending'] ?? 0);
-    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0) + (int) ($ticketsBreakdownOverview['closed'] ?? 0);
+    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
     $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
     $pieOpen = max($pieTotalCreated - ($pieInProgress + $piePending + $pieResolved), 0);
 

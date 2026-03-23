@@ -141,16 +141,16 @@ class ReportController extends Controller
                 : 0,
         ];
 
-        $periodStatusSummary = $this->buildStatusBreakdownForPeriod(
+        $periodStatusSummary = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $selectedPeriodStart,
             $selectedPeriodEnd
-        );
-        $previousPeriodStatusSummary = $this->buildStatusBreakdownForPeriod(
+        ));
+        $previousPeriodStatusSummary = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $previousPeriodStart,
             $previousPeriodEnd
-        );
+        ));
 
         $totalTicketsThisPeriod = (int) ($selectedMonthRow['received'] ?? 0);
         $totalTicketsPreviousPeriod = (int) ($previousMonthRow['received'] ?? 0);
@@ -201,11 +201,11 @@ class ReportController extends Controller
             'created_to' => $mixScopeEnd->toDateString(),
             'report_scope' => $mixScopeLabel,
         ];
-        $mixStatusSummary = $this->buildStatusBreakdownForPeriod(
+        $mixStatusSummary = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $mixScopeStart,
             $mixScopeEnd
-        );
+        ));
         $mixTotalCreated = (clone $scopedTickets)
             ->whereBetween('created_at', [$mixScopeStart, $mixScopeEnd])
             ->count();
@@ -252,11 +252,11 @@ class ReportController extends Controller
                 $dailySelectedDate
             );
 
-        $detailStatusSummary = $this->buildStatusBreakdownForPeriod(
+        $detailStatusSummary = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $detailScopeStart,
             $detailScopeEnd
-        );
+        ));
         $detailSlaMetrics = $this->buildSlaMetricsForPeriod(
             clone $scopedTickets,
             $detailScopeStart,
@@ -313,11 +313,11 @@ class ReportController extends Controller
             ])
             ->values();
 
-        $selectedMonthStatuses = $this->buildStatusBreakdownForPeriod(
+        $selectedMonthStatuses = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $selectedMonthRange['start'],
             $selectedMonthRange['end']
-        );
+        ));
         $selectedMonthPriorities = $this->buildPriorityBreakdownForPeriod(
             clone $scopedTickets,
             $selectedMonthRange['start'],
@@ -453,11 +453,11 @@ class ReportController extends Controller
         $selectedMonthRow = $monthlyReportRows->firstWhere('month_key', $selectedMonthKey)
             ?? $this->emptyMonthlyReportRow($selectedMonthKey, $selectedMonthRange);
 
-        $statusBreakdown = $this->buildStatusBreakdownForPeriod(
+        $statusBreakdown = $this->combineClosedIntoResolved($this->buildStatusBreakdownForPeriod(
             clone $scopedTickets,
             $selectedMonthRange['start'],
             $selectedMonthRange['end']
-        );
+        ));
         $priorityBreakdown = $this->buildPriorityBreakdownForPeriod(
             clone $scopedTickets,
             $selectedMonthRange['start'],
@@ -614,6 +614,14 @@ class ReportController extends Controller
         ])->all();
 
         $this->statusBreakdownCache[$cacheKey] = $breakdown;
+
+        return $breakdown;
+    }
+
+    private function combineClosedIntoResolved(array $breakdown): array
+    {
+        $breakdown['resolved'] = (int) ($breakdown['resolved'] ?? 0) + (int) ($breakdown['closed'] ?? 0);
+        $breakdown['closed'] = 0;
 
         return $breakdown;
     }

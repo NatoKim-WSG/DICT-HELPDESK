@@ -335,6 +335,14 @@ class AdminReportsPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('Resolved / Closed');
         $response->assertDontSee('>Closed<', false);
+        $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
+            return (int) ($overview['resolved'] ?? 0) === 1
+                && (int) ($overview['closed'] ?? 0) === 0;
+        });
+        $response->assertViewHas('selectedMonthStatuses', function (array $statuses) {
+            return (int) ($statuses['resolved'] ?? 0) === 1
+                && (int) ($statuses['closed'] ?? 0) === 0;
+        });
     }
 
     public function test_reports_page_right_side_detail_filter_can_target_specific_day(): void
