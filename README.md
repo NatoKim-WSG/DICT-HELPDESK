@@ -1,4 +1,4 @@
-# DICT Helpdesk Ticketing System
+# iOne Helpdesk Ticketing System
 
 Current version: `1.0.1` (see `VERSION`)
 

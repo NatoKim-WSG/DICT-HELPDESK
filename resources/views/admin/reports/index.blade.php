@@ -455,21 +455,26 @@
 
             <div class="panel order-1 overflow-visible">
                 <div class="border-b border-slate-100 px-5 py-4">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-6">
                         <div>
                             <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
                             <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view tickets created in that scope with resolved and closed tracked separately.</p>
                         </div>
-                        <form method="GET" action="{{ route('admin.reports.index') }}" class="flex flex-wrap items-end gap-2" data-submit-feedback>
+                        <form
+                            method="GET"
+                            action="{{ route('admin.reports.index') }}"
+                            class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-w-[460px]"
+                            data-submit-feedback
+                        >
                             <input type="hidden" name="month" value="{{ $selectedMonthKey }}">
                             <input type="hidden" name="detail_month" value="{{ $detailMonthKey }}">
                             <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                             @if($detailFilterApplied)
                                 <input type="hidden" name="apply_details_filter" value="1">
                             @endif
-                            <div>
+                            <div class="min-w-0">
                                 <label for="daily-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
-                                <select id="daily-month" name="daily_month" data-auto-submit-change class="form-input min-w-[170px] py-2 text-sm">
+                                <select id="daily-month" name="daily_month" data-auto-submit-change class="form-input mt-0 w-full py-2 text-sm">
                                     @foreach($monthOptions as $option)
                                         <option value="{{ $option['key'] }}" {{ $dailyMonthKey === $option['key'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
@@ -477,9 +482,9 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <label for="daily-date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Day</label>
-                                <select id="daily-date" name="daily_date" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">
+                                <select id="daily-date" name="daily_date" data-auto-submit-change class="form-input mt-0 w-full py-2 text-sm">
                                     <option value="all" {{ $dailySelectedDateValue === 'all' ? 'selected' : '' }}>
                                         All days in {{ $monthOptions->firstWhere('key', $dailyMonthKey)['label'] ?? 'selected month' }}
                                     </option>

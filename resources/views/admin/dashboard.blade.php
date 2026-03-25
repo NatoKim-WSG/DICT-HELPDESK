@@ -149,28 +149,6 @@
                     @endforeach
                 </div>
             </div>
-
-            @if(auth()->user()->isSuperAdmin())
-                <div class="panel">
-                    <div class="border-b border-slate-100 px-5 py-4">
-                        <h3 class="font-display text-lg font-semibold text-slate-900">System Snapshot</h3>
-                    </div>
-                    <dl class="space-y-3 px-5 py-4">
-                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Total Users</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['total_users'] }}</dd>
-                        </div>
-                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Technical Users</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['technical_users'] }}</dd>
-                        </div>
-                        <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <dt class="text-sm text-slate-600">Client Users</dt>
-                            <dd class="text-sm font-semibold text-slate-900">{{ $stats['client_users'] }}</dd>
-                        </div>
-                    </dl>
-                </div>
-            @endif
         </div>
     </div>
 </div>

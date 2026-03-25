@@ -8,7 +8,7 @@
 
 <div class="space-y-4 text-sm text-slate-700">
     <p>
-        This Privacy Notice explains how {{ $organization }} processes personal data in the DICT Helpdesk Ticketing
+        This Privacy Notice explains how {{ $organization }} processes personal data in the iOne Helpdesk Ticketing
         System. By using the Platform, you acknowledge this notice and provide consent where consent is the legal
         basis.
     </p>

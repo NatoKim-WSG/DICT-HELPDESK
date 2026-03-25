@@ -23,10 +23,10 @@ class SendTestEmail extends Command
 
         try {
             Mail::raw(
-                'This is a live SMTP test email from DICT Helpdesk sent at '.now()->toDateTimeString().'.',
+                'This is a live SMTP test email from iOne Helpdesk sent at '.now()->toDateTimeString().'.',
                 function ($message) use ($to) {
                     $message->to($to)
-                        ->subject('DICT Helpdesk SMTP Test Email');
+                        ->subject('iOne Helpdesk SMTP Test Email');
                 }
             );
         } catch (\Throwable $exception) {

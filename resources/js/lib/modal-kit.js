@@ -45,6 +45,13 @@ export const registerModalKit = () => {
         const modal = toNode(modalRef);
         if (!modal) return null;
 
+        // Fixed-position modals break out of the viewport when nested inside
+        // transformed containers (for example our page-enter animation wrapper).
+        // Hoist them to body so overlays always cover the full screen.
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
         const closeTriggerSelector = options.closeTriggerSelector
             || '[data-modal-close], [data-modal-overlay], [data-close-ticket-overlay], [data-resolve-ticket-overlay]';
         const closeButtons = toNodes(options.closeButtons || []);

@@ -1,7 +1,7 @@
 {
     "name": "ione-resources/ticketing-system",
     "type": "project",
-    "description": "DICT Helpdesk Ticketing System",
+    "description": "iOne Helpdesk Ticketing System",
     "keywords": ["framework", "laravel", "ticketing"],
     "license": "MIT",
     "require": {

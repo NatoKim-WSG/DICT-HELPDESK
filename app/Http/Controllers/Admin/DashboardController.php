@@ -28,15 +28,10 @@ class DashboardController extends Controller
         $stats = [
             'total_tickets' => (clone $scopedTickets)->count(),
             'open_tickets' => (clone $scopedTickets)->open()->count(),
-            'closed_tickets' => (clone $scopedTickets)->closed()->count(),
-            'overdue_tickets' => (clone $scopedTickets)->where('due_date', '<', now())->open()->count(),
             'attention_tickets' => (clone $scopedTickets)->whereNotIn('status', Ticket::CLOSED_STATUSES)
                 ->where('created_at', '<=', now()->subHours(16))
                 ->count(),
             'urgent_tickets' => (clone $scopedTickets)->byPriority('urgent')->open()->count(),
-            'total_users' => User::query()->visibleDirectory()->count(),
-            'technical_users' => User::query()->where('role', User::ROLE_TECHNICAL)->count(),
-            'client_users' => User::query()->where('role', User::ROLE_CLIENT)->count(),
         ];
 
         $recentStart = now()->subDays(10)->startOfDay();

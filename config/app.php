@@ -19,7 +19,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'DICT Helpdesk'),
+    'name' => env('APP_NAME', 'iOne Helpdesk'),
 
     'version' => env('APP_VERSION', '1.0.1'),
 
