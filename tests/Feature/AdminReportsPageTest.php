@@ -72,6 +72,9 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Category Breakdown');
         $response->assertSee('Top Technical Users');
         $response->assertSee('Monthly Performance (Last 12 Months)');
+        $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
+            return ($overview['label'] ?? null) === 'All Time';
+        });
         $response->assertDontSee('% Change Vs Previous Period');
         $response->assertDontSee('SLA Compliance Rate');
         $response->assertDontSee('Backlog (Period End)');
@@ -864,7 +867,7 @@ class AdminReportsPageTest extends TestCase
         });
     }
 
-    public function test_report_mix_drilldowns_keep_created_period_scope_but_use_all_tickets_tab(): void
+    public function test_report_mix_drilldowns_default_to_all_time_scope_and_use_all_tickets_tab(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -892,8 +895,11 @@ class AdminReportsPageTest extends TestCase
         ]));
 
         $response->assertOk();
+        $response->assertViewHas('ticketHistoryScope', []);
         $response->assertSee('tab=all&amp;category_bucket=', false);
         $response->assertSee('tab=all&amp;priority=high', false);
+        $response->assertDontSee('created_from=', false);
+        $response->assertDontSee('created_to=', false);
     }
 
     private function createUser(string $name, string $email, string $role, string $department = 'iOne'): User

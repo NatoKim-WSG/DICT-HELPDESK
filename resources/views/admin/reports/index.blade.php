@@ -31,6 +31,7 @@
         ['label' => 'Closed', 'count' => $pieClosed, 'display_count' => $pieClosed, 'color' => '#64748b', 'tab' => 'history', 'status' => 'closed'],
     ];
     $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
+    $mixScopeLabel = (string) ($ticketsBreakdownOverview['label'] ?? 'All Time');
     $ticketPieRadius = 58;
     $ticketPieCircumference = 2 * pi() * $ticketPieRadius;
     $buildPieSegments = function (array $slices, int $total) use ($ticketPieCircumference): array {
@@ -172,7 +173,7 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Total Tickets Breakdown</h2>
-                        <p class="mt-1 text-sm text-slate-500">Status mix for tickets created in the selected period.</p>
+                        <p class="mt-1 text-sm text-slate-500">Status mix for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Total Tickets Breakdown (Detailed View)" data-chart-source="total-tickets-breakdown-chart">
                         Enlarge
@@ -181,7 +182,7 @@
                 <div id="total-tickets-breakdown-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Tickets</p>
-                        <span class="text-xs text-slate-500">{{ $pieTotalCreated }} total</span>
+                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $pieTotalCreated }} total</span>
                     </div>
                     <div class="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
                         <div class="flex justify-center">
@@ -240,7 +241,7 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Category Mix</h2>
-                        <p class="mt-1 text-sm text-slate-500">Category distribution for tickets created in the selected period.</p>
+                        <p class="mt-1 text-sm text-slate-500">Category distribution for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Category Mix (Detailed View)" data-chart-source="category-mix-chart">
                         Enlarge
@@ -249,7 +250,7 @@
                 <div id="category-mix-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Category</p>
-                        <span class="text-xs text-slate-500">{{ $categoryPieTotal }} total</span>
+                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $categoryPieTotal }} total</span>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
                         <div class="flex justify-center">
@@ -305,7 +306,7 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Priority Mix</h2>
-                        <p class="mt-1 text-sm text-slate-500">Priority distribution for tickets created in the selected period.</p>
+                        <p class="mt-1 text-sm text-slate-500">Priority distribution for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Priority Mix (Detailed View)" data-chart-source="priority-mix-chart">
                         Enlarge
@@ -314,7 +315,7 @@
                 <div id="priority-mix-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Priority</p>
-                        <span class="text-xs text-slate-500">{{ $priorityPieTotal }} total</span>
+                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $priorityPieTotal }} total</span>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
                         <div class="flex justify-center">

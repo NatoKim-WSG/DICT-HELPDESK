@@ -196,44 +196,61 @@ class ReportController extends Controller
             'backlog_end' => $backlogThisPeriod,
         ];
 
-        $mixScopeStart = $detailFilterApplied ? $detailScopeStart : $selectedPeriodStart;
-        $mixScopeEnd = $detailFilterApplied ? $detailScopeEnd : $selectedPeriodEnd;
-        $mixScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
-        $ticketHistoryScope = [
-            'created_from' => $mixScopeStart->toDateString(),
-            'created_to' => $mixScopeEnd->toDateString(),
-            'report_scope' => $mixScopeLabel,
-        ];
-        $mixStatusSummary = $this->buildReportStatusBreakdownForPeriod(
-            clone $scopedTickets,
-            $mixScopeStart,
-            $mixScopeEnd
-        );
-        $mixTotalCreated = (clone $scopedTickets)
-            ->whereBetween('created_at', [$mixScopeStart, $mixScopeEnd])
-            ->count();
-        $ticketsBreakdownOverview = [
-            'label' => $mixScopeLabel,
-            'start' => $mixScopeStart->toDateString(),
-            'end' => $mixScopeEnd->toDateString(),
-            'total_created' => $mixTotalCreated,
-            'open' => (int) ($mixStatusSummary['open'] ?? 0),
-            'in_progress' => (int) ($mixStatusSummary['in_progress'] ?? 0),
-            'pending' => (int) ($mixStatusSummary['pending'] ?? 0),
-            'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
-            'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
-        ];
-
-        $categoryBreakdownBuckets = $this->buildCategoryBucketsForPeriod(
-            clone $scopedTickets,
-            $mixScopeStart,
-            $mixScopeEnd
-        );
-        $priorityBreakdownBuckets = $this->buildPriorityBucketsForPeriod(
-            clone $scopedTickets,
-            $mixScopeStart,
-            $mixScopeEnd
-        );
+        if ($detailFilterApplied) {
+            $mixScopeLabel = $detailScopeLabel;
+            $ticketHistoryScope = [
+                'created_from' => $detailScopeStart->toDateString(),
+                'created_to' => $detailScopeEnd->toDateString(),
+                'report_scope' => $mixScopeLabel,
+            ];
+            $mixStatusSummary = $this->buildReportStatusBreakdownForPeriod(
+                clone $scopedTickets,
+                $detailScopeStart,
+                $detailScopeEnd
+            );
+            $mixTotalCreated = (clone $scopedTickets)
+                ->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd])
+                ->count();
+            $ticketsBreakdownOverview = [
+                'label' => $mixScopeLabel,
+                'start' => $detailScopeStart->toDateString(),
+                'end' => $detailScopeEnd->toDateString(),
+                'total_created' => $mixTotalCreated,
+                'open' => (int) ($mixStatusSummary['open'] ?? 0),
+                'in_progress' => (int) ($mixStatusSummary['in_progress'] ?? 0),
+                'pending' => (int) ($mixStatusSummary['pending'] ?? 0),
+                'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
+                'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
+            ];
+            $categoryBreakdownBuckets = $this->buildCategoryBucketsForPeriod(
+                clone $scopedTickets,
+                $detailScopeStart,
+                $detailScopeEnd
+            );
+            $priorityBreakdownBuckets = $this->buildPriorityBucketsForPeriod(
+                clone $scopedTickets,
+                $detailScopeStart,
+                $detailScopeEnd
+            );
+        } else {
+            $mixScopeLabel = 'All Time';
+            $ticketHistoryScope = [];
+            $mixStatusSummary = $this->buildReportStatusBreakdownForAllTime(clone $scopedTickets);
+            $mixTotalCreated = (clone $scopedTickets)->count();
+            $ticketsBreakdownOverview = [
+                'label' => $mixScopeLabel,
+                'start' => null,
+                'end' => null,
+                'total_created' => $mixTotalCreated,
+                'open' => (int) ($mixStatusSummary['open'] ?? 0),
+                'in_progress' => (int) ($mixStatusSummary['in_progress'] ?? 0),
+                'pending' => (int) ($mixStatusSummary['pending'] ?? 0),
+                'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
+                'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
+            ];
+            $categoryBreakdownBuckets = $this->buildCategoryBucketsForAllTime(clone $scopedTickets);
+            $priorityBreakdownBuckets = $this->buildPriorityBucketsForAllTime(clone $scopedTickets);
+        }
 
         $volumeSeries = [
             'daily' => $this->buildDailyVolumeSeries(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd),
@@ -652,6 +669,31 @@ class ReportController extends Controller
         return $breakdown;
     }
 
+    private function buildReportStatusBreakdownForAllTime(Builder $scopedTickets): array
+    {
+        $cacheKey = $this->queryScopeSignature($scopedTickets).'|all_time';
+        if (array_key_exists($cacheKey, $this->statusBreakdownCache)) {
+            return $this->statusBreakdownCache[$cacheKey];
+        }
+
+        $statusCounts = (clone $scopedTickets)
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        $breakdown = collect(Ticket::STATUSES)->mapWithKeys(fn (string $status) => [
+            $status => (int) ($statusCounts[$status] ?? 0),
+        ])->all();
+
+        $resolvedOnlyCount = (int) $breakdown['resolved'];
+        $breakdown['resolved_only'] = $resolvedOnlyCount;
+        $breakdown['resolved'] = $resolvedOnlyCount + (int) ($breakdown['closed'] ?? 0);
+
+        $this->statusBreakdownCache[$cacheKey] = $breakdown;
+
+        return $breakdown;
+    }
+
     private function buildPriorityBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
         $cacheKey = $this->queryScopeSignature($scopedTickets)
@@ -694,6 +736,38 @@ class ReportController extends Controller
         $this->categoryBreakdownCache[$cacheKey] = $breakdown;
 
         return $breakdown;
+    }
+
+    private function buildPriorityBucketsForAllTime(Builder $scopedTickets): array
+    {
+        $counts = (clone $scopedTickets)
+            ->selectRaw('priority, COUNT(*) as count')
+            ->groupBy('priority')
+            ->pluck('count', 'priority');
+
+        return [
+            ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
+            ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
+            ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],
+            ['name' => 'Low', 'count' => (int) ($counts['low'] ?? 0)],
+        ];
+    }
+
+    private function buildCategoryBucketsForAllTime(Builder $scopedTickets): array
+    {
+        $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
+        $bucketCounts = array_fill_keys($bucketOrder, 0);
+
+        $categoryCounts = $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets);
+        foreach ($categoryCounts as $row) {
+            $bucket = $this->reportBreakdowns->normalizeCategoryBucket((string) $row->category_name);
+            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
+        }
+
+        return collect($bucketCounts)->map(fn (int $count, string $name) => [
+            'name' => $name,
+            'count' => $count,
+        ])->values()->all();
     }
 
     private function emptyMonthlyReportRow(string $monthKey, array $monthRange): array
