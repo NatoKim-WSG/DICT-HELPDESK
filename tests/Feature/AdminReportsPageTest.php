@@ -489,7 +489,7 @@ class AdminReportsPageTest extends TestCase
         });
     }
 
-    public function test_detail_filter_clear_params_reset_to_current_day_scope(): void
+    public function test_detail_filter_clear_link_resets_to_default_reports_view(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -505,14 +505,8 @@ class AdminReportsPageTest extends TestCase
         ]));
 
         $response->assertOk();
-        $response->assertViewHas('detailClearParams', function (array $params) {
-            return ($params['month'] ?? null) === '2026-02'
-                && ($params['daily_month'] ?? null) === '2026-02'
-                && ($params['daily_date'] ?? null) === '2026-02-25'
-                && ($params['detail_month'] ?? null) === '2026-02'
-                && ($params['detail_date'] ?? null) === '2026-02-25'
-                && (int) ($params['apply_details_filter'] ?? 0) === 1;
-        });
+        $response->assertSee('href="'.e(route('admin.reports.index')).'"', false);
+        $response->assertViewMissing('detailClearParams');
     }
 
     public function test_details_filter_applies_scope_to_breakdown_daily_kpis_and_top_technical_users(): void

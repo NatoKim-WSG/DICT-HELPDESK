@@ -561,7 +561,7 @@
                     <div class="sm:col-span-2">
                         <div class="flex items-center gap-2">
                             <button type="submit" name="apply_details_filter" value="1" class="btn-primary py-2 text-sm">Filter</button>
-                            <a href="{{ route('admin.reports.index', $detailClearParams) }}" class="btn-secondary py-2 text-sm">Clear</a>
+                            <a href="{{ route('admin.reports.index') }}" class="btn-secondary py-2 text-sm">Clear</a>
                         </div>
                     </div>
                 </form>

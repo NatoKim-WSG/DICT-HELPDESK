@@ -307,27 +307,6 @@ class ReportController extends Controller
             ])
             ->reverse()
             ->values();
-        $detailResetMonthKey = $this->resolveSelectedMonthKey(
-            now()->format('Y-m'),
-            $monthlyReportRows,
-            $selectedMonthKey
-        );
-        $detailResetMonthRange = $this->monthRangeFromKey($detailResetMonthKey);
-        $detailResetDate = now()->startOfDay();
-        if (
-            $detailResetDate->lt($detailResetMonthRange['start']->copy()->startOfDay())
-            || $detailResetDate->gt($detailResetMonthRange['end']->copy()->startOfDay())
-        ) {
-            $detailResetDate = $detailResetMonthRange['end']->copy()->startOfDay();
-        }
-        $detailClearParams = [
-            'month' => $detailResetMonthKey,
-            'daily_month' => $detailResetMonthKey,
-            'daily_date' => $detailResetDate->toDateString(),
-            'detail_month' => $detailResetMonthKey,
-            'detail_date' => $detailResetDate->toDateString(),
-            'apply_details_filter' => 1,
-        ];
         $trendStart = Carbon::now()->startOfDay()->subDays(29);
         $trendEnd = Carbon::now()->startOfDay();
 
@@ -407,8 +386,7 @@ class ReportController extends Controller
             'detailDateValue',
             'detailDateOptions',
             'detailOverview',
-            'ticketHistoryScope',
-            'detailClearParams'
+            'ticketHistoryScope'
         ));
     }
 
