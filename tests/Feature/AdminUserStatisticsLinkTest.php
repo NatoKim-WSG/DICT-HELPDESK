@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
+use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -89,6 +91,69 @@ class AdminUserStatisticsLinkTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('href="'.e(route('admin.tickets.index', ['tab' => 'all'])).'"', false);
+    }
+
+    public function test_admin_dashboard_resolved_status_summary_includes_closed_tickets(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser(
+            'Dashboard History User',
+            'dashboard-history-user@example.com',
+            User::ROLE_SUPER_USER,
+            'iOne'
+        );
+        $client = $this->createUser(
+            'Dashboard History Client',
+            'dashboard-history-client@example.com',
+            User::ROLE_CLIENT,
+            'DICT'
+        );
+        $category = Category::create([
+            'name' => 'Dashboard History Category',
+            'description' => 'Dashboard history category',
+            'color' => '#0f8d88',
+            'is_active' => true,
+        ]);
+
+        Ticket::create([
+            'name' => 'Resolved Requester',
+            'contact_number' => '09170000010',
+            'email' => 'resolved-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Resolved dashboard ticket',
+            'description' => 'Resolved dashboard ticket.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => now()->subDay(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::create([
+            'name' => 'Closed Requester',
+            'contact_number' => '09170000011',
+            'email' => 'closed-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed dashboard ticket',
+            'description' => 'Closed dashboard ticket.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('href="'.e(route('admin.tickets.index', ['tab' => 'history'])).'"', false);
+        $response->assertSee('href="'.e(route('admin.tickets.index', ['tab' => 'history', 'status' => 'closed'])).'"', false);
+        $response->assertSeeInOrder(['Resolved', '2']);
+        $response->assertSeeInOrder(['Closed', '1']);
     }
 
     private function createUser(string $name, string $email, string $role, string $department): User

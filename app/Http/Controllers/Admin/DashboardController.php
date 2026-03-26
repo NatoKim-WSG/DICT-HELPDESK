@@ -50,6 +50,13 @@ class DashboardController extends Controller
             ->groupBy('status')
             ->get()
             ->pluck('count', 'status');
+        $ticketsByStatusDisplay = collect([
+            'open' => (int) ($ticketsByStatus->get('open', 0)),
+            'in_progress' => (int) ($ticketsByStatus->get('in_progress', 0)),
+            'pending' => (int) ($ticketsByStatus->get('pending', 0)),
+            'resolved' => (int) ($ticketsByStatus->get('resolved', 0)) + (int) ($ticketsByStatus->get('closed', 0)),
+            'closed' => (int) ($ticketsByStatus->get('closed', 0)),
+        ]);
 
         $ticketsByPriority = (clone $scopedTickets)
             ->whereBetween('created_at', [$monthStart, $monthEnd])
@@ -74,6 +81,7 @@ class DashboardController extends Controller
             'stats',
             'recentTickets',
             'ticketsByStatus',
+            'ticketsByStatusDisplay',
             'ticketsByPriority',
             'ticketsTrend',
             'dashboardTitle',

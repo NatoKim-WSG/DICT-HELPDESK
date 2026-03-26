@@ -123,13 +123,15 @@
                 <div class="space-y-3 px-5 py-4">
                     @foreach(['open', 'in_progress', 'pending', 'resolved', 'closed'] as $status)
                         @php
-                            $statusFilter = in_array($status, ['resolved', 'closed'], true)
-                                ? ['tab' => 'history', 'status' => $status]
-                                : ['tab' => 'tickets', 'status' => $status];
+                            $statusFilter = match ($status) {
+                                'resolved' => ['tab' => 'history'],
+                                'closed' => ['tab' => 'history', 'status' => 'closed'],
+                                default => ['tab' => 'tickets', 'status' => $status],
+                            };
                         @endphp
                         <a href="{{ route('admin.tickets.index', $statusFilter) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
                             <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
-                            <span class="text-sm font-semibold text-slate-900">{{ $ticketsByStatus->get($status, 0) }}</span>
+                            <span class="text-sm font-semibold text-slate-900">{{ ($ticketsByStatusDisplay ?? $ticketsByStatus)->get($status, 0) }}</span>
                         </a>
                     @endforeach
                 </div>
