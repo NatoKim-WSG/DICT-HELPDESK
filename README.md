@@ -27,6 +27,7 @@ Laravel 12 help desk application with separate client and admin portals for tick
 - [TicketMutationService.php](app/Services/Admin/TicketMutationService.php): transactional destructive ticket operations (delete/merge)
 - [ReportBreakdownService.php](app/Services/Admin/ReportBreakdownService.php): reusable report category/priority breakdown logic
 - [report-metrics.md](docs/report-metrics.md): authoritative metric definitions for reporting and PDF output
+- [ticket-system-workflow.md](docs/ticket-system-workflow.md): plain-language end-to-end workflow for clients, technicians, and admins
 
 ## Prerequisites
 
