@@ -116,7 +116,7 @@ class TicketController extends Controller
 
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
-        $ticket->load(['user', 'category', 'assignedUser', 'assignedUsers', 'closedBy', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
+        $this->loadTicketWithVisibleReplies($ticket);
         $assignees = $this->ticketIndex->activeAssignableAgents();
 
         return view('admin.tickets.show', compact('ticket', 'assignees'));
@@ -127,10 +127,7 @@ class TicketController extends Controller
         $this->authorizeTicketAccess($ticket);
 
         /** @var Collection<int, TicketReply> $ticketReplies */
-        $ticketReplies = $ticket->replies()
-            ->with(['user', 'attachments', 'replyTo'])
-            ->orderBy('created_at')
-            ->get();
+        $ticketReplies = $this->visibleRepliesRelationForTicket($ticket);
 
         $replies = $ticketReplies
             ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
@@ -288,7 +285,7 @@ class TicketController extends Controller
 
         $replyTarget = null;
         if ($replyToId) {
-            $replyTarget = $ticket->replies()
+            $replyTarget = $this->visibleRepliesQueryForTicket($ticket)
                 ->select(['id', 'is_internal'])
                 ->whereKey($replyToId)
                 ->first();
@@ -892,7 +889,10 @@ class TicketController extends Controller
 
         foreach ($userIds as $userId) {
             if (! array_key_exists($userId, $displayNameCache)) {
-                $displayNameCache[$userId] = optional(User::find($userId))->publicDisplayName();
+                $user = User::find($userId);
+                $displayNameCache[$userId] = $user && ! $user->isShadow()
+                    ? $user->publicDisplayName()
+                    : null;
             }
 
             $displayName = $displayNameCache[$userId];

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,5 +94,21 @@ class TicketReply extends Model
     public function scopeInternal($query)
     {
         return $query->where('is_internal', true);
+    }
+
+    public function scopeVisibleToViewer(Builder $query, ?User $viewer = null): Builder
+    {
+        if ($viewer?->isShadow()) {
+            return $query;
+        }
+
+        return $query->whereHas('user', function (Builder $userQuery) {
+            $userQuery->where('role', '!=', User::ROLE_SHADOW);
+        });
+    }
+
+    public function isVisibleTo(?User $viewer = null): bool
+    {
+        return $viewer?->isShadow() || ! $this->user?->isShadow();
     }
 }

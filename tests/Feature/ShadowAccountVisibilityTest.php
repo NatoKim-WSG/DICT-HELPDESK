@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketReply;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -76,6 +77,137 @@ class ShadowAccountVisibilityTest extends TestCase
         $this->assertDatabaseHas('tickets', [
             'id' => $ticket->id,
             'assigned_to' => null,
+        ]);
+    }
+
+    public function test_non_shadow_staff_ticket_view_hides_shadow_replies(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $admin = $this->createUser('Admin Viewer', 'shadow-view-admin@example.com', User::ROLE_ADMIN, 'iOne');
+        $shadow = $this->createUser('Shadow Viewer', 'shadow-view-shadow@example.com', User::ROLE_SHADOW, 'iOne');
+        $client = $this->createUser('Client Viewer', 'shadow-view-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory('Shadow Reply Category');
+
+        $ticket = Ticket::create([
+            'name' => 'Requester',
+            'contact_number' => '09180001120',
+            'email' => 'requester-shadow-view@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Shadow ticket trace visibility',
+            'description' => 'Original description',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $shadow->id,
+            'message' => 'Shadow-only action trace',
+            'is_internal' => true,
+        ]);
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $client->id,
+            'message' => 'Client-visible reply',
+            'is_internal' => false,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.show', $ticket));
+
+        $response->assertOk();
+        $response->assertSee('Client-visible reply');
+        $response->assertDontSee('Shadow-only action trace');
+    }
+
+    public function test_shadow_ticket_view_still_sees_shadow_replies(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $shadow = $this->createUser('Shadow Viewer', 'shadow-viewer@example.com', User::ROLE_SHADOW, 'iOne');
+        $client = $this->createUser('Client Viewer', 'shadow-viewer-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory('Shadow Visible Category');
+
+        $ticket = Ticket::create([
+            'name' => 'Requester',
+            'contact_number' => '09180001121',
+            'email' => 'requester-shadow-visible@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Shadow ticket visibility',
+            'description' => 'Original description',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $shadow->id,
+            'message' => 'Shadow-only action trace',
+            'is_internal' => true,
+        ]);
+
+        $response = $this->actingAs($shadow)->get(route('admin.tickets.show', $ticket));
+
+        $response->assertOk();
+        $response->assertSee('Shadow-only action trace');
+    }
+
+    public function test_shadow_assignments_do_not_render_in_assignee_label(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $shadow = $this->createUser('Shadow Assignee', 'shadow-assignee@example.com', User::ROLE_SHADOW, 'iOne');
+        $client = $this->createUser('Client Assignee', 'client-assignee@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory('Shadow Assignment Category');
+
+        $ticket = Ticket::create([
+            'name' => 'Requester',
+            'contact_number' => '09180001122',
+            'email' => 'requester-shadow-assignment@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Shadow assignment trace',
+            'description' => 'Original description',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+            'assigned_to' => $shadow->id,
+        ]);
+
+        $ticket->assignedUsers()->sync([$shadow->id]);
+        $ticket->load(['assignedUser', 'assignedUsers']);
+
+        $this->assertSame('Unassigned', $ticket->assigned_users_label);
+    }
+
+    private function createUser(string $name, string $email, string $role, string $department): User
+    {
+        return User::create([
+            'name' => $name,
+            'email' => $email,
+            'phone' => '09180001100',
+            'department' => $department,
+            'role' => $role,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+    }
+
+    private function createCategory(string $name): Category
+    {
+        return Category::create([
+            'name' => $name,
+            'description' => $name.' description',
+            'color' => '#0f8d88',
+            'is_active' => true,
         ]);
     }
 }

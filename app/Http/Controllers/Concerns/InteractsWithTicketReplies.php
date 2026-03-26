@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Models\Attachment;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 trait InteractsWithTicketReplies
@@ -31,8 +35,12 @@ trait InteractsWithTicketReplies
 
     protected function formatReplyForChat(TicketReply $reply): array
     {
+        $viewer = $this->currentReplyViewer();
         $fromSupport = in_array(optional($reply->user)->normalizedRole(), User::TICKET_CONSOLE_ROLES, true);
         $createdAt = $reply->created_at;
+        $replyTo = $reply->replyTo && $reply->replyTo->isVisibleTo($viewer)
+            ? $reply->replyTo
+            : null;
 
         return [
             'id' => $reply->id,
@@ -49,9 +57,9 @@ trait InteractsWithTicketReplies
             'edited' => (bool) $reply->edited_at,
             'deleted' => (bool) $reply->deleted_at,
             'reply_to_id' => $reply->reply_to_id,
-            'reply_to_message' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'reply_to_excerpt' => $reply->replyTo ? Str::limit($reply->replyTo->message, 120) : null,
-            'attachments' => $reply->attachments->map(function ($attachment) {
+            'reply_to_message' => $replyTo ? Str::limit($replyTo->message, 120) : null,
+            'reply_to_excerpt' => $replyTo ? Str::limit($replyTo->message, 120) : null,
+            'attachments' => $reply->attachments->map(function (Attachment $attachment) {
                 $previewUrl = $attachment->preview_url;
 
                 return [
@@ -66,13 +74,13 @@ trait InteractsWithTicketReplies
         ];
     }
 
-    protected function replyTargetExistsForTicket(Ticket $ticket, ?int $replyToId): bool
+    protected function replyTargetExistsForTicket(Ticket $ticket, ?int $replyToId, bool $includeInternal = true): bool
     {
         if (! $replyToId) {
             return true;
         }
 
-        return TicketReply::where('ticket_id', $ticket->id)
+        return $this->visibleRepliesQueryForTicket($ticket, $includeInternal)
             ->whereKey($replyToId)
             ->exists();
     }
@@ -84,5 +92,37 @@ trait InteractsWithTicketReplies
         }
 
         return User::departmentBrandAssets(optional($user)->department, optional($user)->role)['logo_url'];
+    }
+
+    protected function currentReplyViewer(): ?User
+    {
+        return auth()->user();
+    }
+
+    protected function visibleRepliesQueryForTicket(Ticket $ticket, bool $includeInternal = true): HasMany
+    {
+        return $ticket->replies()
+            ->when(! $includeInternal, fn (Builder $query) => $query->where('is_internal', false))
+            ->visibleToViewer($this->currentReplyViewer());
+    }
+
+    protected function visibleRepliesRelationForTicket(Ticket $ticket, bool $includeInternal = true): Collection
+    {
+        return $this->visibleRepliesQueryForTicket($ticket, $includeInternal)
+            ->with([
+                'user',
+                'attachments',
+                'replyTo' => fn ($query) => $query
+                    ->visibleToViewer($this->currentReplyViewer())
+                    ->with('user'),
+            ])
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    protected function loadTicketWithVisibleReplies(Ticket $ticket, bool $includeInternal = true): void
+    {
+        $ticket->load(['user', 'category', 'assignedUser', 'assignedUsers', 'closedBy', 'attachments']);
+        $ticket->setRelation('replies', $this->visibleRepliesRelationForTicket($ticket, $includeInternal));
     }
 }

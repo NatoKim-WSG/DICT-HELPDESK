@@ -39,10 +39,6 @@
             </p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Member Since</p>
-            <p class="mt-2 text-sm font-semibold text-slate-800">{{ $user->created_at->format('M d, Y') }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Profile Edit Lock</p>
             <p class="mt-2 text-sm font-semibold {{ $isProfileLocked ? 'text-rose-700' : 'text-emerald-700' }}">
                 {{ $isProfileLocked ? 'Locked' : 'Unlocked' }}

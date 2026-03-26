@@ -191,7 +191,8 @@ class HeaderNotificationService
             ->select(['id', 'ticket_id', 'user_id', 'message', 'created_at'])
             ->with('user:id,name')
             ->whereIn('ticket_id', $ticketIds)
-            ->where('is_internal', false);
+            ->where('is_internal', false)
+            ->visibleToViewer($user);
 
         if ($user->canAccessAdminTickets()) {
             $query->whereIn('user_id', collect($ticketUserIds)->unique()->values());

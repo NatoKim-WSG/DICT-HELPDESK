@@ -268,7 +268,7 @@ class Ticket extends Model
             ? $this->assignedUser
             : ($this->assigned_to ? $this->assignedUser()->first() : null);
 
-        if ($primaryAssignedUser) {
+        if ($primaryAssignedUser && ! $primaryAssignedUser->isShadow()) {
             $names->push($primaryAssignedUser->publicDisplayName());
         }
 
@@ -279,6 +279,10 @@ class Ticket extends Model
 
         foreach ($assignedUsers as $assignedUser) {
             if ($primaryAssignedUser && (int) $primaryAssignedUser->id === (int) $assignedUser->id) {
+                continue;
+            }
+
+            if ($assignedUser->isShadow()) {
                 continue;
             }
 

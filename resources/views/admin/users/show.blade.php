@@ -78,14 +78,16 @@
                                 </span>
                             </dd>
                         </div>
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Account created</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $user->created_at->format('F j, Y \a\t g:i A') }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Last updated</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ $user->updated_at->format('F j, Y \a\t g:i A') }}</dd>
-                        </div>
+                        @if(auth()->user()->isShadow())
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Account created</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $user->created_at->format('F j, Y \a\t g:i A') }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Last updated</dt>
+                                <dd class="mt-1 text-sm text-gray-900">{{ $user->updated_at->format('F j, Y \a\t g:i A') }}</dd>
+                            </div>
+                        @endif
                         @if($user->isClient() && auth()->user()->isShadow())
                             <div class="sm:col-span-2 xl:col-span-3">
                                 <dt class="text-sm font-medium text-gray-500">Client Notes</dt>

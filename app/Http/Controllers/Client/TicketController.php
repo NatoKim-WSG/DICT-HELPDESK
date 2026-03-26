@@ -151,7 +151,7 @@ class TicketController extends Controller
 
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
-        $ticket->load(['category', 'assignedUser', 'assignedUsers', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
+        $this->loadTicketWithVisibleReplies($ticket, includeInternal: false);
 
         return view('client.tickets.show', compact('ticket'));
     }
@@ -161,11 +161,7 @@ class TicketController extends Controller
         $this->assertTicketOwner($ticket);
 
         /** @var Collection<int, TicketReply> $ticketReplies */
-        $ticketReplies = $ticket->replies()
-            ->where('is_internal', false)
-            ->with(['user', 'attachments', 'replyTo'])
-            ->orderBy('created_at')
-            ->get();
+        $ticketReplies = $this->visibleRepliesRelationForTicket($ticket, includeInternal: false);
 
         $replies = $ticketReplies
             ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
@@ -353,7 +349,7 @@ class TicketController extends Controller
             return null;
         }
 
-        if ($this->replyTargetExistsForTicket($ticket, $request->integer('reply_to_id'))) {
+        if ($this->replyTargetExistsForTicket($ticket, $request->integer('reply_to_id'), includeInternal: false)) {
             return null;
         }
 
