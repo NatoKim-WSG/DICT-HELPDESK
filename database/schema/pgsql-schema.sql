@@ -332,7 +332,6 @@ CREATE TABLE public.tickets (
     user_id bigint NOT NULL,
     assigned_to bigint,
     category_id bigint NOT NULL,
-    due_date timestamp(0) without time zone,
     resolved_at timestamp(0) without time zone,
     closed_at timestamp(0) without time zone,
     satisfaction_rating integer,

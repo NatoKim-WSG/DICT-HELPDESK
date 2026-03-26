@@ -19,7 +19,7 @@ class AttachmentPolicy
             }
 
             if ($user->isTechnician()) {
-                return (int) $attachable->assigned_to === (int) $user->id;
+                return $attachable->hasAssignedUser((int) $user->id);
             }
 
             return $user->canAccessAdminTickets();
@@ -40,7 +40,7 @@ class AttachmentPolicy
             }
 
             if ($user->isTechnician()) {
-                return (int) $ticket->assigned_to === (int) $user->id;
+                return $ticket->hasAssignedUser((int) $user->id);
             }
 
             return $user->canAccessAdminTickets();

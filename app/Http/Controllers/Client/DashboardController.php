@@ -34,7 +34,7 @@ class DashboardController extends Controller
 
         $recentTickets = (clone $ticketQuery)
             ->whereBetween('created_at', [$recentStart, $recentEnd])
-            ->with(['category', 'assignedUser'])
+            ->with(['category', 'assignedUser', 'assignedUsers'])
             ->latest()
             ->take(5)
             ->get();

@@ -33,9 +33,9 @@
                             <span class="font-medium">{{ $ticket->ticket_number }}</span>
                             <span class="hidden text-gray-300 sm:inline">&bull;</span>
                             <span>Created {{ $ticket->created_at->format('M j, Y \a\t g:i A') }}</span>
-                            @if($ticket->assignedUser)
+                            @if($ticket->assigned_user_ids !== [])
                                 <span class="hidden text-gray-300 sm:inline">&bull;</span>
-                                <span>Assigned to {{ $ticket->assignedUser->publicDisplayName() }}</span>
+                                <span>Assigned to {{ $ticket->assigned_users_label }}</span>
                             @endif
                         </div>
                     </div>
@@ -338,20 +338,12 @@
                         </div>
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
-                            <dd class="text-sm text-gray-900">{{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}</dd>
+                            <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                         </div>
                         @if(in_array($ticket->status, ['resolved', 'closed'], true))
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Resolved/Reviewed By</dt>
-                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}</dd>
-                            </div>
-                        @endif
-                        @if($ticket->due_date)
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Due Date</dt>
-                                <dd class="text-sm {{ $ticket->due_date->isPast() ? 'text-red-600' : 'text-gray-900' }}">
-                                    {{ $ticket->due_date->format('M j, Y \a\t g:i A') }}
-                                </dd>
+                                <dt class="text-sm font-medium text-gray-500">{{ $ticket->status === 'closed' ? 'Recognized Technicians' : 'Resolved/Reviewed By' }}</dt>
+                                <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                             </div>
                         @endif
                         @if($ticket->resolved_at)

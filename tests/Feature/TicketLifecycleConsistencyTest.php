@@ -268,6 +268,61 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertNotNull($ticket->closed_at);
     }
 
+    public function test_closed_ticket_recognition_includes_all_assigned_technicians(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $primaryTechnical = User::create([
+            'name' => 'Primary Closing Tech',
+            'email' => 'primary-closing-tech@example.com',
+            'phone' => '09119990004',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $secondaryTechnical = User::create([
+            'name' => 'Secondary Closing Tech',
+            'email' => 'secondary-closing-tech@example.com',
+            'phone' => '09119990005',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $ticket->update([
+            'status' => 'resolved',
+            'assigned_to' => $primaryTechnical->id,
+            'resolved_at' => Carbon::now()->subHours(25),
+            'closed_at' => null,
+            'closed_by' => null,
+        ]);
+        $ticket->assignedUsers()->sync([$primaryTechnical->id, $secondaryTechnical->id]);
+
+        $response = $this->actingAs($secondaryTechnical)
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'closed',
+                'close_reason' => 'Work completed and verified.',
+            ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertSame($secondaryTechnical->id, (int) $ticket->closed_by);
+        $this->assertNotNull($ticket->closed_at);
+
+        $showResponse = $this->actingAs($secondaryTechnical)
+            ->get(route('admin.tickets.show', $ticket));
+
+        $showResponse->assertOk();
+        $showResponse->assertSee('Recognized Technicians');
+        $showResponse->assertSee($primaryTechnical->publicDisplayName());
+        $showResponse->assertSee($secondaryTechnical->publicDisplayName());
+    }
+
     private function seedUsersAndTicket(): array
     {
         $superUser = User::create([

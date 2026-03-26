@@ -106,7 +106,7 @@ class NotificationController extends Controller
         $ticketsQuery = Ticket::query()->open();
 
         if ($authUser && $authUser->isTechnician()) {
-            $ticketsQuery->where('assigned_to', $authUser->id);
+            Ticket::applyAssignedToConstraint($ticketsQuery, (int) $authUser->id);
         }
 
         $this->clearNotificationsForTickets($ticketsQuery, $userId);

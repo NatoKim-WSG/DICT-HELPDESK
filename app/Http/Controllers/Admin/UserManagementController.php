@@ -447,9 +447,25 @@ class UserManagementController extends Controller
                 'user_id' => $replacementUser->id,
             ]);
 
-            Ticket::where('assigned_to', $user->id)->update([
-                'assigned_to' => null,
-            ]);
+            Ticket::query()
+                ->where(function ($query) use ($user) {
+                    Ticket::applyAssignedToConstraint($query, (int) $user->id);
+                })
+                ->with('assignedUsers')
+                ->get()
+                ->each(function (Ticket $ticket) use ($user): void {
+                    $remainingAssignedIds = $ticket->assignedUsers
+                        ->reject(fn (User $assignedUser) => (int) $assignedUser->id === (int) $user->id)
+                        ->pluck('id')
+                        ->map(fn ($assignedUserId) => (int) $assignedUserId)
+                        ->values()
+                        ->all();
+
+                    $ticket->assignedUsers()->sync($remainingAssignedIds);
+                    $ticket->forceFill([
+                        'assigned_to' => $remainingAssignedIds[0] ?? null,
+                    ])->saveQuietly();
+                });
 
             $user->delete();
         });

@@ -118,11 +118,13 @@ class UserDirectoryService
             ? Ticket::query()->where('user_id', $user->id)
             : Ticket::query()->where(function (Builder $query) use ($user) {
                 $query->where('user_id', $user->id)
-                    ->orWhere('assigned_to', $user->id);
+                    ->orWhere(function (Builder $assignmentQuery) use ($user) {
+                        Ticket::applyAssignedToConstraint($assignmentQuery, (int) $user->id);
+                    });
             });
         $assignedTickets = $isClient
             ? null
-            : Ticket::query()->where('assigned_to', $user->id);
+            : Ticket::applyAssignedToConstraint(Ticket::query(), (int) $user->id);
 
         return [
             'total_tickets' => (clone $relatedTickets)->count(),
@@ -165,7 +167,9 @@ class UserDirectoryService
                 $query->where('user_id', $user->id);
 
                 if ($normalizedRole !== User::ROLE_CLIENT) {
-                    $query->orWhere('assigned_to', $user->id);
+                    $query->orWhere(function (Builder $assignmentQuery) use ($user) {
+                        Ticket::applyAssignedToConstraint($assignmentQuery, (int) $user->id);
+                    });
                 }
             })
             ->latest()

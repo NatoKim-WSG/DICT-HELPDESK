@@ -38,6 +38,40 @@ class TicketMutationService
      */
     public function mergeTickets(Ticket $primary, Collection $otherTickets, ?int $actorId): void
     {
+        $primary->loadMissing('assignedUsers');
+        $primaryAssignedIds = $primary->assigned_user_ids;
+        $mergedAssignedIds = $otherTickets
+            ->flatMap(fn (Ticket $ticket) => $ticket->assigned_user_ids)
+            ->map(fn ($userId) => (int) $userId)
+            ->filter(fn (int $userId) => $userId > 0)
+            ->unique()
+            ->values()
+            ->all();
+        $combinedAssignedIds = array_values(array_unique([
+            ...$primaryAssignedIds,
+            ...$mergedAssignedIds,
+        ]));
+
+        if ($combinedAssignedIds !== $primaryAssignedIds) {
+            $updateData = [];
+            $nextPrimaryAssignee = $primary->assigned_to ? (int) $primary->assigned_to : ($combinedAssignedIds[0] ?? null);
+
+            if ((int) ($primary->assigned_to ?? 0) !== (int) ($nextPrimaryAssignee ?? 0)) {
+                $updateData['assigned_to'] = $nextPrimaryAssignee;
+            }
+
+            if ($primary->assigned_at === null && $combinedAssignedIds !== []) {
+                $updateData['assigned_at'] = now();
+            }
+
+            if ($updateData !== []) {
+                $primary->update($updateData);
+            }
+
+            $primary->assignedUsers()->sync($combinedAssignedIds);
+            $primary->refresh();
+        }
+
         foreach ($otherTickets as $ticket) {
             TicketReply::create([
                 'ticket_id' => $primary->id,
@@ -53,7 +87,9 @@ class TicketMutationService
 
             $ticket->update([
                 'status' => 'closed',
+                'resolved_at' => $ticket->resolved_at ?? now(),
                 'closed_at' => now(),
+                'closed_by' => $actorId,
             ]);
         }
     }

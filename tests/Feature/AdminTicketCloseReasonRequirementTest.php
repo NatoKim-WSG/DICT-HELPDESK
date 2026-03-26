@@ -118,6 +118,30 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         $this->assertNull($ticket->closed_at);
     }
 
+    public function test_admin_can_close_ticket_before_24_hour_resolution_window(): void
+    {
+        [$admin, $ticket] = $this->seedAdminAndTicket();
+
+        $ticket->update([
+            'status' => 'resolved',
+            'resolved_at' => now()->subHours(1),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.tickets.show', $ticket))
+            ->post(route('admin.tickets.status', $ticket), [
+                'status' => 'closed',
+                'close_reason' => 'Admin override close before 24 hours.',
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.show', $ticket));
+        $response->assertSessionMissing('error');
+
+        $ticket->refresh();
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
+    }
+
     public function test_super_user_can_close_ticket_after_24_hours_from_resolution(): void
     {
         [, $ticket] = $this->seedAdminAndTicket();

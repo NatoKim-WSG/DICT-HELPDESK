@@ -123,10 +123,6 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
     Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])
         ->middleware('throttle:60,1')
         ->name('tickets.replies.delete');
-    Route::post('/tickets/{ticket}/due-date', [AdminTicketController::class, 'setDueDate'])
-        ->middleware('throttle:60,1')
-        ->name('tickets.due-date');
-
     Route::post('/notifications/dismiss', [NotificationController::class, 'adminDismiss'])
         ->middleware('throttle:60,1')
         ->name('notifications.dismiss');

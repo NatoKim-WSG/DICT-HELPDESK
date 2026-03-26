@@ -220,9 +220,15 @@
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <label for="assign-modal-select" class="form-label">Technical User</label>
-                    <select id="assign-modal-select" name="assigned_to" class="form-input">
-                        <option value="">Unassigned</option>
+                    <span class="form-label">Technical Users</span>
+                    <select
+                        id="assign-modal-select"
+                        name="assigned_to[]"
+                        class="form-input mt-2"
+                        multiple
+                        data-enhanced-multiselect="1"
+                        data-placeholder="Select technicians"
+                    >
                         @foreach($assignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach
@@ -275,9 +281,15 @@
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <label for="edit-modal-assigned" class="form-label">Technical User</label>
-                    <select id="edit-modal-assigned" name="assigned_to" class="form-input">
-                        <option value="">Unassigned</option>
+                    <span class="form-label">Technical Users</span>
+                    <select
+                        id="edit-modal-assigned"
+                        name="assigned_to[]"
+                        class="form-input mt-2"
+                        multiple
+                        data-enhanced-multiselect="1"
+                        data-placeholder="Select technicians"
+                    >
                         @foreach($assignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach

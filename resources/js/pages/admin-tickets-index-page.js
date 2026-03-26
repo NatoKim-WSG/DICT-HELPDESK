@@ -12,7 +12,7 @@ const initAdminTicketsIndexPage = () => {
     const assignForm = document.getElementById('assign-ticket-form');
     const assignModal = document.getElementById('assign-ticket-modal');
     const assignTicketText = document.getElementById('assign-modal-ticket');
-    const assignSelect = document.getElementById('assign-modal-select');
+    const assignAssigneeSelect = document.getElementById('assign-modal-select');
     const revertForm = document.getElementById('revert-ticket-form');
     const revertModal = document.getElementById('revert-ticket-modal');
     const revertTicketText = document.getElementById('revert-modal-ticket');
@@ -77,6 +77,36 @@ const initAdminTicketsIndexPage = () => {
 
     const relativePathForUrl = function (url) {
         return `${url.pathname}${url.search}`;
+    };
+
+    const parseAssignedIds = function (rawValue) {
+        if (!rawValue) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(rawValue);
+            if (Array.isArray(parsed)) {
+                return parsed.map(function (value) {
+                    return String(value);
+                });
+            }
+        } catch (error) {
+        }
+
+        return String(rawValue)
+            .split(',')
+            .map(function (value) { return value.trim(); })
+            .filter(function (value) { return value !== ''; });
+    };
+
+    const setMultiSelectValues = function (select, values) {
+        if (!(select instanceof HTMLSelectElement)) return;
+        const selectedValues = new Set(values);
+        Array.from(select.options).forEach(function (option) {
+            option.selected = selectedValues.has(option.value);
+        });
+        select.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
     const normalizeResultsUrl = function (url) {
@@ -322,7 +352,7 @@ const initAdminTicketsIndexPage = () => {
         if (editTicketText) {
             editTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
         }
-        if (editAssignedSelect) editAssignedSelect.value = button.dataset.assignedTo || '';
+        setMultiSelectValues(editAssignedSelect, parseAssignedIds(button.dataset.assignedTo || '[]'));
         if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
         if (editCloseReasonInput) editCloseReasonInput.value = '';
         if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
@@ -509,9 +539,7 @@ const initAdminTicketsIndexPage = () => {
             if (assignTicketText) {
                 assignTicketText.textContent = 'Ticket #' + (assignButton.dataset.ticketNumber || '');
             }
-            if (assignSelect) {
-                assignSelect.value = assignButton.dataset.assignedTo || '';
-            }
+            setMultiSelectValues(assignAssigneeSelect, parseAssignedIds(assignButton.dataset.assignedTo || '[]'));
             if (assignModalController) assignModalController.open();
 
             return;

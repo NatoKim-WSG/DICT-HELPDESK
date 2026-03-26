@@ -110,7 +110,7 @@
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                         <div>
                             <span class="block text-[11px] uppercase tracking-wide text-slate-400">Assigned</span>
-                            <span>{{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}</span>
+                            <span>{{ $ticket->assigned_users_label }}</span>
                         </div>
                         <div>
                             <span class="block text-[11px] uppercase tracking-wide text-slate-400">Activity</span>
@@ -166,7 +166,7 @@
                             </td>
 
                             <td class="px-6 py-5 align-top text-sm text-slate-700">
-                                {{ $ticket->assignedUser?->publicDisplayName() ?? 'Unassigned' }}
+                                {{ $ticket->assigned_users_label }}
                             </td>
 
                             <td class="px-6 py-5 text-center align-top">

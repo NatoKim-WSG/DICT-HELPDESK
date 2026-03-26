@@ -4,7 +4,10 @@ export const registerEnhancedSelects = () => {
         if (select.dataset.nativeSelect !== undefined) return false;
         if (select.dataset.enhancedReady === '1') return false;
         if (select.closest('.app-select')) return false;
-        if (select.multiple) return false;
+
+        if (select.multiple) {
+            return select.dataset.enhancedMultiselect === '1';
+        }
 
         const sizeAttr = Number(select.getAttribute('size') || '1');
         if (!Number.isNaN(sizeAttr) && sizeAttr > 1) return false;
@@ -41,6 +44,8 @@ export const registerEnhancedSelects = () => {
         select.dataset.enhancedReady = '1';
         enhancedSelects.add(select);
         const capitalizeDisplay = select.dataset.textTransform === 'capitalize';
+        const isMultiSelect = select.multiple;
+        const placeholder = select.dataset.placeholder || 'Select option';
 
         const minWidth = window.getComputedStyle(select).minWidth;
         const nativeArrow = select.nextElementSibling
@@ -52,6 +57,9 @@ export const registerEnhancedSelects = () => {
         const wrapper = document.createElement('div');
         wrapper.className = 'app-select';
         wrapper.dataset.enhancedIndex = String(enhancedSelectIndex++);
+        if (isMultiSelect) {
+            wrapper.classList.add('app-select--multiple');
+        }
         if (select.classList.contains('w-full') || select.classList.contains('form-input')) {
             wrapper.classList.add('w-full');
         }
@@ -92,13 +100,33 @@ export const registerEnhancedSelects = () => {
         const menu = document.createElement('div');
         menu.className = 'app-select-menu';
         menu.setAttribute('role', 'listbox');
+        if (isMultiSelect) {
+            menu.setAttribute('aria-multiselectable', 'true');
+        }
+
+        const getSelectedOptions = () => Array.from(select.options).filter((option) => option.selected);
 
         const syncLabel = () => {
-            const selectedOption = select.options[select.selectedIndex];
-            label.textContent = selectedOption ? selectedOption.textContent.trim() : 'Select option';
+            if (isMultiSelect) {
+                const selectedLabels = getSelectedOptions()
+                    .map((option) => option.textContent.trim())
+                    .filter((text) => text !== '');
+
+                label.textContent = selectedLabels.length > 0
+                    ? selectedLabels.join(', ')
+                    : placeholder;
+            } else {
+                const selectedOption = select.options[select.selectedIndex];
+                label.textContent = selectedOption ? selectedOption.textContent.trim() : placeholder;
+            }
 
             menu.querySelectorAll('.app-select-option').forEach((optionButton) => {
-                optionButton.classList.toggle('is-active', optionButton.dataset.value === select.value);
+                const isSelected = isMultiSelect
+                    ? getSelectedOptions().some((option) => option.value === optionButton.dataset.value)
+                    : optionButton.dataset.value === select.value;
+
+                optionButton.classList.toggle('is-active', isSelected);
+                optionButton.setAttribute('aria-selected', isSelected ? 'true' : 'false');
             });
         };
 
@@ -130,10 +158,19 @@ export const registerEnhancedSelects = () => {
 
                 optionButton.addEventListener('click', () => {
                     if (option.disabled) return;
-                    select.value = option.value;
+
+                    if (isMultiSelect) {
+                        option.selected = !option.selected;
+                    } else {
+                        select.value = option.value;
+                    }
+
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     syncLabel();
-                    closeDropdown(wrapper);
+
+                    if (!isMultiSelect) {
+                        closeDropdown(wrapper);
+                    }
                 });
 
                 menu.appendChild(optionButton);

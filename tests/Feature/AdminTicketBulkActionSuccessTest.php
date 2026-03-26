@@ -98,7 +98,28 @@ class AdminTicketBulkActionSuccessTest extends TestCase
 
     public function test_super_user_can_bulk_merge_tickets(): void
     {
-        [$superUser, , , $ticketOne, $ticketTwo] = $this->seedBulkActionContext();
+        [$superUser, , $technical, $ticketOne, $ticketTwo] = $this->seedBulkActionContext();
+        $secondaryTechnical = User::create([
+            'name' => 'Bulk Secondary Technical',
+            'email' => 'bulk-secondary-technical@example.com',
+            'phone' => '09130000005',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $ticketOne->update([
+            'assigned_to' => $technical->id,
+            'assigned_at' => now()->subHour(),
+        ]);
+        $ticketOne->assignedUsers()->sync([$technical->id]);
+
+        $ticketTwo->update([
+            'assigned_to' => $secondaryTechnical->id,
+            'assigned_at' => now()->subHours(2),
+        ]);
+        $ticketTwo->assignedUsers()->sync([$secondaryTechnical->id]);
 
         $ticketOne->created_at = Carbon::now()->subMinutes(20);
         $ticketOne->save();
@@ -119,12 +140,30 @@ class AdminTicketBulkActionSuccessTest extends TestCase
         $this->assertSame('open', $ticketOne->status);
         $this->assertSame('closed', $ticketTwo->status);
         $this->assertNotNull($ticketTwo->closed_at);
+        $this->assertNotNull($ticketTwo->resolved_at);
+        $this->assertEqualsCanonicalizing(
+            [$technical->id, $secondaryTechnical->id],
+            $ticketOne->assigned_user_ids
+        );
+
+        $this->assertDatabaseHas('ticket_assignments', [
+            'ticket_id' => $ticketOne->id,
+            'user_id' => $technical->id,
+        ]);
+        $this->assertDatabaseHas('ticket_assignments', [
+            'ticket_id' => $ticketOne->id,
+            'user_id' => $secondaryTechnical->id,
+        ]);
 
         $this->assertDatabaseHas('ticket_replies', [
             'ticket_id' => $ticketOne->id,
             'message' => "Merged ticket {$ticketTwo->ticket_number}: {$ticketTwo->subject}",
             'is_internal' => true,
         ]);
+
+        $this->actingAs($secondaryTechnical)
+            ->get(route('admin.tickets.show', $ticketOne))
+            ->assertOk();
     }
 
     public function test_super_admin_can_bulk_delete_tickets(): void

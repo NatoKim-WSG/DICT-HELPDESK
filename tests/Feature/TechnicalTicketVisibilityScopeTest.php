@@ -80,6 +80,74 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
         $statusResponse->assertForbidden();
     }
 
+    public function test_secondary_assigned_technician_can_view_shared_ticket(): void
+    {
+        [$primaryTechnical, $client, $category] = $this->seedActorData();
+        $secondaryTechnical = User::create([
+            'name' => 'Shared Tech',
+            'email' => 'shared-tech@example.com',
+            'phone' => '09130000004',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $sharedTicket = Ticket::create([
+            'name' => 'Shared Requester',
+            'contact_number' => '09130000005',
+            'email' => 'shared-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Shared technician ticket',
+            'description' => 'Visible to both assigned technicians.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'assigned_to' => $primaryTechnical->id,
+            'category_id' => $category->id,
+        ]);
+        $sharedTicket->assignedUsers()->sync([$primaryTechnical->id, $secondaryTechnical->id]);
+
+        $indexResponse = $this->actingAs($secondaryTechnical)->get(route('admin.tickets.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee(route('admin.tickets.show', $sharedTicket), false);
+
+        $showResponse = $this->actingAs($secondaryTechnical)->get(route('admin.tickets.show', $sharedTicket));
+        $showResponse->assertOk();
+    }
+
+    public function test_assigned_technical_user_can_see_client_rating_feedback(): void
+    {
+        [$technical, $client, $category] = $this->seedActorData();
+
+        $ticket = Ticket::create([
+            'name' => 'Rated Requester',
+            'contact_number' => '09130000006',
+            'email' => 'rated-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Rated ticket',
+            'description' => 'Client left feedback.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'user_id' => $client->id,
+            'assigned_to' => $technical->id,
+            'category_id' => $category->id,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+            'satisfaction_rating' => 4,
+            'satisfaction_comment' => 'Good job',
+        ]);
+
+        $response = $this->actingAs($technical)->get(route('admin.tickets.show', $ticket));
+
+        $response->assertOk();
+        $response->assertSeeText('Client Rating');
+        $response->assertSeeText('4 / 5');
+        $response->assertSeeText('Good job');
+    }
+
     private function seedActorData(): array
     {
         $technical = User::create([

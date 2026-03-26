@@ -41,17 +41,24 @@ class TicketEmailAlertService
         return $sentCount;
     }
 
-    public function notifyTechnicalAssigneeAboutAssignment(Ticket $ticket): bool
+    public function notifyTechnicalAssigneeAboutAssignment(Ticket $ticket, ?array $assigneeIds = null): bool
     {
-        $ticket->loadMissing('assignedUser');
-        $assignee = $ticket->assignedUser;
+        if ($ticket->isClosed()) {
+            return false;
+        }
 
-        if (! $assignee || ! $assignee->isTechnician() || ! $assignee->is_active || empty($assignee->email)) {
+        $ticket->loadMissing('assignedUsers');
+        $assignees = $ticket->assignedUsers
+            ->when($assigneeIds !== null, fn (Collection $users) => $users->whereIn('id', $assigneeIds))
+            ->filter(fn (User $assignee) => $assignee->isTechnician() && $assignee->is_active && ! empty($assignee->email))
+            ->values();
+
+        if ($assignees->isEmpty()) {
             return false;
         }
 
         $sentCount = $this->sendAlertToUsers(
-            collect([$assignee]),
+            $assignees,
             $ticket,
             'Ticket Assigned: '.$ticket->ticket_number,
             'A ticket was assigned to you.',
@@ -206,19 +213,22 @@ class TicketEmailAlertService
             ->whereNotNull('assigned_at')
             ->where('assigned_at', '<=', $cutoff)
             ->whereNull('technical_user_notified_sla_at')
-            ->with(['assignedUser'])
+            ->with(['assignedUsers'])
             ->get();
 
         $notifiedTickets = 0;
 
         foreach ($tickets as $ticket) {
-            $assignee = $ticket->assignedUser;
-            if (! $assignee || ! $assignee->isTechnician() || ! $assignee->is_active || empty($assignee->email)) {
+            $assignees = $ticket->assignedUsers
+                ->filter(fn (User $assignee) => $assignee->isTechnician() && $assignee->is_active && ! empty($assignee->email))
+                ->values();
+
+            if ($assignees->isEmpty()) {
                 continue;
             }
 
             $sentCount = $this->sendAlertToUsers(
-                collect([$assignee]),
+                $assignees,
                 $ticket,
                 '4-Hour SLA Reminder (Assigned): '.$ticket->ticket_number,
                 'This assigned ticket is nearing the 4-hour resolution target.',

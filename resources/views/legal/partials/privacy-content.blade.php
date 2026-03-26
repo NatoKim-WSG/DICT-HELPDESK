@@ -17,7 +17,7 @@
         <h2 class="text-base font-semibold text-slate-900">1. Personal Data We Process</h2>
         <ul class="list-disc space-y-1 pl-5">
             <li>Account data: name, email, phone, department, role, and account status.</li>
-            <li>Ticket data: subject, description, category, priority, status, due dates, ratings, and comments.</li>
+            <li>Ticket data: subject, description, category, priority, status, ratings, and comments.</li>
             <li>Contact/location data submitted in tickets: name, contact number, email, province, municipality/city.</li>
             <li>Support communications: ticket replies, internal handling notes, and related metadata.</li>
             <li>Attachments: files uploaded with tickets and replies.</li>

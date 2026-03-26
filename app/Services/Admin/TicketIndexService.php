@@ -86,7 +86,7 @@ class TicketIndexService
         $query = Ticket::query();
 
         if ($user && $user->isTechnician()) {
-            $query->where('assigned_to', $user->id);
+            Ticket::applyAssignedToConstraint($query, (int) $user->id);
         }
 
         return $query;
@@ -156,15 +156,17 @@ class TicketIndexService
 
             $query->where(function (Builder $builder) use ($relatedUserId) {
                 $builder->where('user_id', $relatedUserId)
-                    ->orWhere('assigned_to', $relatedUserId);
+                    ->orWhere(function (Builder $assignmentQuery) use ($relatedUserId) {
+                        Ticket::applyAssignedToConstraint($assignmentQuery, $relatedUserId);
+                    });
             });
         }
 
         if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
             if ((string) $request->assigned_to === '0') {
-                $query->whereNull('assigned_to');
+                $query->whereDoesntHave('assignedUsers');
             } else {
-                $query->where('assigned_to', $request->integer('assigned_to'));
+                Ticket::applyAssignedToConstraint($query, $request->integer('assigned_to'));
             }
         }
 

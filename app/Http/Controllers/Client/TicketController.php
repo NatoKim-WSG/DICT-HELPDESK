@@ -51,7 +51,7 @@ class TicketController extends Controller
         }
 
         $query = auth()->user()->tickets()
-            ->with(['category', 'assignedUser']);
+            ->with(['category', 'assignedUser', 'assignedUsers']);
 
         if ($activeTab === 'history') {
             $query->whereIn('status', Ticket::CLOSED_STATUSES);
@@ -151,7 +151,7 @@ class TicketController extends Controller
 
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
-        $ticket->load(['category', 'assignedUser', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
+        $ticket->load(['category', 'assignedUser', 'assignedUsers', 'replies.user', 'replies.attachments', 'replies.replyTo', 'attachments']);
 
         return view('client.tickets.show', compact('ticket'));
     }

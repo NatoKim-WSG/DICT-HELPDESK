@@ -303,21 +303,13 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                             <dd class="text-sm text-gray-900">
-                                {{ $ticket->assignedUser ? $ticket->assignedUser->publicDisplayName() : 'Unassigned' }}
+                                {{ $ticket->assigned_users_label }}
                             </dd>
                         </div>
                         @if(in_array($ticket->status, ['resolved', 'closed'], true))
                             <div>
-                                <dt class="text-sm font-medium text-gray-500">Resolved/Reviewed By</dt>
-                                <dd class="text-sm text-gray-900">{{ $ticket->assignedUser ? $ticket->assignedUser->publicDisplayName() : 'Unassigned' }}</dd>
-                            </div>
-                        @endif
-                        @if($ticket->due_date)
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">Due Date</dt>
-                                <dd class="text-sm {{ $ticket->due_date->isPast() ? 'text-red-600' : 'text-gray-900' }}">
-                                    {{ $ticket->due_date->format('M j, Y \a\t g:i A') }}
-                                </dd>
+                                <dt class="text-sm font-medium text-gray-500">{{ $ticket->status === 'closed' ? 'Recognized Technicians' : 'Resolved/Reviewed By' }}</dt>
+                                <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                             </div>
                         @endif
                         @if($ticket->resolved_at)
@@ -330,6 +322,26 @@
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Closed At</dt>
                                 <dd class="text-sm text-gray-900">{{ $ticket->closed_at->format('M j, Y \a\t g:i A') }}</dd>
+                            </div>
+                        @endif
+                        @if($ticket->satisfaction_rating)
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Client Rating</dt>
+                                <dd class="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex items-center">
+                                            @for($i = 1; $i <= 5; $i++)
+                                                <svg class="h-4 w-4 {{ $i <= $ticket->satisfaction_rating ? 'text-yellow-400' : 'text-gray-300' }}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                                </svg>
+                                            @endfor
+                                        </div>
+                                        <span class="text-sm font-medium text-slate-700">{{ $ticket->satisfaction_rating }} / 5</span>
+                                    </div>
+                                    @if($ticket->satisfaction_comment)
+                                        <p class="mt-3 text-sm text-slate-600">{{ $ticket->satisfaction_comment }}</p>
+                                    @endif
+                                </dd>
                             </div>
                         @endif
                     </dl>
@@ -357,17 +369,29 @@
                     <form action="{{ route('admin.tickets.assign', $ticket) }}" method="POST">
                         @csrf
                         <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                        @php($selectedAssignedIds = collect(old('assigned_to', $ticket->assigned_user_ids))->map(fn ($id) => (string) $id)->all())
                         <div>
-                            <label for="assigned_to" class="form-label">Assign To</label>
-                            <select name="assigned_to" id="assigned_to" class="form-input">
-                                <option value="">Select Support User</option>
+                            <span class="form-label">Assign To</span>
+                            <select
+                                name="assigned_to[]"
+                                id="assigned_to"
+                                class="form-input"
+                                multiple
+                                data-enhanced-multiselect="1"
+                                data-placeholder="Select technicians"
+                            >
                                 @foreach($assignees as $assignee)
-                                    <option value="{{ $assignee->id }}"
-                                            {{ $ticket->assigned_to == $assignee->id ? 'selected' : '' }}>
+                                    <option
+                                        value="{{ $assignee->id }}"
+                                        {{ in_array((string) $assignee->id, $selectedAssignedIds, true) ? 'selected' : '' }}
+                                    >
                                         {{ $assignee->publicDisplayName() }}
                                     </option>
                                 @endforeach
                             </select>
+                            @error('assigned_to')
+                                <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                            @enderror
                             <button type="submit" class="mt-2 btn-secondary w-full">Update Assignment</button>
                         </div>
                     </form>
@@ -376,16 +400,14 @@
                     <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
                         @csrf
                         <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                        @php $selectedStatus = old('status', $ticket->status); @endphp
-                        @php $isClosedRevertLocked = $ticket->status === 'closed' && ! $canRevertTicket; @endphp
                         <div>
                             <label for="status" class="form-label">Status</label>
                             <select name="status" id="status" class="form-input">
-                                <option value="open" {{ $selectedStatus === 'open' ? 'selected' : '' }} {{ $isClosedRevertLocked ? 'disabled' : '' }}>Open</option>
-                                <option value="in_progress" {{ $selectedStatus === 'in_progress' ? 'selected' : '' }} {{ $isClosedRevertLocked ? 'disabled' : '' }}>In Progress</option>
-                                <option value="pending" {{ $selectedStatus === 'pending' ? 'selected' : '' }} {{ $isClosedRevertLocked ? 'disabled' : '' }}>Pending</option>
-                                <option value="resolved" {{ $selectedStatus === 'resolved' ? 'selected' : '' }} {{ $isClosedRevertLocked ? 'disabled' : '' }}>Resolved</option>
-                                <option value="closed" {{ $selectedStatus === 'closed' ? 'selected' : '' }} {{ $requiresDelayedClose && !$canCloseNow ? 'disabled' : '' }}>
+                                <option value="open" {{ old('status', $ticket->status) === 'open' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>Open</option>
+                                <option value="in_progress" {{ old('status', $ticket->status) === 'in_progress' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>In Progress</option>
+                                <option value="pending" {{ old('status', $ticket->status) === 'pending' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>Pending</option>
+                                <option value="resolved" {{ old('status', $ticket->status) === 'resolved' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>Resolved</option>
+                                <option value="closed" {{ old('status', $ticket->status) === 'closed' ? 'selected' : '' }} {{ $requiresDelayedClose && !$canCloseNow ? 'disabled' : '' }}>
                                     Closed{{ $requiresDelayedClose && !$canCloseNow ? ' (after 24h)' : '' }}
                                 </option>
                             </select>
@@ -407,7 +429,7 @@
                                     Close is available on {{ $closeAvailableAt ? $closeAvailableAt->format('M j, Y \a\t g:i A') : 'the 24-hour window after resolution' }}.
                                 </p>
                             @endif
-                            @if($isClosedRevertLocked)
+                            @if($ticket->status === 'closed' && ! $canRevertTicket)
                                 <p class="mt-2 text-xs text-rose-700">
                                     Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days.
                                 </p>
@@ -456,19 +478,6 @@
                                 <option value="urgent" {{ $ticket->priority === 'urgent' ? 'selected' : '' }}>Urgent</option>
                             </select>
                             <button type="submit" class="mt-2 btn-secondary w-full">Update Priority</button>
-                        </div>
-                    </form>
-
-                    <!-- Set Due Date -->
-                    <form action="{{ route('admin.tickets.due-date', $ticket) }}" method="POST" data-submit-feedback>
-                        @csrf
-                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                        <div>
-                            <label for="due_date" class="form-label">Due Date</label>
-                            <input type="datetime-local" name="due_date" id="due_date"
-                                   value="{{ $ticket->due_date ? $ticket->due_date->format('Y-m-d\TH:i') : '' }}"
-                                   class="form-input">
-                            <button type="submit" class="mt-2 btn-secondary w-full" data-loading-text="Saving...">Set Due Date</button>
                         </div>
                     </form>
                 </div>

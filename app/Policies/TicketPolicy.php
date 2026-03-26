@@ -14,7 +14,7 @@ class TicketPolicy
         }
 
         if ($user->isTechnician()) {
-            return (int) $ticket->assigned_to === (int) $user->id;
+            return $ticket->hasAssignedUser((int) $user->id);
         }
 
         return $user->canAccessAdminTickets();

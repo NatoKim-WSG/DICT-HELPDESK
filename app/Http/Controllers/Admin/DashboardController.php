@@ -39,7 +39,7 @@ class DashboardController extends Controller
 
         $recentTickets = (clone $scopedTickets)
             ->whereBetween('created_at', [$recentStart, $recentEnd])
-            ->with(['user', 'category', 'assignedUser'])
+            ->with(['user', 'category', 'assignedUser', 'assignedUsers'])
             ->latest()
             ->take(20)
             ->get();
@@ -91,7 +91,7 @@ class DashboardController extends Controller
         $query = Ticket::query();
 
         if ($user->isTechnician()) {
-            $query->where('assigned_to', $user->id);
+            Ticket::applyAssignedToConstraint($query, (int) $user->id);
         }
 
         return $query;

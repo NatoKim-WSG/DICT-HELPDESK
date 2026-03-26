@@ -365,6 +365,18 @@
         @apply bg-[#e8f8f6] text-[#0f766e];
     }
 
+    .app-select--multiple .app-select-toggle {
+        min-height: 2.5rem;
+    }
+
+    .app-select--multiple .app-select-menu {
+        max-height: 13rem;
+    }
+
+    .app-select--multiple .app-select-option {
+        min-height: 2.75rem;
+    }
+
     .search-history-panel {
         @apply pointer-events-none absolute left-0 right-0 top-[calc(100%+0.45rem)] z-40 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-lg;
         transform: translateY(-4px) scale(0.98);
@@ -1304,7 +1316,9 @@
     }
 
     .theme-dark .app-modal-overlay {
-        background-color: rgba(2, 6, 23, 0.72) !important;
+        background-color: rgba(8, 12, 20, 0.44) !important;
+        background-image: radial-gradient(circle at top, rgba(15, 141, 136, 0.1), transparent 58%);
+        backdrop-filter: blur(1.5px) saturate(112%);
     }
 
     .theme-dark .assigned-tech-btn--assigned {

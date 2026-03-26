@@ -70,7 +70,7 @@ class HeaderNotificationService
             ->latest('updated_at');
 
         if ($user->isTechnician()) {
-            $notificationsQuery->where('assigned_to', $user->id);
+            Ticket::applyAssignedToConstraint($notificationsQuery, (int) $user->id);
         }
 
         return $notificationsQuery

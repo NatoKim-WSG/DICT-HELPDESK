@@ -104,6 +104,74 @@ class TicketEmailAlertsTest extends TestCase
         });
     }
 
+    public function test_closed_ticket_assignment_does_not_send_email(): void
+    {
+        Mail::fake();
+
+        $superUser = $this->createUser('Super Closed Assigner', 'super-closed-assigner@example.com', User::ROLE_SUPER_USER);
+        $technical = $this->createUser('Tech Closed Alerts', 'tech-closed-alerts@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Client Closed Assign', 'client-closed-assign@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+        $ticket = $this->createTicket($client, $category, [
+            'status' => 'closed',
+            'closed_at' => now()->subMinutes(10),
+        ]);
+
+        $response = $this->actingAs($superUser)->post(route('admin.tickets.assign', $ticket), [
+            'assigned_to' => $technical->id,
+        ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame($technical->id, (int) $ticket->assigned_to);
+        $this->assertNotNull($ticket->assigned_at);
+        $this->assertNull($ticket->technical_user_notified_assignment_at);
+
+        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical) {
+            return $mail->hasTo($technical->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:');
+        });
+    }
+
+    public function test_multiple_technical_users_receive_assignment_email_when_ticket_is_assigned(): void
+    {
+        Mail::fake();
+
+        $superUser = $this->createUser('Super Multi Assigner', 'super-multi-assigner@example.com', User::ROLE_SUPER_USER);
+        $primaryTechnical = $this->createUser('Primary Tech Alerts', 'primary-tech-alerts@example.com', User::ROLE_TECHNICAL);
+        $secondaryTechnical = $this->createUser('Secondary Tech Alerts', 'secondary-tech-alerts@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Client Multi Assign', 'client-multi-assign@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+        $ticket = $this->createTicket($client, $category);
+
+        $response = $this->actingAs($superUser)->post(route('admin.tickets.assign', $ticket), [
+            'assigned_to' => [$primaryTechnical->id, $secondaryTechnical->id],
+        ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame($primaryTechnical->id, (int) $ticket->assigned_to);
+        $this->assertEqualsCanonicalizing(
+            [$primaryTechnical->id, $secondaryTechnical->id],
+            $ticket->assignedUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->sort()->values()->all()
+        );
+        $this->assertNotNull($ticket->technical_user_notified_assignment_at);
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($primaryTechnical, $ticket) {
+            return $mail->hasTo($primaryTechnical->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
+                && $mail->ticket->is($ticket);
+        });
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($secondaryTechnical, $ticket) {
+            return $mail->hasTo($secondaryTechnical->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
+                && $mail->ticket->is($ticket);
+        });
+    }
+
     public function test_command_sends_50_minute_unchecked_ticket_alert_to_super_users(): void
     {
         Mail::fake();

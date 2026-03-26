@@ -25,8 +25,6 @@ class ReportController extends Controller
 
     private array $categoryBreakdownCache = [];
 
-    private array $slaMetricsCache = [];
-
     private array $majorIssueSummaryCache = [];
 
     public function __construct(
@@ -45,15 +43,6 @@ class ReportController extends Controller
             ?? $this->emptyMonthlyReportRow($selectedMonthKey, $selectedMonthRange);
         $selectedPeriodStart = $selectedMonthRange['start']->copy();
         $selectedPeriodEnd = $selectedMonthRange['end']->copy();
-        $previousPeriodStart = $selectedPeriodStart->copy()->subMonthNoOverflow()->startOfMonth();
-        $previousPeriodEnd = $selectedPeriodStart->copy()->subMonthNoOverflow()->endOfMonth()->endOfDay();
-        $previousMonthKey = $previousPeriodStart->format('Y-m');
-        $previousMonthRow = $monthlyReportRows->firstWhere('month_key', $previousMonthKey)
-            ?? $this->emptyMonthlyReportRow($previousMonthKey, [
-                'label' => $previousPeriodStart->format('M Y'),
-                'start' => $previousPeriodStart,
-                'end' => $previousPeriodEnd,
-            ]);
         $detailFilterApplied = $request->boolean('apply_details_filter');
 
         $detailMonthKey = $this->resolveSelectedMonthKey(
@@ -148,44 +137,16 @@ class ReportController extends Controller
             $selectedPeriodStart,
             $selectedPeriodEnd
         );
-        $previousPeriodStatusSummary = $this->buildReportStatusBreakdownForPeriod(
-            clone $scopedTickets,
-            $previousPeriodStart,
-            $previousPeriodEnd
-        );
 
         $totalTicketsThisPeriod = (int) ($selectedMonthRow['received'] ?? 0);
-        $totalTicketsPreviousPeriod = (int) ($previousMonthRow['received'] ?? 0);
-        $periodPercentChange = $this->percentageChange($totalTicketsThisPeriod, $totalTicketsPreviousPeriod);
         $backlogThisPeriod = $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $selectedPeriodEnd);
-        $backlogPreviousPeriod = $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $previousPeriodEnd);
-        $slaThisPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
-        $slaPreviousPeriod = $this->buildSlaMetricsForPeriod(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd);
         $majorIssueSummary = $this->buildMajorIssueSummary(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
-        $previousMajorIssueSummary = $this->buildMajorIssueSummary(clone $scopedTickets, $previousPeriodStart, $previousPeriodEnd);
-        $keyInsights = $this->buildImprovementAndRiskSummary([
-            'period_label' => $selectedMonthRange['label'],
-            'current_total' => $totalTicketsThisPeriod,
-            'previous_total' => $totalTicketsPreviousPeriod,
-            'current_completion_rate' => (float) ($selectedMonthRow['resolution_rate'] ?? 0),
-            'previous_completion_rate' => (float) ($previousMonthRow['resolution_rate'] ?? 0),
-            'current_sla_rate' => (float) ($slaThisPeriod['rate'] ?? 0),
-            'previous_sla_rate' => (float) ($slaPreviousPeriod['rate'] ?? 0),
-            'current_backlog' => $backlogThisPeriod,
-            'previous_backlog' => $backlogPreviousPeriod,
-            'current_pending' => (int) ($periodStatusSummary['pending'] ?? 0),
-            'previous_pending' => (int) ($previousPeriodStatusSummary['pending'] ?? 0),
-            'current_urgent' => (int) ($majorIssueSummary['urgent_total'] ?? 0),
-            'previous_urgent' => (int) ($previousMajorIssueSummary['urgent_total'] ?? 0),
-        ]);
 
         $periodOverview = [
             'label' => (string) $selectedMonthRange['label'],
             'start' => $selectedPeriodStart->toDateString(),
             'end' => $selectedPeriodEnd->toDateString(),
             'total_tickets' => $totalTicketsThisPeriod,
-            'percent_change_vs_previous' => $periodPercentChange,
-            'sla_compliance_rate' => (float) ($slaThisPeriod['rate'] ?? 0),
             'major_issues_count' => (int) ($majorIssueSummary['major_count'] ?? 0),
             'total_created' => $totalTicketsThisPeriod,
             'open' => (int) ($periodStatusSummary['open'] ?? 0),
@@ -278,16 +239,6 @@ class ReportController extends Controller
             $detailScopeStart,
             $detailScopeEnd
         );
-        $detailSlaMetrics = $this->buildSlaMetricsForPeriod(
-            clone $scopedTickets,
-            $detailScopeStart,
-            $detailScopeEnd
-        );
-        $detailMajorIssueSummary = $this->buildMajorIssueSummary(
-            clone $scopedTickets,
-            $detailScopeStart,
-            $detailScopeEnd
-        );
         $detailTotalCreated = (clone $scopedTickets)
             ->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd])
             ->count();
@@ -303,7 +254,6 @@ class ReportController extends Controller
             'resolved' => (int) ($detailStatusSummary['resolved'] ?? 0),
             'closed' => (int) ($detailStatusSummary['closed'] ?? 0),
             'backlog_end' => $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $detailScopeEnd),
-            'sla_compliance_rate' => (float) ($detailSlaMetrics['rate'] ?? 0),
         ];
 
         $monthlyPerformanceGraphPoints = $monthlyGraphPoints;
@@ -403,11 +353,11 @@ class ReportController extends Controller
         }
 
         $topTechnicianRows = (clone $topTechnicianScopedTickets)
-            ->whereNotNull('assigned_to')
-            ->join('users', 'tickets.assigned_to', '=', 'users.id')
+            ->join('ticket_assignments', 'tickets.id', '=', 'ticket_assignments.ticket_id')
+            ->join('users', 'ticket_assignments.user_id', '=', 'users.id')
             ->where('users.role', '!=', User::ROLE_SHADOW)
-            ->selectRaw("tickets.assigned_to, users.name as technician_name, COUNT(*) as total_tickets, SUM(CASE WHEN tickets.status IN ('resolved','closed') THEN 1 ELSE 0 END) as resolved_tickets")
-            ->groupBy('tickets.assigned_to', 'users.name')
+            ->selectRaw("ticket_assignments.user_id as technician_id, users.name as technician_name, COUNT(*) as total_tickets, SUM(CASE WHEN tickets.status IN ('resolved','closed') THEN 1 ELSE 0 END) as resolved_tickets")
+            ->groupBy('ticket_assignments.user_id', 'users.name')
             ->orderByDesc('total_tickets')
             ->take(5)
             ->toBase()
@@ -444,7 +394,6 @@ class ReportController extends Controller
             'selectedMonthCategories',
             'periodOverview',
             'majorIssueSummary',
-            'keyInsights',
             'categoryBreakdownBuckets',
             'priorityBreakdownBuckets',
             'volumeSeries',
@@ -458,8 +407,6 @@ class ReportController extends Controller
             'detailDateValue',
             'detailDateOptions',
             'detailOverview',
-            'detailMajorIssueSummary',
-            'previousMonthRow',
             'ticketHistoryScope',
             'detailClearParams'
         ));
@@ -513,7 +460,7 @@ class ReportController extends Controller
         $query = Ticket::query();
 
         if ($user->isTechnician()) {
-            $query->where('assigned_to', $user->id);
+            Ticket::applyAssignedToConstraint($query, (int) $user->id);
         }
 
         return $query;
@@ -784,49 +731,6 @@ class ReportController extends Controller
         ];
     }
 
-    private function percentageChange(int $current, int $previous): float
-    {
-        if ($previous <= 0) {
-            return $current > 0 ? 100.0 : 0.0;
-        }
-
-        return round((($current - $previous) / $previous) * 100, 1);
-    }
-
-    private function buildSlaMetricsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
-    {
-        $cacheKey = $this->queryScopeSignature($scopedTickets)
-            .'|'.$start->toIso8601String()
-            .'|'.$end->toIso8601String();
-        if (array_key_exists($cacheKey, $this->slaMetricsCache)) {
-            return $this->slaMetricsCache[$cacheKey];
-        }
-
-        $openStatusesSqlList = "'".implode("','", Ticket::OPEN_STATUSES)."'";
-        $summary = (clone $scopedTickets)
-            ->toBase()
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('resolved_at', [$start, $end])
-                    ->orWhereBetween('closed_at', [$start, $end]);
-            })
-            ->selectRaw('SUM(CASE WHEN due_date IS NOT NULL THEN 1 ELSE 0 END) as eligible')
-            ->selectRaw('SUM(CASE WHEN due_date IS NOT NULL AND COALESCE(resolved_at, closed_at) <= due_date THEN 1 ELSE 0 END) as met')
-            ->first();
-        $summaryRow = is_object($summary) ? (array) $summary : [];
-        $eligible = (int) ($summaryRow['eligible'] ?? 0);
-        $met = (int) ($summaryRow['met'] ?? 0);
-
-        $metrics = [
-            'eligible' => $eligible,
-            'met' => $met,
-            'rate' => $eligible > 0 ? round(($met / $eligible) * 100, 1) : 0.0,
-        ];
-
-        $this->slaMetricsCache[$cacheKey] = $metrics;
-
-        return $metrics;
-    }
-
     private function buildMajorIssueSummary(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
         $cacheKey = $this->queryScopeSignature($scopedTickets)
@@ -878,60 +782,6 @@ class ReportController extends Controller
         $this->majorIssueSummaryCache[$cacheKey] = $summary;
 
         return $summary;
-    }
-
-    private function buildImprovementAndRiskSummary(array $metrics): array
-    {
-        $improvements = [];
-        $risks = [];
-
-        $completionDelta = round(($metrics['current_completion_rate'] ?? 0) - ($metrics['previous_completion_rate'] ?? 0), 1);
-        $slaDelta = round(($metrics['current_sla_rate'] ?? 0) - ($metrics['previous_sla_rate'] ?? 0), 1);
-        $backlogDelta = (int) ($metrics['current_backlog'] ?? 0) - (int) ($metrics['previous_backlog'] ?? 0);
-        $pendingDelta = (int) ($metrics['current_pending'] ?? 0) - (int) ($metrics['previous_pending'] ?? 0);
-        $urgentDelta = (int) ($metrics['current_urgent'] ?? 0) - (int) ($metrics['previous_urgent'] ?? 0);
-        $ticketDelta = (int) ($metrics['current_total'] ?? 0) - (int) ($metrics['previous_total'] ?? 0);
-
-        if ($completionDelta > 0) {
-            $improvements[] = 'Completion rate improved by '.number_format($completionDelta, 1).' percentage points.';
-        }
-        if ($slaDelta > 0) {
-            $improvements[] = 'SLA compliance improved by '.number_format($slaDelta, 1).' percentage points.';
-        }
-        if ($backlogDelta < 0) {
-            $improvements[] = 'Backlog reduced by '.abs($backlogDelta).' tickets.';
-        }
-        if ($ticketDelta > 0 && $backlogDelta <= 0) {
-            $improvements[] = 'Handled higher ticket volume without increasing backlog.';
-        }
-
-        if ($completionDelta < 0) {
-            $risks[] = 'Completion rate dropped by '.number_format(abs($completionDelta), 1).' percentage points.';
-        }
-        if ($slaDelta < 0) {
-            $risks[] = 'SLA compliance dropped by '.number_format(abs($slaDelta), 1).' percentage points.';
-        }
-        if ($backlogDelta > 0) {
-            $risks[] = 'Backlog increased by '.$backlogDelta.' tickets.';
-        }
-        if ($pendingDelta > 0) {
-            $risks[] = 'Pending queue grew by '.$pendingDelta.' tickets.';
-        }
-        if ($urgentDelta > 0) {
-            $risks[] = 'Urgent/high priority incidents increased by '.$urgentDelta.'.';
-        }
-
-        if ($improvements === []) {
-            $improvements[] = 'No major positive trend detected for this period.';
-        }
-        if ($risks === []) {
-            $risks[] = 'No major operational risk spike detected for this period.';
-        }
-
-        return [
-            'improvements' => $improvements,
-            'risks' => $risks,
-        ];
     }
 
     private function buildCategoryBucketsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
