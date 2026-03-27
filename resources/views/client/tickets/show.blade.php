@@ -392,8 +392,8 @@
                                         @enderror
                                     </div>
                                     <div>
-                                        <label class="form-label">Comment<span class="ml-1 text-rose-500">*</span></label>
-                                        <textarea name="comment" rows="3" class="form-input" placeholder="Tell us about your experience..." required>{{ old('comment') }}</textarea>
+                                        <label class="form-label">Comment / Suggestion / Complaint<span class="ml-1 text-rose-500">*</span></label>
+                                        <textarea name="comment" rows="3" class="form-input" placeholder="Share your comment, suggestion, or complaint..." required>{{ old('comment') }}</textarea>
                                         @error('comment')
                                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                                         @enderror
@@ -413,6 +413,7 @@
                                 @endfor
                             </div>
                             @if($ticket->satisfaction_comment)
+                                <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Comment / Suggestion / Complaint</p>
                                 <p class="text-sm text-slate-600">{{ $ticket->satisfaction_comment }}</p>
                             @endif
                         </div>
@@ -462,8 +463,8 @@
                         @enderror
                     </div>
                     <div>
-                        <label for="resolve_comment" class="form-label">Comment<span class="ml-1 text-rose-500">*</span></label>
-                        <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Tell us about your experience..." required aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
+                        <label for="resolve_comment" class="form-label">Comment / Suggestion / Complaint<span class="ml-1 text-rose-500">*</span></label>
+                        <textarea id="resolve_comment" name="comment" rows="4" class="form-input" placeholder="Share your comment, suggestion, or complaint..." required aria-invalid="{{ $errors->has('comment') ? 'true' : 'false' }}">{{ old('comment') }}</textarea>
                         @error('comment')
                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                         @enderror

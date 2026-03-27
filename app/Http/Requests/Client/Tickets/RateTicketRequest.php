@@ -22,7 +22,7 @@ class RateTicketRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'comment.required' => 'Please add a short comment about your support experience.',
+            'comment.required' => 'Please add a comment, suggestion, or complaint.',
         ];
     }
 }

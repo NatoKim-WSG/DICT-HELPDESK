@@ -339,7 +339,8 @@
                                         <span class="text-sm font-medium text-slate-700">{{ $ticket->satisfaction_rating }} / 5</span>
                                     </div>
                                     @if($ticket->satisfaction_comment)
-                                        <p class="mt-3 text-sm text-slate-600">{{ $ticket->satisfaction_comment }}</p>
+                                        <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Comment / Suggestion / Complaint</p>
+                                        <p class="mt-1 text-sm text-slate-600">{{ $ticket->satisfaction_comment }}</p>
                                     @endif
                                 </dd>
                             </div>
