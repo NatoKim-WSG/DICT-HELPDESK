@@ -64,6 +64,13 @@ class DashboardController extends Controller
             ->groupBy('priority')
             ->get()
             ->pluck('count', 'priority');
+        $ticketsByPriority = collect([
+            '__pending__' => (int) ($ticketsByPriority[''] ?? $ticketsByPriority[null] ?? 0),
+            'urgent' => (int) ($ticketsByPriority['urgent'] ?? 0),
+            'high' => (int) ($ticketsByPriority['high'] ?? 0),
+            'medium' => (int) ($ticketsByPriority['medium'] ?? 0),
+            'low' => (int) ($ticketsByPriority['low'] ?? 0),
+        ]);
 
         $ticketsTrend = (clone $scopedTickets)->selectRaw('DATE(created_at) as date, COUNT(*) as count')
             ->where('created_at', '>=', Carbon::now()->subDays(30))

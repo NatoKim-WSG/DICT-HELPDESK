@@ -371,7 +371,9 @@ class TicketController extends Controller
 
         $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
-        $nextPriority = $request->string('priority')->toString();
+        $nextPriority = $request->filled('priority')
+            ? $request->string('priority')->toString()
+            : null;
         $previousAssignedIds = $ticket->assigned_user_ids;
         $requestedAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
         $newAssignedIds = $this->determineReviewerAssigneeIds($nextStatus, $requestedAssignedIds);
@@ -381,12 +383,12 @@ class TicketController extends Controller
             'status' => $nextStatus,
             'priority' => $nextPriority,
         ];
-        $previousPriority = (string) $ticket->priority;
+        $previousPriority = $ticket->priority;
 
         if (
             $previousAssignedIds === $newAssignedIds
             && $previousStatus === $nextStatus
-            && strtolower($previousPriority) === strtolower($nextPriority)
+            && $previousPriority === $nextPriority
         ) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }

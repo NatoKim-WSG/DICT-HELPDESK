@@ -125,7 +125,15 @@ class TicketIndexService
                 $builder->where('status', $selectedStatus);
             })
             ->when($request->filled('priority') && $request->priority !== 'all', function (Builder $builder) use ($request) {
-                $builder->where('priority', $request->string('priority')->toString());
+                $priority = $request->string('priority')->toString();
+
+                if ($priority === 'unassigned') {
+                    $builder->whereNull('priority');
+
+                    return;
+                }
+
+                $builder->where('priority', $priority);
             })
             ->when($request->filled('category') && $request->category !== 'all', function (Builder $builder) use ($request) {
                 $builder->where('category_id', $request->integer('category'));

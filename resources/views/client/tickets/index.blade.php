@@ -82,6 +82,7 @@
                     <label for="priority" class="sr-only">Priority</label>
                     <select id="priority" name="priority" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                         <option value="">All priorities</option>
+                        <option value="unassigned" {{ request('priority') === 'unassigned' ? 'selected' : '' }}>Pending review</option>
                         <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
                         <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
                         <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>

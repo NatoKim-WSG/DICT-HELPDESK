@@ -96,7 +96,7 @@
                                         </div>
                                         <div class="flex items-center gap-2 self-start sm:self-auto">
                                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $ticket->priority_color }}">
-                                                {{ ucfirst($ticket->priority) }}
+                                                {{ $ticket->priority_label }}
                                             </span>
                                             <span class="text-xs text-slate-500">{{ $ticket->created_at->diffForHumans() }}</span>
                                         </div>
@@ -143,10 +143,22 @@
                     <p class="mt-1 text-xs text-slate-500">Current month</p>
                 </div>
                 <div class="space-y-3 px-5 py-4">
-                    @foreach(['urgent', 'high', 'medium', 'low'] as $priority)
-                        <a href="{{ route('admin.tickets.index', ['tab' => 'tickets', 'priority' => $priority]) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
-                            <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ ucfirst($priority) }}</span>
-                            <span class="text-sm font-semibold text-slate-900">{{ $ticketsByPriority->get($priority, 0) }}</span>
+                    @foreach([
+                        ['value' => null, 'label' => 'Pending review'],
+                        ['value' => 'urgent', 'label' => 'Urgent'],
+                        ['value' => 'high', 'label' => 'High'],
+                        ['value' => 'medium', 'label' => 'Medium'],
+                        ['value' => 'low', 'label' => 'Low'],
+                    ] as $priority)
+                        @php
+                            $priorityLinkParams = ['tab' => 'tickets'];
+                            if ($priority['value'] !== null) {
+                                $priorityLinkParams['priority'] = $priority['value'];
+                            }
+                        @endphp
+                        <a href="{{ route('admin.tickets.index', $priorityLinkParams) }}" class="dashboard-summary-link group flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 transition hover:bg-slate-100">
+                            <span class="text-sm text-slate-600 transition group-hover:text-slate-700">{{ $priority['label'] }}</span>
+                            <span class="text-sm font-semibold text-slate-900">{{ $ticketsByPriority->get($priority['value'] ?? '__pending__', 0) }}</span>
                         </a>
                     @endforeach
                 </div>

@@ -54,12 +54,12 @@
                                 {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                             </span>
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->priority_color }}">
-                                @if(strtolower($ticket->priority) === 'urgent')
+                                @if(strtolower((string) $ticket->priority) === 'urgent')
                                     <svg class="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2.25m0 3.75h.01M10.34 3.94 1.82 18a2.25 2.25 0 001.92 3.38h16.52a2.25 2.25 0 001.92-3.38L13.66 3.94a2.25 2.25 0 00-3.32 0z"></path>
                                     </svg>
                                 @endif
-                                {{ ucfirst($ticket->priority) }}
+                                {{ $ticket->priority_label }}
                             </span>
                         </div>
                     </div>
@@ -473,6 +473,9 @@
                         <div>
                             <label for="priority" class="form-label">Priority</label>
                             <select name="priority" id="priority" class="form-input">
+                                @if($ticket->priority === null)
+                                    <option value="" selected disabled>Pending review</option>
+                                @endif
                                 <option value="low" {{ $ticket->priority === 'low' ? 'selected' : '' }}>Low</option>
                                 <option value="medium" {{ $ticket->priority === 'medium' ? 'selected' : '' }}>Medium</option>
                                 <option value="high" {{ $ticket->priority === 'high' ? 'selected' : '' }}>High</option>

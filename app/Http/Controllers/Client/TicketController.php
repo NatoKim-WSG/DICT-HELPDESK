@@ -70,7 +70,15 @@ class TicketController extends Controller
                 $builder->where('status', $selectedStatus);
             })
             ->when($request->filled('priority') && $request->priority !== 'all', function ($builder) use ($request) {
-                $builder->where('priority', $request->string('priority')->toString());
+                $priority = $request->string('priority')->toString();
+
+                if ($priority === 'unassigned') {
+                    $builder->whereNull('priority');
+
+                    return;
+                }
+
+                $builder->where('priority', $priority);
             })
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = mb_strtolower($request->string('search')->toString());
@@ -112,7 +120,7 @@ class TicketController extends Controller
             'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
             'description' => $request->description,
             'category_id' => $request->category_id,
-            'priority' => 'medium',
+            'priority' => null,
             'user_id' => auth()->id(),
             'consent_accepted_at' => now(),
             'consent_version' => (string) config('legal.ticket_consent_version'),

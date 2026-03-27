@@ -286,12 +286,18 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach(['urgent', 'high', 'medium', 'low'] as $priority)
+                            @foreach([
+                                ['key' => 'pending_review', 'label' => 'Pending review'],
+                                ['key' => 'urgent', 'label' => 'Urgent'],
+                                ['key' => 'high', 'label' => 'High'],
+                                ['key' => 'medium', 'label' => 'Medium'],
+                                ['key' => 'low', 'label' => 'Low'],
+                            ] as $priority)
                                 @php
-                                    $priorityCount = (int) ($priorityBreakdown[$priority] ?? 0);
+                                    $priorityCount = (int) ($priorityBreakdown[$priority['key']] ?? 0);
                                 @endphp
                                 <tr>
-                                    <td>{{ ucfirst($priority) }}</td>
+                                    <td>{{ $priority['label'] }}</td>
                                     <td class="num">{{ $priorityCount }}</td>
                                 </tr>
                             @endforeach

@@ -88,6 +88,7 @@
     $categoryPieTotal = max(0, (int) collect($categoryPieSlices)->sum('count'));
 
     $priorityPalette = [
+        'pending review' => '#64748b',
         'critical' => '#ef4444',
         'high' => '#f59e0b',
         'medium' => '#0ea5e9',
@@ -345,6 +346,7 @@
                             @foreach($priorityPieSlices as $slice)
                                 @php
                                     $priorityFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
+                                        'pending review' => 'unassigned',
                                         'critical' => 'urgent',
                                         'high' => 'high',
                                         'medium' => 'medium',

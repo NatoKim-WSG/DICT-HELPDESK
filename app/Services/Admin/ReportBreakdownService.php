@@ -52,6 +52,7 @@ class ReportBreakdownService
             ->pluck('count', 'priority');
 
         return [
+            ['name' => 'Pending Review', 'count' => (int) ($counts[''] ?? $counts[null] ?? 0)],
             ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
             ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
             ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],

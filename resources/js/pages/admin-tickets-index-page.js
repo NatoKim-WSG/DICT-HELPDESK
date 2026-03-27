@@ -355,7 +355,7 @@ const initAdminTicketsIndexPage = () => {
         setMultiSelectValues(editAssignedSelect, parseAssignedIds(button.dataset.assignedTo || '[]'));
         if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
         if (editCloseReasonInput) editCloseReasonInput.value = '';
-        if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || 'medium';
+        if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || '';
 
         if (editStatusSelect) {
             const closeAllowed = button.dataset.canCloseNow === '1';

@@ -44,12 +44,12 @@
                             {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                         </span>
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->priority_color }}">
-                            @if(strtolower($ticket->priority) === 'urgent')
+                            @if(strtolower((string) $ticket->priority) === 'urgent')
                                 <svg class="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2.25m0 3.75h.01M10.34 3.94 1.82 18a2.25 2.25 0 001.92 3.38h16.52a2.25 2.25 0 001.92-3.38L13.66 3.94a2.25 2.25 0 00-3.32 0z"></path>
                                 </svg>
                             @endif
-                            {{ ucfirst($ticket->priority) }}
+                            {{ $ticket->priority_label }}
                         </span>
                     </div>
                 </div>
@@ -319,12 +319,12 @@
                             <dt class="text-sm font-medium text-gray-500">Priority</dt>
                             <dd class="text-sm text-gray-900">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $ticket->priority_color }}">
-                                    @if(strtolower($ticket->priority) === 'urgent')
+                                    @if(strtolower((string) $ticket->priority) === 'urgent')
                                         <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2.25m0 3.75h.01M10.34 3.94 1.82 18a2.25 2.25 0 001.92 3.38h16.52a2.25 2.25 0 001.92-3.38L13.66 3.94a2.25 2.25 0 00-3.32 0z"></path>
                                         </svg>
                                     @endif
-                                    {{ ucfirst($ticket->priority) }}
+                                    {{ $ticket->priority_label }}
                                 </span>
                             </dd>
                         </div>

@@ -637,6 +637,9 @@ class ReportController extends Controller
         $breakdown = collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
             $priority => (int) ($priorityCounts[$priority] ?? 0),
         ])->all();
+        $breakdown = array_merge([
+            'pending_review' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0),
+        ], $breakdown);
 
         $this->priorityBreakdownCache[$cacheKey] = $breakdown;
 
@@ -671,6 +674,7 @@ class ReportController extends Controller
             ->pluck('count', 'priority');
 
         return [
+            ['name' => 'Pending Review', 'count' => (int) ($counts[''] ?? $counts[null] ?? 0)],
             ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
             ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
             ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],

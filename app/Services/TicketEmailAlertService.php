@@ -27,7 +27,7 @@ class TicketEmailAlertService
             [
                 'Ticket Number' => $ticket->ticket_number,
                 'Subject' => $ticket->subject,
-                'Priority' => ucfirst((string) $ticket->priority),
+                'Priority' => $ticket->priority_label,
                 'Requester' => (string) $ticket->name,
             ]
         );
@@ -66,7 +66,7 @@ class TicketEmailAlertService
             [
                 'Ticket Number' => $ticket->ticket_number,
                 'Subject' => $ticket->subject,
-                'Priority' => ucfirst((string) $ticket->priority),
+                'Priority' => $ticket->priority_label,
                 'Assigned By' => optional(auth()->user())->name ?? 'System',
             ]
         );
@@ -125,7 +125,7 @@ class TicketEmailAlertService
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
-                    'Priority' => ucfirst((string) $ticket->priority),
+                    'Priority' => $ticket->priority_label,
                     'Received At' => optional($ticket->created_at)->format('Y-m-d H:i:s'),
                 ]
             );
@@ -187,7 +187,7 @@ class TicketEmailAlertService
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
-                    'Priority' => ucfirst((string) $ticket->priority),
+                    'Priority' => $ticket->priority_label,
                     'Last Super User View' => date('Y-m-d H:i:s', $latestSuperViewTimestamp),
                 ]
             );
@@ -236,7 +236,7 @@ class TicketEmailAlertService
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
-                    'Priority' => ucfirst((string) $ticket->priority),
+                    'Priority' => $ticket->priority_label,
                     'Assigned At' => optional($ticket->assigned_at)->format('Y-m-d H:i:s'),
                 ]
             );

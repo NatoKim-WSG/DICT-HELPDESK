@@ -24,7 +24,7 @@ class QuickUpdateTicketRequest extends FormRequest
             'assigned_to' => ['nullable', 'array'],
             'assigned_to.*' => [$this->assignableAgentRule()],
             'status' => ['required', Rule::in(Ticket::STATUSES)],
-            'priority' => ['required', Rule::in(Ticket::PRIORITIES)],
+            'priority' => ['nullable', Rule::in(Ticket::PRIORITIES)],
             'close_reason' => [
                 Rule::requiredIf(fn () => $this->string('status')->toString() === 'closed'),
                 'nullable',

@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  * @property int|null $category_id
  * @property string $ticket_number
  * @property string $subject
- * @property string $priority
+ * @property string|null $priority
  * @property string $status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -321,7 +321,11 @@ class Ticket extends Model
 
     public function getPriorityLabelAttribute(): string
     {
-        return ucfirst((string) $this->priority);
+        $priority = strtolower(trim((string) $this->priority));
+
+        return $priority !== ''
+            ? ucfirst($priority)
+            : 'Pending review';
     }
 
     public function getStatusColorAttribute()
