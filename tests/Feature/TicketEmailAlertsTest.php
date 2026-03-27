@@ -49,7 +49,6 @@ class TicketEmailAlertsTest extends TestCase
             'subject' => 'Email alert on new ticket',
             'description' => 'Need confirmation that super users are alerted.',
             'category_id' => $category->id,
-            'priority' => 'high',
             'ticket_consent' => '1',
             'attachments' => [UploadedFile::fake()->create('proof.txt', 8, 'text/plain')],
         ]);

@@ -112,7 +112,7 @@ class TicketController extends Controller
             'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
             'description' => $request->description,
             'category_id' => $request->category_id,
-            'priority' => $request->priority,
+            'priority' => 'medium',
             'user_id' => auth()->id(),
             'consent_accepted_at' => now(),
             'consent_version' => (string) config('legal.ticket_consent_version'),

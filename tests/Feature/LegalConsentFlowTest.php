@@ -107,7 +107,6 @@ class LegalConsentFlowTest extends TestCase
             'subject' => 'Consent required test',
             'description' => 'Testing required ticket consent.',
             'category_id' => $category->id,
-            'priority' => 'high',
             'attachments' => [UploadedFile::fake()->create('proof.txt', 8, 'text/plain')],
         ]);
 
@@ -138,7 +137,6 @@ class LegalConsentFlowTest extends TestCase
             'subject' => 'Consent capture test',
             'description' => 'Testing consent metadata capture.',
             'category_id' => $category->id,
-            'priority' => 'high',
             'ticket_consent' => '1',
             'attachments' => [UploadedFile::fake()->create('proof.txt', 8, 'text/plain')],
         ]);

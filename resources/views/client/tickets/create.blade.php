@@ -119,7 +119,7 @@
                         @enderror
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 xl:col-span-2">
+                    <div class="xl:col-span-2">
                         <div>
                             <label for="category_id" class="form-label">Category <span class="text-red-600">*</span></label>
                             <select name="category_id" id="category_id" required
@@ -136,20 +136,12 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
+                    </div>
 
-                        <div>
-                            <label for="priority" class="form-label">Priority <span class="text-red-600">*</span></label>
-                            <select name="priority" id="priority" required
-                                    class="form-input @error('priority') border-red-500 @enderror">
-                                <option value="low" {{ old('priority') == 'low' ? 'selected' : '' }}>Low</option>
-                                <option value="medium" {{ old('priority', 'medium') == 'medium' ? 'selected' : '' }}>Medium</option>
-                                <option value="high" {{ old('priority') == 'high' ? 'selected' : '' }}>High</option>
-                                <option value="urgent" {{ old('priority') == 'urgent' ? 'selected' : '' }}>Urgent</option>
-                            </select>
-                            @error('priority')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                    <div class="xl:col-span-2">
+                        <p class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                            Priority is assigned by the support staff after the ticket is reviewed.
+                        </p>
                     </div>
 
                     <div class="xl:col-span-2">

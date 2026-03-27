@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Client\Tickets;
 
-use App\Models\Ticket;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreTicketRequest extends FormRequest
 {
@@ -24,7 +22,6 @@ class StoreTicketRequest extends FormRequest
             'subject' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string'],
             'category_id' => ['required', 'exists:categories,id'],
-            'priority' => ['required', Rule::in(Ticket::PRIORITIES)],
             'ticket_consent' => ['accepted'],
             'attachments' => ['required', 'array', 'min:1'],
             'attachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx'],

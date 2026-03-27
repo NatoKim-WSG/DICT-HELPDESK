@@ -57,6 +57,7 @@ class ClientTicketNormalizationTest extends TestCase
         $this->assertSame('Metro manila', $ticket->province);
         $this->assertSame('Pasig city', $ticket->municipality);
         $this->assertSame('Network outage in office', $ticket->subject);
+        $this->assertSame('medium', $ticket->priority);
     }
 
     public function test_client_ticket_search_is_case_insensitive(): void
