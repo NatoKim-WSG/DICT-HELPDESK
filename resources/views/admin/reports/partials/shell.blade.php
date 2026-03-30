@@ -190,7 +190,7 @@
             </x-ui.stat-card>
         </div>
 
-        <details class="border-t border-slate-200 px-5 py-5 sm:px-6">
+        <details class="border-t border-slate-200 px-5 py-5 sm:px-6" data-reports-sla-details>
             <summary class="flex cursor-pointer list-none flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 marker:hidden transition hover:border-slate-300 hover:bg-slate-100 lg:flex-row lg:items-center lg:justify-between">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-semibold text-slate-900">SLA Overview</h2>

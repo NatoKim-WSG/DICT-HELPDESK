@@ -3,6 +3,9 @@ import { bootPage } from './shared/boot-page';
 let activeRequestId = 0;
 let activeRequestController = null;
 let reportsPopstateBound = false;
+let reportsUiState = {
+    slaOverviewOpen: false,
+};
 
 const relativePathForUrl = (url) => `${url.pathname}${url.search}`;
 
@@ -38,6 +41,11 @@ const initAdminReportsPage = () => {
     if (!shell || !pageRoot) return;
 
     const routeBase = pageRoot.dataset.routeBase || window.location.pathname;
+    const slaDetails = shell.querySelector('[data-reports-sla-details]');
+
+    if (slaDetails && reportsUiState.slaOverviewOpen) {
+        slaDetails.open = true;
+    }
 
     const bindVolumeModal = () => {
         if (!window.ModalKit) return;
@@ -141,6 +149,9 @@ const initAdminReportsPage = () => {
             throw new Error('Reports partial payload was incomplete.');
         }
 
+        const currentSlaDetails = shell.querySelector('[data-reports-sla-details]');
+        reportsUiState.slaOverviewOpen = Boolean(currentSlaDetails?.open);
+
         const existingModal = document.getElementById('volume-chart-modal');
         if (existingModal) {
             existingModal.remove();
@@ -228,6 +239,13 @@ const initAdminReportsPage = () => {
     bindVolumeModal();
     bindFilterForms();
     bindClearLink();
+
+    if (slaDetails) {
+        reportsUiState.slaOverviewOpen = slaDetails.open;
+        slaDetails.addEventListener('toggle', () => {
+            reportsUiState.slaOverviewOpen = slaDetails.open;
+        });
+    }
 
     if (!reportsPopstateBound) {
         window.addEventListener('popstate', () => {
