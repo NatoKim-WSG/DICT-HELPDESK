@@ -29,9 +29,9 @@ class SeederPasswordPolicyTest extends TestCase
         ]);
 
         $staffEmails = [
-            'admin@ioneresources.net',
-            'cjose@ioneresources.net',
-            'xtianjose02@gmail.com',
+            'admin@example.com',
+            'super.user@example.com',
+            'technical@example.com',
         ];
 
         foreach ($staffEmails as $staffEmail) {
@@ -42,8 +42,8 @@ class SeederPasswordPolicyTest extends TestCase
         }
 
         $clientEmails = [
-            'AFPR2@gmail.com',
-            'AFPR1@gmail.com',
+            'client.one@example.com',
+            'client.two@example.com',
         ];
 
         foreach ($clientEmails as $clientEmail) {
@@ -54,7 +54,7 @@ class SeederPasswordPolicyTest extends TestCase
         }
 
         /** @var User $shadow */
-        $shadow = User::query()->where('email', 'shadow@ione.com')->firstOrFail();
+        $shadow = User::query()->where('email', 'shadow@example.com')->firstOrFail();
         $this->assertTrue(Hash::check('shadow-fixed-password', $shadow->password));
         $this->assertFalse($shadow->mustChangePassword());
     }
@@ -91,8 +91,8 @@ class SeederPasswordPolicyTest extends TestCase
         }
 
         $clientEmails = [
-            'AFPR2@gmail.com',
-            'AFPR1@gmail.com',
+            'client.one@example.com',
+            'client.two@example.com',
         ];
 
         foreach ($clientEmails as $clientEmail) {

@@ -63,7 +63,6 @@
 
         <div class="border-b border-slate-200 px-5 py-4">
             <h2 class="font-display text-lg font-semibold text-slate-900">Profile Information</h2>
-            <p class="mt-1 text-sm text-slate-500">Keep your account details up to date.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">

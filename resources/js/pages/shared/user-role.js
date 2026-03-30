@@ -2,16 +2,18 @@
 
 export const isInternalRole = (role) => INTERNAL_ROLES.has(String(role || '').trim());
 
-export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentHidden, hint }) => {
+export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment }) => {
     if (!roleSelect || !departmentSelect || !departmentHidden) return;
 
+    const internalDepartment = String(supportDepartment || '').trim() || 'iOne';
+
     if (isInternalRole(roleSelect.value)) {
-        departmentSelect.value = 'iOne';
+        departmentSelect.value = internalDepartment;
         departmentSelect.disabled = true;
-        departmentHidden.value = 'iOne';
+        departmentHidden.value = internalDepartment;
         departmentHidden.disabled = false;
         if (hint) {
-            hint.textContent = 'Internal users are automatically assigned to iOne.';
+            hint.textContent = `Internal users are automatically assigned to ${internalDepartment}.`;
         }
 
         return;

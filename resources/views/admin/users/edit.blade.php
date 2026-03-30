@@ -3,7 +3,7 @@
 @section('title', 'Edit User - ' . config('app.name'))
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-edit-page>
+<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-users-edit-page data-support-department="{{ \App\Models\User::supportDepartment() }}">
     <div class="mb-8">
         <div class="flex items-center">
             <a href="{{ $returnTo ?? route('admin.users.index', absolute: false) }}" class="text-gray-500 hover:text-gray-700 mr-4">

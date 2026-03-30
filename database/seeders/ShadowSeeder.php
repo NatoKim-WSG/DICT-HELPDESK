@@ -13,9 +13,9 @@ class ShadowSeeder extends Seeder
     {
         $shadowPassword = DefaultPasswordResolver::shadow();
 
-        User::updateOrCreate(['email' => 'shadow@ione.com'], [
+        User::updateOrCreate(['email' => 'shadow@example.com'], [
             'name' => 'Shadow',
-            'email' => 'shadow@ione.com',
+            'email' => 'shadow@example.com',
             'phone' => '+1234567899',
             'department' => 'Administration',
             'role' => User::ROLE_SHADOW,

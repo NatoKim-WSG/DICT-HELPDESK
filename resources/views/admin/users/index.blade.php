@@ -11,7 +11,6 @@
         <div class="md:flex md:items-center md:justify-between">
             <div class="flex-1 min-w-0">
                 <h1 class="text-2xl font-semibold text-gray-900">{{ $segmentTitle ?? 'User Management' }}</h1>
-                <p class="mt-1 text-sm text-gray-600">{{ $segmentDescription ?? 'Manage system users and their roles' }}</p>
             </div>
             <div class="mt-4 flex md:mt-0 md:ml-4">
                 <a href="{{ route('admin.users.create') }}" class="btn-primary">
@@ -44,7 +43,7 @@
             <input id="search" name="search" type="text"
                    value="{{ request('search') }}"
                    data-search-history-input
-                   placeholder="Search username, display name, email, phone, or department"
+                   placeholder="Search"
                    class="h-10 block w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                    autocomplete="off">
             <div class="search-history-panel hidden" data-search-history-panel></div>

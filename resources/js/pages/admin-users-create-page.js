@@ -11,6 +11,7 @@ const initAdminUsersCreatePage = () => {
     const hint = document.getElementById('department-role-hint');
     const clientNotesWrap = document.getElementById('client-notes-wrap');
     const clientNotesField = document.getElementById('client_notes');
+    const supportDepartment = pageRoot.dataset.supportDepartment || '';
 
     if (!roleSelect || !departmentSelect || !departmentHidden) return;
 
@@ -23,11 +24,11 @@ const initAdminUsersCreatePage = () => {
     };
 
     roleSelect.addEventListener('change', () => {
-        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
+        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
         syncClientNotesByRole();
     });
 
-    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint });
+    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
     syncClientNotesByRole();
 };
 

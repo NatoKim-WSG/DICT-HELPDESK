@@ -122,7 +122,6 @@
         <div class="flex flex-col gap-5 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <h1 class="font-display text-3xl font-semibold text-slate-900">Statistics & Reports</h1>
-                <p class="mt-1 text-sm text-slate-500">Monthly operations summary with trend and risk insights.</p>
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">

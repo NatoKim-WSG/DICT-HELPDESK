@@ -41,13 +41,14 @@ class UserDirectoryService
 
         if ($request->filled('search')) {
             $search = trim((string) $request->search);
+            $normalizedSearch = mb_strtolower($search);
 
-            $query->where(function (Builder $builder) use ($search) {
-                $builder->where('username', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('department', 'like', "%{$search}%");
+            $query->where(function (Builder $builder) use ($normalizedSearch) {
+                $builder->whereRaw('LOWER(COALESCE(username, \'\')) LIKE ?', ["%{$normalizedSearch}%"])
+                    ->orWhereRaw('LOWER(COALESCE(name, \'\')) LIKE ?', ["%{$normalizedSearch}%"])
+                    ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', ["%{$normalizedSearch}%"])
+                    ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', ["%{$normalizedSearch}%"])
+                    ->orWhereRaw('LOWER(COALESCE(department, \'\')) LIKE ?', ["%{$normalizedSearch}%"]);
             });
         }
 
@@ -90,9 +91,6 @@ class UserDirectoryService
             'availableRolesFilter' => $this->availableRolesFilterForSegment($segment, $currentUser),
             'segment' => $segment,
             'segmentTitle' => $segment === 'clients' ? 'Client Accounts' : 'Staff Accounts',
-            'segmentDescription' => $segment === 'clients'
-                ? 'Manage client accounts separately from internal staff.'
-                : 'Manage internal admin, super user, and technical accounts.',
         ];
     }
 

@@ -432,7 +432,7 @@ class AdminUserManagementNormalizationTest extends TestCase
         }
     }
 
-    public function test_admin_user_search_can_find_account_by_username(): void
+    public function test_admin_user_search_can_find_account_by_username_case_insensitively(): void
     {
         $superAdmin = User::create([
             'name' => 'Search Super Admin',
@@ -468,7 +468,7 @@ class AdminUserManagementNormalizationTest extends TestCase
         ]);
 
         $response = $this->actingAs($superAdmin)->get(route('admin.users.clients', [
-            'search' => 'target.visible.user',
+            'search' => 'TARGET.VISIBLE.USER',
         ]));
 
         $response->assertOk();

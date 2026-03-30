@@ -34,7 +34,6 @@
             <div class="bg-white shadow sm:rounded-lg">
                 <div class="px-4 py-5 sm:px-6">
                     <h3 class="text-lg leading-6 font-medium text-gray-900">User Information</h3>
-                    <p class="mt-1 max-w-2xl text-sm text-gray-500">Personal details and account information</p>
                 </div>
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                     <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">

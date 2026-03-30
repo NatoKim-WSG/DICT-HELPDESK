@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
         $users = [
             [
                 'name' => 'Super User',
-                'email' => 'cjose@ioneresources.net',
+                'email' => 'super.user@example.com',
                 'role' => User::ROLE_SUPER_USER,
                 'department' => 'iOne',
                 'phone' => '09763621492',
@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Technical',
-                'email' => 'xtianjose02@gmail.com',
+                'email' => 'technical@example.com',
                 'role' => User::ROLE_TECHNICAL,
                 'department' => 'iOne',
                 'phone' => '09763621491',
@@ -38,8 +38,8 @@ class UserSeeder extends Seeder
                 'email_verified_at' => null,
             ],
             [
-                'name' => 'AFPR2',
-                'email' => 'AFPR2@gmail.com',
+                'name' => 'Client One',
+                'email' => 'client.one@example.com',
                 'role' => User::ROLE_CLIENT,
                 'department' => 'AFP',
                 'phone' => '01234567890',
@@ -47,8 +47,8 @@ class UserSeeder extends Seeder
                 'email_verified_at' => null,
             ],
             [
-                'name' => 'AFPR1',
-                'email' => 'AFPR1@gmail.com',
+                'name' => 'Client Two',
+                'email' => 'client.two@example.com',
                 'role' => User::ROLE_CLIENT,
                 'department' => 'AFP',
                 'phone' => '01234567890',

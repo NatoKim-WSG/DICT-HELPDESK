@@ -76,6 +76,18 @@ npm run dev
 # npm.cmd run dev
 ```
 
+## Deploy Note
+
+For server deployments, update dependencies and rebuild frontend assets whenever `package-lock.json`, frontend source files under `resources/`, or Vite/Tailwind dependencies change:
+
+```bash
+composer install --no-dev --optimize-autoloader
+npm install
+npm run build
+php artisan optimize:clear
+php artisan optimize
+```
+
 ## Dependency and Security Checks
 
 Run these regularly (or before release):
@@ -209,12 +221,12 @@ Notes:
 
 After `php artisan migrate --seed`, these accounts are created:
 
-- `admin@ioneresources.net` (`admin`)
-- `shadow@ione.com` (`shadow`)
-- `cjose@ioneresources.net` (`super_user`)
-- `xtianjose02@gmail.com` (`technical`)
-- `AFPR2@gmail.com` (`client`)
-- `AFPR1@gmail.com` (`client`)
+- `admin@example.com` (`admin`)
+- `shadow@example.com` (`shadow`)
+- `super.user@example.com` (`super_user`)
+- `technical@example.com` (`technical`)
+- `client.one@example.com` (`client`)
+- `client.two@example.com` (`client`)
 
 Password behavior:
 

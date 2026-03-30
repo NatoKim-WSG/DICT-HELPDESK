@@ -13,9 +13,9 @@ class AdminSeeder extends Seeder
     {
         $staffDefaultPassword = DefaultPasswordResolver::staff();
 
-        User::updateOrCreate(['email' => 'admin@ioneresources.net'], [
+        User::updateOrCreate(['email' => 'admin@example.com'], [
             'name' => 'Admin',
-            'email' => 'admin@ioneresources.net',
+            'email' => 'admin@example.com',
             'phone' => '09763621490',
             'department' => 'iOne',
             'role' => User::ROLE_ADMIN,
