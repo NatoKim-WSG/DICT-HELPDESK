@@ -7,6 +7,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Admin\ReportBreakdownService;
 use App\Services\Admin\Reports\MonthlyReportDatasetService;
+use App\Services\Admin\Reports\SlaReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,6 +31,7 @@ class ReportController extends Controller
     public function __construct(
         private ReportBreakdownService $reportBreakdowns,
         private MonthlyReportDatasetService $monthlyReportDatasets,
+        private SlaReportService $slaReports,
     ) {}
 
     public function index(Request $request)
@@ -233,6 +235,15 @@ class ReportController extends Controller
                 clone $scopedTickets,
                 $dailySelectedDate
             );
+        $slaScopeStart = $detailFilterApplied ? $detailScopeStart->copy() : $selectedPeriodStart->copy();
+        $slaScopeEnd = $detailFilterApplied ? $detailScopeEnd->copy() : $selectedPeriodEnd->copy();
+        $slaScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
+        $slaReport = $this->slaReports->build(
+            clone $scopedTickets,
+            $slaScopeStart,
+            $slaScopeEnd,
+            $slaScopeLabel
+        );
 
         $detailStatusSummary = $this->buildReportStatusBreakdownForPeriod(
             clone $scopedTickets,
@@ -386,7 +397,8 @@ class ReportController extends Controller
             'detailDateValue',
             'detailDateOptions',
             'detailOverview',
-            'ticketHistoryScope'
+            'ticketHistoryScope',
+            'slaReport'
         ));
     }
 

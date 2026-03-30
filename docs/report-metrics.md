@@ -30,3 +30,44 @@ The reports page and PDF should describe the metric as:
 - "Tickets created this period that are now resolved/closed"
 
 That wording matches the current report calculation and avoids confusing it with same-month throughput.
+
+## SLA Overview
+
+- Source area: `App\Http\Controllers\Admin\ReportController` via `App\Services\Admin\Reports\SlaReportService`
+- Scope: tickets created inside the selected reports scope (`selected month`, or `detail filter` when applied)
+
+### First Response Time
+
+- Definition: the average/median minutes from `ticket created` to the first staff action.
+- Staff action is the earliest of:
+  - first public staff reply
+  - first assignment timestamp
+  - resolution timestamp
+  - closure timestamp
+
+### Resolution Time
+
+- Definition: the average/median minutes from `ticket created` to `resolved_at` or `closed_at`.
+- Only completed tickets are included in this metric.
+
+### SLA Breach Rate
+
+- Definition: tickets that reached or crossed `4 hours` before completion, or are still open after `4 hours`.
+- Purpose: aligns with the current 4-hour reminder logic already used by ticket alert emails.
+
+### Ticket Acknowledgment Rate
+
+- Definition: tickets seen by a `super_user` within `1 hour` of creation.
+- Source data: earliest `ticket_user_states.last_seen_at` for a super user.
+
+### Customer Satisfaction SLA
+
+- Definition: percentage of rated tickets with a client satisfaction score of `4/5` or higher.
+- Also display the average rating for the rated sample.
+
+### Severity Bands
+
+- `Under 1 Hour`: still inside the super-user acknowledgment window
+- `Severity 1`: `>= 1 hour` and `< 4 hours`
+- `Severity 2`: `>= 4 hours` and `< 24 hours`
+- `Severity 3`: `>= 24 hours`

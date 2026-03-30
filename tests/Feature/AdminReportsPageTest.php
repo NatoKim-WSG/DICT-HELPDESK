@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketReply;
+use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -80,6 +82,150 @@ class AdminReportsPageTest extends TestCase
         $response->assertDontSee('Backlog (Period End)');
         $response->assertDontSee('Average resolution time');
         $response->assertDontSee('SLA compliance (selection)');
+    }
+
+    public function test_reports_page_builds_sla_metrics_from_ticket_timelines(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('SLA Super', 'sla-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('SLA Client', 'sla-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $underOneHourTicket = Ticket::create([
+            'name' => 'Under One Hour',
+            'contact_number' => '09180001001',
+            'email' => 'under-one-hour@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Under one hour ticket',
+            'description' => 'Should stay inside the acknowledgment window.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($underOneHourTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 25, 8, 40, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 8, 40, 0),
+        ]);
+        $underOneHourTicket->refresh();
+        TicketUserState::markSeen($underOneHourTicket, $superUser->id, Carbon::create(2026, 2, 25, 8, 50, 0));
+
+        $severityOneTicket = Ticket::create([
+            'name' => 'Severity One',
+            'contact_number' => '09180001002',
+            'email' => 'severity-one@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Severity one ticket',
+            'description' => 'Should resolve within ninety minutes.',
+            'priority' => 'high',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 25, 7, 30, 0),
+            'satisfaction_rating' => 5,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($severityOneTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 25, 6, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 7, 30, 0),
+        ]);
+        $severityOneTicket->refresh();
+        TicketUserState::markSeen($severityOneTicket, $superUser->id, Carbon::create(2026, 2, 25, 6, 20, 0));
+        $severityOneReply = TicketReply::create([
+            'ticket_id' => $severityOneTicket->id,
+            'user_id' => $superUser->id,
+            'message' => 'We are checking this now.',
+            'is_internal' => false,
+        ]);
+        TicketReply::query()->whereKey($severityOneReply->id)->update([
+            'created_at' => Carbon::create(2026, 2, 25, 6, 30, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 6, 30, 0),
+        ]);
+
+        $severityTwoTicket = Ticket::create([
+            'name' => 'Severity Two',
+            'contact_number' => '09180001003',
+            'email' => 'severity-two@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Severity two ticket',
+            'description' => 'Open for five hours.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($severityTwoTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 25, 4, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 4, 0, 0),
+        ]);
+
+        $severityThreeTicket = Ticket::create([
+            'name' => 'Severity Three',
+            'contact_number' => '09180001004',
+            'email' => 'severity-three@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Quezon City',
+            'subject' => 'Severity three ticket',
+            'description' => 'Closed after twenty six hours.',
+            'priority' => 'high',
+            'status' => 'closed',
+            'closed_at' => Carbon::create(2026, 2, 25, 8, 0, 0),
+            'resolved_at' => Carbon::create(2026, 2, 25, 8, 0, 0),
+            'satisfaction_rating' => 3,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($severityThreeTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 24, 6, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 25, 8, 0, 0),
+        ]);
+        $severityThreeTicket->refresh();
+        TicketUserState::markSeen($severityThreeTicket, $superUser->id, Carbon::create(2026, 2, 24, 8, 0, 0));
+        $severityThreeReply = TicketReply::create([
+            'ticket_id' => $severityThreeTicket->id,
+            'user_id' => $superUser->id,
+            'message' => 'This is being worked on.',
+            'is_internal' => false,
+        ]);
+        TicketReply::query()->whereKey($severityThreeReply->id)->update([
+            'created_at' => Carbon::create(2026, 2, 24, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 24, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('SLA Overview');
+        $response->assertSee('First Response Time');
+        $response->assertSee('Resolution Time');
+        $response->assertSee('SLA Breach Rate');
+        $response->assertSee('Acknowledgment Rate');
+        $response->assertSee('Customer Satisfaction SLA');
+        $response->assertSee('Severity Bands');
+        $response->assertViewHas('slaReport', function (array $slaReport) {
+            $bands = collect($slaReport['severity_bands'] ?? [])->pluck('count', 'label');
+
+            return ($slaReport['label'] ?? null) === 'Feb 2026'
+                && (int) ($slaReport['total_tickets'] ?? 0) === 4
+                && (float) ($slaReport['first_response']['average_minutes'] ?? 0) === 105.0
+                && (float) ($slaReport['resolution']['average_minutes'] ?? 0) === 825.0
+                && (int) ($slaReport['breach_rate']['breached_count'] ?? 0) === 2
+                && (float) ($slaReport['breach_rate']['rate'] ?? 0) === 50.0
+                && (int) ($slaReport['acknowledgment_rate']['acknowledged_count'] ?? 0) === 2
+                && (float) ($slaReport['acknowledgment_rate']['rate'] ?? 0) === 50.0
+                && (int) ($slaReport['customer_satisfaction']['rated_count'] ?? 0) === 2
+                && (float) ($slaReport['customer_satisfaction']['average_rating'] ?? 0) === 4.0
+                && (float) ($slaReport['customer_satisfaction']['rate'] ?? 0) === 50.0
+                && (int) ($bands['Under 1 Hour'] ?? 0) === 1
+                && (int) ($bands['Severity 1'] ?? 0) === 1
+                && (int) ($bands['Severity 2'] ?? 0) === 1
+                && (int) ($bands['Severity 3'] ?? 0) === 1;
+        });
     }
 
     public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics_for_selected_date(): void

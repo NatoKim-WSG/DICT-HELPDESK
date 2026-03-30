@@ -115,6 +115,32 @@
     $ticketHistoryScopeParams = collect($ticketHistoryScope ?? [])
         ->filter(fn ($value) => $value !== null && $value !== '')
         ->all();
+    $formatMinutes = function (?float $minutes): string {
+        if ($minutes === null) {
+            return 'N/A';
+        }
+
+        $roundedMinutes = (int) round($minutes);
+        if ($roundedMinutes < 60) {
+            return $roundedMinutes.'m';
+        }
+
+        $hours = intdiv($roundedMinutes, 60);
+        $remainingMinutes = $roundedMinutes % 60;
+
+        if ($hours < 24) {
+            return $remainingMinutes > 0
+                ? $hours.'h '.$remainingMinutes.'m'
+                : $hours.'h';
+        }
+
+        $days = intdiv($hours, 24);
+        $remainingHours = $hours % 24;
+
+        return $remainingHours > 0
+            ? $days.'d '.$remainingHours.'h'
+            : $days.'d';
+    };
 @endphp
 
 <div class="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-8" data-admin-reports-page>
@@ -165,6 +191,57 @@
                 Tickets created this period that are now resolved/closed
             </x-ui.stat-card>
         </div>
+
+        <details class="border-t border-slate-200 px-5 py-5 sm:px-6">
+            <summary class="flex cursor-pointer list-none flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 marker:hidden transition hover:border-slate-300 hover:bg-slate-100 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <h2 class="font-display text-xl font-semibold text-slate-900">SLA Overview</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m6 9 6 6 6-6" />
+                    </svg>
+                </div>
+            </summary>
+
+            <div class="mt-4">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-5">
+                    <x-ui.stat-card label="First Response Time" :value="$formatMinutes($slaReport['first_response']['average_minutes'])" value-class="text-sky-600">
+                        Median {{ $formatMinutes($slaReport['first_response']['median_minutes']) }} across {{ $slaReport['first_response']['sample_count'] }} tickets
+                    </x-ui.stat-card>
+                    <x-ui.stat-card label="Resolution Time" :value="$formatMinutes($slaReport['resolution']['average_minutes'])" value-class="text-emerald-600">
+                        Median {{ $formatMinutes($slaReport['resolution']['median_minutes']) }} across {{ $slaReport['resolution']['sample_count'] }} completed tickets
+                    </x-ui.stat-card>
+                    <x-ui.stat-card label="SLA Breach Rate" :value="number_format((float) ($slaReport['breach_rate']['rate'] ?? 0), 1) . '%'" value-class="text-rose-600">
+                        {{ $slaReport['breach_rate']['breached_count'] }} of {{ $slaReport['total_tickets'] }} tickets crossed the 4-hour target
+                    </x-ui.stat-card>
+                    <x-ui.stat-card label="Acknowledgment Rate" :value="number_format((float) ($slaReport['acknowledgment_rate']['rate'] ?? 0), 1) . '%'" value-class="text-amber-600">
+                        {{ $slaReport['acknowledgment_rate']['acknowledged_count'] }} of {{ $slaReport['total_tickets'] }} tickets were seen by a super user within 1 hour
+                    </x-ui.stat-card>
+                    <x-ui.stat-card label="Customer Satisfaction SLA" :value="number_format((float) ($slaReport['customer_satisfaction']['rate'] ?? 0), 1) . '%'" value-class="text-fuchsia-600">
+                        Avg {{ $slaReport['customer_satisfaction']['average_rating'] !== null ? number_format((float) $slaReport['customer_satisfaction']['average_rating'], 1) : 'N/A' }}/5 from {{ $slaReport['customer_satisfaction']['rated_count'] }} rated tickets
+                    </x-ui.stat-card>
+                </div>
+
+                <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-display text-lg font-semibold text-slate-900">Severity Bands</h3>
+                        </div>
+                        <span class="text-xs text-slate-500">{{ $slaReport['label'] }}</span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        @foreach($slaReport['severity_bands'] as $band)
+                            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $band['label'] }}</p>
+                                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $band['count'] }}</p>
+                                <p class="mt-1 text-xs text-slate-500">{{ $band['description'] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </details>
     </div>
 
     <div class="grid grid-cols-1 gap-8 xl:grid-cols-3">
