@@ -225,6 +225,7 @@ class TicketEmailAlertsTest extends TestCase
             'ticket_id' => $ticket->id,
             'user_id' => $superUser->id,
             'last_seen_at' => now()->subHours(3)->subMinutes(31),
+            'acknowledged_at' => now()->subHours(3)->subMinutes(31),
             'dismissed_at' => null,
         ]);
 

@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Mail;
 
 class TicketEmailAlertService
 {
+    public function __construct(
+        private TicketAcknowledgmentService $ticketAcknowledgments,
+    ) {}
+
     public function notifySuperUsersAboutNewTicket(Ticket $ticket): int
     {
         if ($ticket->super_users_notified_new_at) {
@@ -105,9 +109,9 @@ class TicketEmailAlertService
             ->whereNull('super_users_notified_unchecked_at')
             ->where('created_at', '<=', $cutoff)
             ->whereDoesntHave('userStates', function ($query) {
-                $query->whereNotNull('last_seen_at')
+                $query->whereNotNull('acknowledged_at')
                     ->whereHas('user', function ($userQuery) {
-                        $userQuery->whereIn('role', $this->superUserRoles());
+                        $userQuery->whereIn('role', $this->ticketAcknowledgments->superUserRoles());
                     });
             })
             ->with('user')
@@ -121,7 +125,7 @@ class TicketEmailAlertService
                 $ticket,
                 'Unchecked Ticket Alert (50 Minutes): '.$ticket->ticket_number,
                 'A ticket has not been checked by a super user for 50 minutes.',
-                'Please review this ticket now to avoid missing the 4-hour response target.',
+                'Please acknowledge this ticket now to avoid missing the 4-hour response target.',
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
@@ -157,11 +161,11 @@ class TicketEmailAlertService
             ->with([
                 'user',
                 'userStates' => function ($query) {
-                    $query->whereNotNull('last_seen_at')
+                    $query->whereNotNull('acknowledged_at')
                         ->whereHas('user', function ($userQuery) {
-                            $userQuery->whereIn('role', $this->superUserRoles());
+                            $userQuery->whereIn('role', $this->ticketAcknowledgments->superUserRoles());
                         })
-                        ->select(['id', 'ticket_id', 'user_id', 'last_seen_at']);
+                        ->select(['id', 'ticket_id', 'user_id', 'acknowledged_at']);
                 },
             ])
             ->get();
@@ -169,12 +173,12 @@ class TicketEmailAlertService
         $notifiedTickets = 0;
 
         foreach ($tickets as $ticket) {
-            $latestSuperViewTimestamp = $ticket->userStates
-                ->map(fn (TicketUserState $state) => optional($state->last_seen_at)?->timestamp)
+            $latestSuperAcknowledgmentTimestamp = $ticket->userStates
+                ->map(fn (TicketUserState $state) => optional($state->acknowledged_at)?->timestamp)
                 ->filter()
                 ->max();
 
-            if (! $latestSuperViewTimestamp || $latestSuperViewTimestamp > $cutoff->timestamp) {
+            if (! $latestSuperAcknowledgmentTimestamp || $latestSuperAcknowledgmentTimestamp > $cutoff->timestamp) {
                 continue;
             }
 
@@ -183,12 +187,12 @@ class TicketEmailAlertService
                 $ticket,
                 '4-Hour SLA Reminder (Unassigned): '.$ticket->ticket_number,
                 'This unassigned ticket is nearing the 4-hour resolution target.',
-                'The ticket was viewed by a super user 3 hours and 30 minutes ago but is still unresolved and unassigned.',
+                'The ticket was acknowledged by a super user 3 hours and 30 minutes ago but is still unresolved and unassigned.',
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
                     'Priority' => $ticket->priority_label,
-                    'Last Super User View' => date('Y-m-d H:i:s', $latestSuperViewTimestamp),
+                    'Last Super User Acknowledgment' => date('Y-m-d H:i:s', $latestSuperAcknowledgmentTimestamp),
                 ]
             );
 
@@ -265,18 +269,11 @@ class TicketEmailAlertService
     private function superUserRecipients(): Collection
     {
         return User::query()
-            ->whereIn('role', $this->superUserRoles())
+            ->whereIn('role', $this->ticketAcknowledgments->superUserRoles())
             ->where('is_active', true)
             ->whereNotNull('email')
             ->where('email', '!=', '')
             ->get(['id', 'name', 'email', 'role', 'is_active']);
-    }
-
-    private function superUserRoles(): array
-    {
-        return [
-            User::ROLE_SUPER_USER,
-        ];
     }
 
     private function sendAlertToUsers(

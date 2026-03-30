@@ -146,7 +146,7 @@ class AdminReportsPageTest extends TestCase
             'updated_at' => Carbon::create(2026, 2, 25, 8, 40, 0),
         ]);
         $underOneHourTicket->refresh();
-        TicketUserState::markSeen($underOneHourTicket, $superUser->id, Carbon::create(2026, 2, 25, 8, 50, 0));
+        TicketUserState::markAcknowledged($underOneHourTicket, $superUser->id, Carbon::create(2026, 2, 25, 8, 50, 0));
 
         $severityOneTicket = Ticket::create([
             'name' => 'Severity One',
@@ -168,7 +168,7 @@ class AdminReportsPageTest extends TestCase
             'updated_at' => Carbon::create(2026, 2, 25, 7, 30, 0),
         ]);
         $severityOneTicket->refresh();
-        TicketUserState::markSeen($severityOneTicket, $superUser->id, Carbon::create(2026, 2, 25, 6, 20, 0));
+        TicketUserState::markAcknowledged($severityOneTicket, $superUser->id, Carbon::create(2026, 2, 25, 6, 20, 0));
         $severityOneReply = TicketReply::create([
             'ticket_id' => $severityOneTicket->id,
             'user_id' => $superUser->id,
@@ -219,7 +219,7 @@ class AdminReportsPageTest extends TestCase
             'updated_at' => Carbon::create(2026, 2, 25, 8, 0, 0),
         ]);
         $severityThreeTicket->refresh();
-        TicketUserState::markSeen($severityThreeTicket, $superUser->id, Carbon::create(2026, 2, 24, 8, 0, 0));
+        TicketUserState::markAcknowledged($severityThreeTicket, $superUser->id, Carbon::create(2026, 2, 24, 8, 0, 0));
         $severityThreeReply = TicketReply::create([
             'ticket_id' => $severityThreeTicket->id,
             'user_id' => $superUser->id,

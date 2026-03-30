@@ -69,9 +69,10 @@ The support team checks the new ticket and confirms:
 Recommended first action for staff:
 
 1. Read the subject, description, and attachment.
-2. Check if the priority is reasonable.
-3. Assign the correct technician or support owner.
-4. Send a public reply if the client needs to know work has started.
+2. Acknowledge the ticket so SLA tracking shows it has been formally received.
+3. Check if the priority is reasonable.
+4. Assign the correct technician or support owner.
+5. Send a public reply if the client needs to know work has started.
 
 Important note:
 

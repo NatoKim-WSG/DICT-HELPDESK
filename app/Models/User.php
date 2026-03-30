@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SupportBrandingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -218,38 +219,32 @@ class User extends Authenticatable
 
     public static function supportDepartment(): string
     {
-        return trim((string) config('helpdesk.support_department', 'iOne')) ?: 'iOne';
+        return app(SupportBrandingService::class)->supportDepartment();
     }
 
     public static function supportBrandName(): string
     {
-        return trim((string) config('helpdesk.support_brand_name', self::supportDepartment())) ?: self::supportDepartment();
+        return app(SupportBrandingService::class)->supportBrandName();
     }
 
     public static function supportOrganizationName(): string
     {
-        return trim((string) config('helpdesk.support_organization_name', 'iOne Resources Inc.')) ?: 'iOne Resources Inc.';
+        return app(SupportBrandingService::class)->supportOrganizationName();
     }
 
     public static function supportTeamName(): string
     {
-        return trim((string) config('helpdesk.support_team_name', 'iOne Technical Team')) ?: 'iOne Technical Team';
+        return app(SupportBrandingService::class)->supportTeamName();
     }
 
     public static function supportLogoPath(): string
     {
-        return trim((string) config('helpdesk.support_logo_path', 'images/iOne Logo.png')) ?: 'images/iOne Logo.png';
+        return app(SupportBrandingService::class)->supportLogoPath();
     }
 
     public static function supportLogoUrl(): string
     {
-        $logoPath = self::supportLogoPath();
-
-        if (! file_exists(public_path($logoPath))) {
-            $logoPath = 'images/iOne Logo.png';
-        }
-
-        return asset($logoPath);
+        return app(SupportBrandingService::class)->supportLogoUrl();
     }
 
     public static function normalizeRole(?string $role): string
@@ -273,73 +268,23 @@ class User extends Authenticatable
 
     public static function departmentBrandKey(?string $department, ?string $role = null): string
     {
-        $normalizedDepartment = strtolower(trim((string) $department));
-        $departmentToken = preg_replace('/[^a-z0-9]+/', '', $normalizedDepartment);
-        $normalizedRole = self::normalizeRole($role);
-
-        return match (true) {
-            in_array($departmentToken, ['ione', 'ioneresources', 'administration', 'it'], true) => 'ione',
-            $departmentToken === 'boc' => 'boc',
-            $departmentToken === 'dswd' => 'dswd',
-            $departmentToken === 'deped' => 'deped',
-            $departmentToken === 'pcg' => 'pcg',
-            $departmentToken === 'navy' => 'navy',
-            $departmentToken === 'dar' => 'dar',
-            $departmentToken === 'da' => 'da',
-            $departmentToken === 'comelec' => 'comelec',
-            $departmentToken === 'afp' => 'afp',
-            in_array($departmentToken, ['lgupasig', 'lgup'], true) => 'lgu_pasig',
-            $departmentToken === 'dict' => 'dict',
-            $departmentToken === 'others' => 'others',
-            in_array($normalizedRole, [self::ROLE_SHADOW, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => self::departmentBrandKey(self::supportDepartment()),
-            default => 'others',
-        };
+        return app(SupportBrandingService::class)->departmentBrandKey($department, $role);
     }
 
     public static function departmentBrandMap(): array
     {
-        return [
-            'ione' => ['name' => 'iOne', 'logo' => 'images/iOne Logo.png'],
-            'boc' => ['name' => 'BOC', 'logo' => 'images/BOC Logo.png'],
-            'dswd' => ['name' => 'DSWD', 'logo' => 'images/DSWD Logo.png'],
-            'deped' => ['name' => 'DEPED', 'logo' => 'images/DEPED Logo.png'],
-            'pcg' => ['name' => 'PCG', 'logo' => 'images/PCG Logo.png'],
-            'navy' => ['name' => 'NAVY', 'logo' => 'images/Navy Logo.png'],
-            'da' => ['name' => 'DA', 'logo' => 'images/DA Logo.png'],
-            'dar' => ['name' => 'DAR', 'logo' => 'images/DAR Logo.png'],
-            'comelec' => ['name' => 'COMELEC', 'logo' => 'images/COMELEC Logo.png'],
-            'afp' => ['name' => 'AFP', 'logo' => 'images/AFP Logo.png'],
-            'lgu_pasig' => ['name' => 'LGU Pasig', 'logo' => 'images/LGUP Logo.png'],
-            'dict' => ['name' => 'DICT', 'logo' => 'images/DICT Logo.png'],
-            'others' => ['name' => 'Others', 'logo' => 'images/Others Logo.png'],
-        ];
+        return app(SupportBrandingService::class)->departmentBrandMap();
     }
 
     public static function departmentBrandAssets(?string $department, ?string $role = null): array
     {
         $brandKey = self::departmentBrandKey($department, $role);
-        $brandMap = self::departmentBrandMap();
-        $supportBrandKey = self::departmentBrandKey(self::supportDepartment());
-        $fallbackBrand = $brandMap[$supportBrandKey] ?? $brandMap['ione'];
-        $brand = $brandMap[$brandKey] ?? $fallbackBrand;
-        $defaultLogoPath = $fallbackBrand['logo'] ?? self::supportLogoPath();
-        $logoPath = $brand['logo'] ?? $defaultLogoPath;
-        $cacheKey = $brandKey.'|'.$logoPath;
+        $cacheKey = $brandKey.'|'.(string) $department.'|'.(string) $role;
 
         if (isset(self::$departmentBrandAssetCache[$cacheKey])) {
             return self::$departmentBrandAssetCache[$cacheKey];
         }
-
-        if (! file_exists(public_path($logoPath))) {
-            $logoPath = $defaultLogoPath;
-        }
-
-        $assets = [
-            'key' => $brandKey,
-            'name' => $brand['name'] ?? ($fallbackBrand['name'] ?? self::supportBrandName()),
-            'logo_path' => $logoPath,
-            'logo_url' => asset($logoPath),
-        ];
+        $assets = app(SupportBrandingService::class)->departmentBrandAssets($department, $role);
 
         self::$departmentBrandAssetCache[$cacheKey] = $assets;
 

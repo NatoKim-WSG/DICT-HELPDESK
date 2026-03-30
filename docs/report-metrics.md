@@ -59,8 +59,8 @@ That wording matches the current report calculation and avoids confusing it with
 
 ### Ticket Acknowledgment Rate
 
-- Definition: tickets seen by a `super_user` within `1 hour` of creation.
-- Source data: earliest `ticket_user_states.last_seen_at` for a super user.
+- Definition: tickets acknowledged by a `super_user` within `1 hour` of creation.
+- Source data: earliest `ticket_user_states.acknowledged_at` for a super user.
 
 ### Customer Satisfaction SLA
 

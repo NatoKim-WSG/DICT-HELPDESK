@@ -22,6 +22,12 @@
     $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
     $canRevertTicket = $ticket->status === 'resolved'
         || ($ticket->status === 'closed' && (! $revertDeadline || now()->lte($revertDeadline)));
+    $canAcknowledgeTicket = $actor && in_array($actor->normalizedRole(), [
+        \App\Models\User::ROLE_SUPER_USER,
+        \App\Models\User::ROLE_ADMIN,
+        \App\Models\User::ROLE_SHADOW,
+    ], true);
+    $acknowledgedAt = optional($currentUserState)->acknowledged_at;
 @endphp
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-admin-ticket-show-page>
     <!-- Back Button -->
@@ -61,6 +67,21 @@
                                 @endif
                                 {{ $ticket->priority_label }}
                             </span>
+                            @if($canAcknowledgeTicket)
+                                @if($acknowledgedAt)
+                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+                                        Acknowledged {{ $acknowledgedAt->diffForHumans($ticket->created_at, short: true, parts: 2) }} after receipt
+                                    </span>
+                                @else
+                                    <form method="POST" action="{{ route('admin.tickets.acknowledge', $ticket) }}" data-submit-feedback>
+                                        @csrf
+                                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                                        <button type="submit" class="inline-flex items-center rounded-full bg-[#0f8d88] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d7672]">
+                                            Acknowledge Ticket
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
                         </div>
                     </div>
                 </div>

@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
 use App\Services\SystemLogService;
+use App\Services\TicketAcknowledgmentService;
 use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,7 @@ class TicketController extends Controller
 
     public function __construct(
         private TicketEmailAlertService $ticketEmailAlerts,
+        private TicketAcknowledgmentService $ticketAcknowledgments,
         private SystemLogService $systemLogs,
         private TicketMutationService $ticketMutations,
         private TicketIndexService $ticketIndex,
@@ -118,8 +120,47 @@ class TicketController extends Controller
 
         $this->loadTicketWithVisibleReplies($ticket);
         $assignees = $this->ticketIndex->activeAssignableAgents();
+        $currentUserState = TicketUserState::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('user_id', (int) auth()->id())
+            ->first();
 
-        return view('admin.tickets.show', compact('ticket', 'assignees'));
+        return view('admin.tickets.show', compact('ticket', 'assignees', 'currentUserState'));
+    }
+
+    public function acknowledge(Request $request, Ticket $ticket)
+    {
+        $this->authorizeTicketAccess($ticket);
+
+        $actor = auth()->user();
+        if (! $this->ticketAcknowledgments->canAcknowledge($actor)) {
+            abort(403);
+        }
+
+        $existingState = TicketUserState::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('user_id', (int) auth()->id())
+            ->first();
+
+        if (! optional($existingState)->acknowledged_at) {
+            $state = $this->ticketAcknowledgments->acknowledge($ticket, $actor);
+            $this->systemLogs->record(
+                'ticket.acknowledged',
+                'Acknowledged a ticket for SLA tracking.',
+                [
+                    'category' => 'ticket',
+                    'target_type' => Ticket::class,
+                    'target_id' => $ticket->id,
+                    'metadata' => [
+                        'ticket_number' => $ticket->ticket_number,
+                        'acknowledged_at' => optional($state)->acknowledged_at?->toIso8601String(),
+                    ],
+                    'request' => $request,
+                ]
+            );
+        }
+
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket acknowledged.');
     }
 
     public function replies(Ticket $ticket): JsonResponse
@@ -155,6 +196,7 @@ class TicketController extends Controller
             ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
         ]);
         $ticket->assignedUsers()->sync($newAssignedIds);
+        $this->trackTicketAcknowledgment($ticket);
         $this->systemLogs->record(
             'ticket.assignment.updated',
             'Updated ticket assignment.',
@@ -224,6 +266,7 @@ class TicketController extends Controller
             $ticket->assignedUsers()->sync($newAssignedIds);
             $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
         }
+        $this->trackTicketAcknowledgment($ticket);
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
         $this->systemLogs->record(
             'ticket.status.updated',
@@ -254,6 +297,7 @@ class TicketController extends Controller
 
         $previousPriority = $ticket->priority;
         $ticket->update(['priority' => $request->priority]);
+        $this->trackTicketAcknowledgment($ticket);
         $this->systemLogs->record(
             'ticket.priority.updated',
             'Updated ticket priority.',
@@ -306,6 +350,7 @@ class TicketController extends Controller
         if ($ticket->status === 'open' && ! $isInternal) {
             $ticket->update(['status' => 'in_progress']);
         }
+        $this->trackTicketAcknowledgment($ticket);
 
         if ($request->expectsJson()) {
             $reply->loadMissing(['user', 'attachments', 'replyTo']);
@@ -411,6 +456,7 @@ class TicketController extends Controller
         $ticket->update($updateData);
         $ticket->assignedUsers()->sync($newAssignedIds);
         $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
+        $this->trackTicketAcknowledgment($ticket);
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
         $this->systemLogs->record(
             'ticket.quick_update',
@@ -548,6 +594,7 @@ class TicketController extends Controller
                     ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
                 ]);
                 $ticket->assignedUsers()->sync($newAssignedIds);
+                $this->trackTicketAcknowledgment($ticket);
                 $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
 
                 $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
@@ -621,6 +668,7 @@ class TicketController extends Controller
                 }
 
                 $ticket->update($updateData);
+                $this->trackTicketAcknowledgment($ticket);
 
                 if ($previousAssignedIds !== $newAssignedIds) {
                     $ticket->assignedUsers()->sync($newAssignedIds);
@@ -653,6 +701,7 @@ class TicketController extends Controller
             }
 
             Ticket::whereIn('id', $selectedIds)->update(['priority' => $request->string('priority')->toString()]);
+            Ticket::whereIn('id', $selectedIds)->get()->each(fn (Ticket $ticket) => $this->trackTicketAcknowledgment($ticket));
             $this->systemLogs->record(
                 'ticket.bulk.priority',
                 'Updated ticket priorities in bulk.',
@@ -760,6 +809,12 @@ class TicketController extends Controller
         }
 
         return $returnTo;
+    }
+
+    private function trackTicketAcknowledgment(Ticket $ticket): void
+    {
+        $actor = auth()->user();
+        $this->ticketAcknowledgments->trackHandlingAction($ticket, $actor);
     }
 
     private function redirectBackOrReturnTo(Request $request)

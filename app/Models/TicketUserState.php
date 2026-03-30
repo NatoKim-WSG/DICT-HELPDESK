@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
  * @property int $ticket_id
  * @property int $user_id
  * @property Carbon|null $last_seen_at
+ * @property Carbon|null $acknowledged_at
  * @property Carbon|null $dismissed_at
  * @property-read Ticket $ticket
  * @property-read User $user
@@ -29,6 +30,7 @@ class TicketUserState extends Model
         'ticket_id',
         'user_id',
         'last_seen_at',
+        'acknowledged_at',
         'dismissed_at',
     ];
 
@@ -36,6 +38,7 @@ class TicketUserState extends Model
     {
         return [
             'last_seen_at' => 'datetime',
+            'acknowledged_at' => 'datetime',
             'dismissed_at' => 'datetime',
         ];
     }
@@ -72,6 +75,28 @@ class TicketUserState extends Model
             $state->dismissed_at = null;
         }
         $state->save();
+        static::forgetHeaderNotificationCacheForUser($userId);
+
+        return $state;
+    }
+
+    public static function markAcknowledged(
+        Ticket $ticket,
+        int $userId,
+        Carbon $acknowledgedAt,
+        bool $clearDismissedAt = false
+    ): self {
+        $state = static::markSeen($ticket, $userId, $acknowledgedAt, $clearDismissedAt);
+        $currentAcknowledgedAt = $state->acknowledged_at;
+        $nextAcknowledgedAt = $currentAcknowledgedAt && $currentAcknowledgedAt->lt($acknowledgedAt)
+            ? $currentAcknowledgedAt
+            : $acknowledgedAt;
+
+        if (! $currentAcknowledgedAt || ! $currentAcknowledgedAt->equalTo($nextAcknowledgedAt)) {
+            $state->acknowledged_at = $nextAcknowledgedAt;
+            $state->save();
+        }
+
         static::forgetHeaderNotificationCacheForUser($userId);
 
         return $state;

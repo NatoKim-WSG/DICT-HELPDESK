@@ -96,6 +96,9 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/replies', [AdminTicketController::class, 'replies'])->name('tickets.replies.feed');
+    Route::post('/tickets/{ticket}/acknowledge', [AdminTicketController::class, 'acknowledge'])
+        ->middleware('throttle:60,1')
+        ->name('tickets.acknowledge');
     Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])
         ->middleware('throttle:20,1')
         ->name('tickets.bulk-action');

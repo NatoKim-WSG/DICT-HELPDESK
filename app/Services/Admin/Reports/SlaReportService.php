@@ -130,12 +130,12 @@ class SlaReportService
             ->where('users.role', '!=', User::ROLE_CLIENT)
             ->selectRaw('MIN(ticket_replies.created_at)');
 
-        $firstSuperUserSeenSubquery = TicketUserState::query()
+        $firstSuperUserAcknowledgedSubquery = TicketUserState::query()
             ->join('users', 'users.id', '=', 'ticket_user_states.user_id')
             ->whereColumn('ticket_user_states.ticket_id', 'tickets.id')
-            ->whereNotNull('ticket_user_states.last_seen_at')
+            ->whereNotNull('ticket_user_states.acknowledged_at')
             ->where('users.role', User::ROLE_SUPER_USER)
-            ->selectRaw('MIN(ticket_user_states.last_seen_at)');
+            ->selectRaw('MIN(ticket_user_states.acknowledged_at)');
 
         $rows = (clone $scopedTickets)
             ->whereBetween('tickets.created_at', [$start, $end])
@@ -148,7 +148,7 @@ class SlaReportService
                 'tickets.satisfaction_rating',
             ])
             ->selectSub($firstPublicStaffReplySubquery, 'first_public_staff_reply_at')
-            ->selectSub($firstSuperUserSeenSubquery, 'first_super_user_seen_at')
+            ->selectSub($firstSuperUserAcknowledgedSubquery, 'first_super_user_acknowledged_at')
             ->get()
             ->toBase()
             ->map(function ($ticket) use ($now): array {
@@ -159,7 +159,7 @@ class SlaReportService
                 $completedAt = $this->parseOptionalDateTime($ticket->closed_at)
                     ?? $this->parseOptionalDateTime($ticket->resolved_at);
                 $firstStaffReplyAt = $this->parseOptionalDateTime($ticket->getAttribute('first_public_staff_reply_at'));
-                $firstSuperUserSeenAt = $this->parseOptionalDateTime($ticket->getAttribute('first_super_user_seen_at'));
+                $firstSuperUserAcknowledgedAt = $this->parseOptionalDateTime($ticket->getAttribute('first_super_user_acknowledged_at'));
                 $firstResponseAt = $this->earliestDateTime([
                     $firstStaffReplyAt,
                     $assignedAt,
@@ -169,8 +169,8 @@ class SlaReportService
                     ? max(0, (int) $createdAt->diffInMinutes($firstResponseAt))
                     : null;
                 $acknowledgedWithinTarget = $createdAt
-                    && $firstSuperUserSeenAt
-                    && (int) $createdAt->diffInMinutes($firstSuperUserSeenAt) < self::ACKNOWLEDGMENT_TARGET_MINUTES;
+                    && $firstSuperUserAcknowledgedAt
+                    && (int) $createdAt->diffInMinutes($firstSuperUserAcknowledgedAt) < self::ACKNOWLEDGMENT_TARGET_MINUTES;
                 $resolutionReferenceAt = $completedAt ?? $now;
                 $resolutionMinutes = $createdAt && $completedAt
                     ? max(0, (int) $createdAt->diffInMinutes($completedAt))
