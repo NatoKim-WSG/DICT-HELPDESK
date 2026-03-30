@@ -226,4 +226,3 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         return [$admin, $ticket];
     }
 }
-

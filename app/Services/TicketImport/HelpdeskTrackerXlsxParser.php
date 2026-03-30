@@ -10,7 +10,7 @@ class HelpdeskTrackerXlsxParser
     /**
      * @var array<string, list<string>>
      */
-    private const HEADER_ALIASES = [
+    private const REQUIRED_HEADER_ALIASES = [
         'date_received' => ['date received'],
         'time_received' => ['time received'],
         'issue_via' => [
@@ -23,6 +23,14 @@ class HelpdeskTrackerXlsxParser
         'time_resolved' => ['time resolved'],
         'resolution' => ['issue / request resolution'],
         'attended_by' => ['attended by'],
+    ];
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private const OPTIONAL_HEADER_ALIASES = [
+        'ticket_number' => ['ticket number', 'ticket no', 'ticket no.', 'ticket #', 'reference number', 'reference no'],
+        'requestor_details' => ['requestor details', 'requester details', 'requestor detail', 'requester detail'],
     ];
 
     /**
@@ -219,6 +227,7 @@ class HelpdeskTrackerXlsxParser
     private function resolveHeaderMap(array $cells): ?array
     {
         $matches = [];
+        $requiredMatches = [];
 
         foreach ($cells as $column => $cell) {
             $header = $this->normalizeHeader($cell['formatted'] ?? null);
@@ -226,7 +235,16 @@ class HelpdeskTrackerXlsxParser
                 continue;
             }
 
-            foreach (self::HEADER_ALIASES as $field => $aliases) {
+            foreach (self::REQUIRED_HEADER_ALIASES as $field => $aliases) {
+                foreach ($aliases as $alias) {
+                    if ($header === $this->normalizeHeader($alias)) {
+                        $matches[$column] = $field;
+                        $requiredMatches[$field] = true;
+                    }
+                }
+            }
+
+            foreach (self::OPTIONAL_HEADER_ALIASES as $field => $aliases) {
                 foreach ($aliases as $alias) {
                     if ($header === $this->normalizeHeader($alias)) {
                         $matches[$column] = $field;
@@ -235,7 +253,7 @@ class HelpdeskTrackerXlsxParser
             }
         }
 
-        return count($matches) >= count(self::HEADER_ALIASES) ? $matches : null;
+        return count($requiredMatches) >= count(self::REQUIRED_HEADER_ALIASES) ? $matches : null;
     }
 
     /**

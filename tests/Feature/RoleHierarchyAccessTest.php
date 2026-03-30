@@ -159,4 +159,3 @@ class RoleHierarchyAccessTest extends TestCase
         $this->assertSame('high', $ticket->priority);
     }
 }
-

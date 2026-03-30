@@ -8,6 +8,7 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class TicketAcknowledgmentFlowTest extends TestCase
@@ -40,7 +41,7 @@ class TicketAcknowledgmentFlowTest extends TestCase
 
     public function test_seen_ticket_without_acknowledgment_still_triggers_unchecked_super_user_alert(): void
     {
-        \Illuminate\Support\Facades\Mail::fake();
+        Mail::fake();
 
         $superUser = $this->createUser('Seen Super', 'seen-super@example.com', User::ROLE_SUPER_USER);
         $client = $this->createUser('Seen Client', 'seen-client@example.com', User::ROLE_CLIENT, 'iOne');

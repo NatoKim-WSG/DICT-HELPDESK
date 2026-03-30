@@ -369,4 +369,3 @@ class TicketLifecycleConsistencyTest extends TestCase
         return [$superUser, $client, $ticket];
     }
 }
-

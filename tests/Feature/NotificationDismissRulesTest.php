@@ -302,4 +302,3 @@ class NotificationDismissRulesTest extends TestCase
         return [$client, $admin, $ticket];
     }
 }
-

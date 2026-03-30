@@ -278,4 +278,3 @@ class AdminClientNotesTest extends TestCase
         $this->assertNull($technical->client_notes);
     }
 }
-

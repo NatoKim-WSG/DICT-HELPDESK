@@ -123,4 +123,3 @@ class ModalConfirmationFlowTest extends TestCase
         return [$supportUser, $ticket];
     }
 }
-

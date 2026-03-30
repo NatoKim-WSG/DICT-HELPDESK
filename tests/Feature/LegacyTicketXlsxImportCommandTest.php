@@ -15,7 +15,7 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_xlsx_import_command_preserves_excel_date_and_time_columns_without_1899_artifacts(): void
+    public function test_xlsx_import_command_preserves_ticket_number_and_populates_clean_requester_snapshot_fields(): void
     {
         $requester = User::create([
             'name' => 'Legacy Import User',
@@ -24,6 +24,17 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
             'department' => 'iOne',
             'phone' => '09171234567',
             'role' => User::ROLE_CLIENT,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+
+        $supportUser = User::create([
+            'name' => 'John Arnold Carrasco',
+            'username' => 'john.carrasco',
+            'email' => 'john.carrasco@example.com',
+            'department' => 'iOne',
+            'phone' => '09170000001',
+            'role' => User::ROLE_TECHNICAL,
             'password' => 'password',
             'is_active' => true,
         ]);
@@ -37,7 +48,16 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
 
         $importPath = storage_path('app/private/imports/legacy-tracker.xlsx');
         File::ensureDirectoryExists(dirname($importPath));
-        $this->writeMinimalTrackerWorkbook($importPath);
+        $this->writeTrackerWorkbook($importPath, [
+            'ticket_number' => 'TK-U3GFYDVS',
+            'requestor_details' => implode(PHP_EOL, [
+                'Name: Requester Snapshot',
+                'Contact Number: 09998887777',
+                'Email: requester@example.com',
+                'Province: Agusan del Norte',
+                'Municipality: Butuan City',
+            ]),
+        ]);
 
         $this->artisan('tickets:import-xlsx', [
             'paths' => ['legacy-tracker.xlsx'],
@@ -47,18 +67,25 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
 
         $ticket = Ticket::query()->sole();
 
+        $this->assertSame('TK-U3GFYDVS', $ticket->ticket_number);
         $this->assertSame('Kawasaki Client - Set up Access point for starlink', $ticket->subject);
+        $this->assertSame('Requester Snapshot', $ticket->name);
+        $this->assertSame('09998887777', $ticket->contact_number);
+        $this->assertSame('requester@example.com', $ticket->email);
+        $this->assertSame('Agusan del Norte', $ticket->province);
+        $this->assertSame('Butuan City', $ticket->municipality);
+        $this->assertSame($supportUser->id, $ticket->assigned_to);
         $this->assertSame('closed', $ticket->status);
         $this->assertTrue($ticket->created_at?->equalTo(Carbon::parse('2026-03-17 14:00:00', 'Asia/Manila')->utc()));
+        $this->assertTrue($ticket->assigned_at?->equalTo(Carbon::parse('2026-03-17 14:00:00', 'Asia/Manila')->utc()));
         $this->assertTrue($ticket->resolved_at?->equalTo(Carbon::parse('2026-03-17 17:00:00', 'Asia/Manila')->utc()));
         $this->assertTrue($ticket->closed_at?->equalTo(Carbon::parse('2026-03-17 17:00:00', 'Asia/Manila')->utc()));
-        $this->assertStringContainsString('Date Received: 03/17/2026', (string) $ticket->description);
-        $this->assertStringContainsString('Time Received: 2:00:00 PM', (string) $ticket->description);
+        $this->assertStringContainsString('Requestor Details: Name: Requester Snapshot', (string) $ticket->description);
         $this->assertStringContainsString('Completed At: 03/17/2026 5:00:00 PM', (string) $ticket->description);
         $this->assertStringNotContainsString('1899', (string) $ticket->description);
     }
 
-    public function test_xlsx_import_command_preserves_duplicate_source_rows_when_not_updating_existing(): void
+    public function test_xlsx_import_command_skips_existing_ticket_numbers_without_update_existing(): void
     {
         $requester = User::create([
             'name' => 'Legacy Import User',
@@ -80,7 +107,9 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
 
         $importPath = storage_path('app/private/imports/legacy-tracker-dup.xlsx');
         File::ensureDirectoryExists(dirname($importPath));
-        $this->writeMinimalTrackerWorkbook($importPath);
+        $this->writeTrackerWorkbook($importPath, [
+            'ticket_number' => 'TK-U3GFYDVS',
+        ]);
 
         $this->artisan('tickets:import-xlsx', [
             'paths' => ['legacy-tracker-dup.xlsx'],
@@ -94,11 +123,165 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
             '--source-timezone' => 'Asia/Manila',
         ])->assertSuccessful();
 
-        $this->assertSame(2, Ticket::query()->count());
+        $this->assertSame(1, Ticket::query()->count());
     }
 
-    private function writeMinimalTrackerWorkbook(string $path): void
+    public function test_xlsx_import_command_updates_existing_tickets_by_ticket_number_when_requested(): void
     {
+        $requester = User::create([
+            'name' => 'Legacy Import User',
+            'username' => 'legacy.import.xlsx.update',
+            'email' => 'legacy-import-xlsx-update@example.com',
+            'department' => 'iOne',
+            'phone' => '09171234569',
+            'role' => User::ROLE_CLIENT,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+
+        Category::create([
+            'name' => 'Other',
+            'description' => 'General import category',
+            'color' => '#6B7280',
+            'is_active' => true,
+        ]);
+
+        Ticket::create([
+            'ticket_number' => 'TK-U3GFYDVS',
+            'name' => 'Old Snapshot',
+            'contact_number' => '09170000000',
+            'email' => 'old@example.com',
+            'province' => 'Old Province',
+            'municipality' => 'Old City',
+            'subject' => 'Old Imported Subject',
+            'description' => 'Old imported description',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $requester->id,
+            'category_id' => Category::query()->value('id'),
+            'created_at' => Carbon::parse('2026-03-17 08:00:00', 'Asia/Manila')->utc(),
+            'updated_at' => Carbon::parse('2026-03-17 08:00:00', 'Asia/Manila')->utc(),
+        ]);
+
+        $importPath = storage_path('app/private/imports/legacy-tracker-update.xlsx');
+        File::ensureDirectoryExists(dirname($importPath));
+        $this->writeTrackerWorkbook($importPath, [
+            'ticket_number' => 'TK-U3GFYDVS',
+            'issue_description' => 'Updated starlink access point setup',
+            'requestor_details' => 'Name: Requester Snapshot',
+        ]);
+
+        $this->artisan('tickets:import-xlsx', [
+            'paths' => ['legacy-tracker-update.xlsx'],
+            '--default-user' => (string) $requester->id,
+            '--source-timezone' => 'Asia/Manila',
+            '--update-existing' => true,
+        ])->assertSuccessful();
+
+        $ticket = Ticket::query()->sole();
+
+        $this->assertSame('TK-U3GFYDVS', $ticket->ticket_number);
+        $this->assertSame('Kawasaki Client - Updated starlink access point setup', $ticket->subject);
+        $this->assertSame('Requester Snapshot', $ticket->name);
+        $this->assertCount(1, Ticket::query()->get());
+    }
+
+    private function writeTrackerWorkbook(string $path, array $overrides = []): void
+    {
+        $row = array_merge([
+            'ticket_number' => null,
+            'date_received_serial' => '46098',
+            'time_received_serial' => '0.5833333333',
+            'issue_via' => 'via viber call',
+            'project_name' => 'Kawasaki Client',
+            'issue_description' => 'Set up Access point for starlink',
+            'date_resolved_serial' => '46098',
+            'time_resolved_serial' => '0.7083333333',
+            'resolution' => 'Assist personel for troubleshooting',
+            'attended_by' => 'John Arnold Carrasco',
+            'requestor_details' => null,
+        ], $overrides);
+
+        $columns = [
+            ['letter' => 'A', 'header' => 'Ticket Number', 'field' => 'ticket_number', 'type' => 'string'],
+            ['letter' => 'B', 'header' => 'Date Received', 'field' => 'date_received_serial', 'type' => 'date'],
+            ['letter' => 'C', 'header' => 'Time Received', 'field' => 'time_received_serial', 'type' => 'time'],
+            ['letter' => 'D', 'header' => 'Issue / Request Reported via', 'field' => 'issue_via', 'type' => 'string'],
+            ['letter' => 'E', 'header' => 'Name of Project', 'field' => 'project_name', 'type' => 'string'],
+            ['letter' => 'F', 'header' => 'Issue / Request Description', 'field' => 'issue_description', 'type' => 'string'],
+            ['letter' => 'G', 'header' => 'Date Resolved', 'field' => 'date_resolved_serial', 'type' => 'date'],
+            ['letter' => 'H', 'header' => 'Time Resolved', 'field' => 'time_resolved_serial', 'type' => 'time'],
+            ['letter' => 'I', 'header' => 'Issue / Request Resolution', 'field' => 'resolution', 'type' => 'string'],
+            ['letter' => 'J', 'header' => 'Attended by', 'field' => 'attended_by', 'type' => 'string'],
+            ['letter' => 'K', 'header' => 'Requestor Details', 'field' => 'requestor_details', 'type' => 'string'],
+        ];
+
+        $sharedStrings = [];
+        $sharedStringIndex = [];
+        $stringIndexFor = function (string $value) use (&$sharedStrings, &$sharedStringIndex): int {
+            if (array_key_exists($value, $sharedStringIndex)) {
+                return $sharedStringIndex[$value];
+            }
+
+            $sharedStringIndex[$value] = count($sharedStrings);
+            $sharedStrings[] = $value;
+
+            return $sharedStringIndex[$value];
+        };
+
+        $headerCells = [];
+        $rowCells = [];
+
+        foreach ($columns as $column) {
+            $headerCells[] = sprintf(
+                '<c r="%1$s1" t="s"><v>%2$d</v></c>',
+                $column['letter'],
+                $stringIndexFor($column['header']),
+            );
+
+            $value = $row[$column['field']] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if ($column['type'] === 'date') {
+                $rowCells[] = sprintf('<c r="%s2" s="1"><v>%s</v></c>', $column['letter'], $value);
+
+                continue;
+            }
+
+            if ($column['type'] === 'time') {
+                $rowCells[] = sprintf('<c r="%s2" s="2"><v>%s</v></c>', $column['letter'], $value);
+
+                continue;
+            }
+
+            $rowCells[] = sprintf(
+                '<c r="%1$s2" t="s"><v>%2$d</v></c>',
+                $column['letter'],
+                $stringIndexFor((string) $value),
+            );
+        }
+
+        $sharedStringsXml = implode('', array_map(
+            fn (string $value): string => '<si><t>'.htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8').'</t></si>',
+            $sharedStrings,
+        ));
+
+        $worksheetXml = <<<'XML'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>
+    <row r="1">
+      %s
+    </row>
+    <row r="2">
+      %s
+    </row>
+  </sheetData>
+</worksheet>
+XML;
+
         $zip = new ZipArchive;
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             $this->fail('Unable to create XLSX fixture.');
@@ -161,58 +344,19 @@ XML);
 </styleSheet>
 XML);
 
-            $zip->addFromString('xl/sharedStrings.xml', <<<'XML'
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="14" uniqueCount="14">
-  <si><t>Date Received</t></si>
-  <si><t>Time Received</t></si>
-  <si><t>Issue / Request Reported via</t></si>
-  <si><t>Name of Project</t></si>
-  <si><t>Issue / Request Description</t></si>
-  <si><t>Date Resolved</t></si>
-  <si><t>Time Resolved</t></si>
-  <si><t>Issue / Request Resolution</t></si>
-  <si><t>Attended by</t></si>
-  <si><t>via viber call</t></si>
-  <si><t>Kawasaki Client</t></si>
-  <si><t>Set up Access point for starlink</t></si>
-  <si><t>Assist personel for troubleshooting</t></si>
-  <si><t>John Arnold Carrasco</t></si>
-</sst>
-XML);
+            $zip->addFromString('xl/sharedStrings.xml', sprintf(
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="%1$d" uniqueCount="%1$d">%2$s</sst>',
+                count($sharedStrings),
+                $sharedStringsXml,
+            ));
 
-            $zip->addFromString('xl/worksheets/sheet1.xml', <<<'XML'
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData>
-    <row r="1">
-      <c r="B1" t="s"><v>0</v></c>
-      <c r="C1" t="s"><v>1</v></c>
-      <c r="D1" t="s"><v>2</v></c>
-      <c r="E1" t="s"><v>3</v></c>
-      <c r="F1" t="s"><v>4</v></c>
-      <c r="G1" t="s"><v>5</v></c>
-      <c r="H1" t="s"><v>6</v></c>
-      <c r="I1" t="s"><v>7</v></c>
-      <c r="J1" t="s"><v>8</v></c>
-    </row>
-    <row r="2">
-      <c r="B2" s="1"><v>46098</v></c>
-      <c r="C2" s="2"><v>0.5833333333</v></c>
-      <c r="D2" t="s"><v>9</v></c>
-      <c r="E2" t="s"><v>10</v></c>
-      <c r="F2" t="s"><v>11</v></c>
-      <c r="G2" s="1"><v>46098</v></c>
-      <c r="H2" s="2"><v>0.7083333333</v></c>
-      <c r="I2" t="s"><v>12</v></c>
-      <c r="J2" t="s"><v>13</v></c>
-    </row>
-  </sheetData>
-</worksheet>
-XML);
+            $zip->addFromString('xl/worksheets/sheet1.xml', sprintf(
+                $worksheetXml,
+                implode('', $headerCells),
+                implode('', $rowCells),
+            ));
         } finally {
             $zip->close();
         }
     }
 }
-

@@ -140,4 +140,3 @@ class AttachmentDownloadAuthorizationTest extends TestCase
         ]);
     }
 }
-

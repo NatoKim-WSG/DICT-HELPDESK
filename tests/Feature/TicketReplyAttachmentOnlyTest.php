@@ -79,4 +79,3 @@ class TicketReplyAttachmentOnlyTest extends TestCase
         return [$client, $ticket];
     }
 }
-

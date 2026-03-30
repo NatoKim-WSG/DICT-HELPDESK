@@ -153,4 +153,3 @@ class LegacyTicketImportCommandTest extends TestCase
         $this->assertDatabaseCount('tickets', 1);
     }
 }
-

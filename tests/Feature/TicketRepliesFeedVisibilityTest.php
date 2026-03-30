@@ -186,4 +186,3 @@ class TicketRepliesFeedVisibilityTest extends TestCase
         ]);
     }
 }
-

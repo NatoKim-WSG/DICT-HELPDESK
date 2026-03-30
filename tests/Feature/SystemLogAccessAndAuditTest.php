@@ -167,4 +167,3 @@ class SystemLogAccessAndAuditTest extends TestCase
         ]);
     }
 }
-

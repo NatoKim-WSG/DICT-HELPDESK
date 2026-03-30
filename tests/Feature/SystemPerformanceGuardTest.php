@@ -206,4 +206,3 @@ class SystemPerformanceGuardTest extends TestCase
         }
     }
 }
-

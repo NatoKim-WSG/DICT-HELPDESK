@@ -236,4 +236,3 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertSame('super-admin-email2-new@example.com', $superAdmin->email);
     }
 }
-

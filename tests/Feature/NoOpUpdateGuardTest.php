@@ -197,4 +197,3 @@ class NoOpUpdateGuardTest extends TestCase
         return [$staff, $ticket];
     }
 }
-

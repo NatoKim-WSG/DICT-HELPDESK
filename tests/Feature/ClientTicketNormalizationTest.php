@@ -118,4 +118,3 @@ class ClientTicketNormalizationTest extends TestCase
         $response->assertSee('brokening');
     }
 }
-

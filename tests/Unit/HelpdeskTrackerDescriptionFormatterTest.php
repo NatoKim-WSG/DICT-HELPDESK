@@ -42,7 +42,6 @@ class HelpdeskTrackerDescriptionFormatterTest extends TestCase
             'Date Resolved: 03/17/2026',
             'Time Resolved: 5:00:00 PM',
             'Issue Via: via viber call',
-            'Requestor Details: ',
             'Project Name: Kawasaki Client',
             'Issue Description: Set up Access point for starlink',
             'Resolution: Assist personel for troubleshooting',
@@ -80,8 +79,33 @@ class HelpdeskTrackerDescriptionFormatterTest extends TestCase
             'attended_by' => 'Support Team',
         ], $createdAt, null, 'Asia/Manila');
 
-        $this->assertStringContainsString('Time Resolved: 12:10:00 PM', $description);
+        $this->assertStringContainsString('Time Resolved: 12:10 PM', $description);
         $this->assertStringContainsString('Resolution: Recovered around 12:10 PM after provider update', $description);
         $this->assertStringContainsString('Project Name: MNHPI', $description);
+        $this->assertStringNotContainsString('Requestor Details:', $description);
+    }
+
+    public function test_it_preserves_source_time_display_without_forcing_seconds(): void
+    {
+        $formatter = new HelpdeskTrackerDescriptionFormatter;
+        $createdAt = Carbon::parse('2026-03-06 14:00:00', 'Asia/Manila')->utc();
+        $completedAt = Carbon::parse('2026-03-06 15:00:00', 'Asia/Manila')->utc();
+
+        $description = $formatter->buildDescription([
+            'date_received' => '03/06/2026',
+            'time_received' => '2:00:00 PM',
+            'date_resolved' => '03/06/2026',
+            'time_resolved' => '3:00 PM',
+            'issue_via' => 'via online messaging',
+            'requestor_details' => null,
+            'project_name' => 'DSWD MCC Starlink',
+            'issue_description' => 'Activation of Starlink',
+            'resolution' => 'Activated of starlink DSWD Calabarzon Enterprise',
+            'attended_by' => 'John Arnold Carrasco',
+        ], $createdAt, $completedAt, 'Asia/Manila');
+
+        $this->assertStringContainsString('Time Received: 2:00:00 PM', $description);
+        $this->assertStringContainsString('Time Resolved: 3:00 PM', $description);
+        $this->assertStringContainsString('Completed At: 03/06/2026 3:00:00 PM', $description);
     }
 }

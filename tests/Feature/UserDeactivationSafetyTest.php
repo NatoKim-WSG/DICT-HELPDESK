@@ -125,4 +125,3 @@ class UserDeactivationSafetyTest extends TestCase
         ]);
     }
 }
-

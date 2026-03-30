@@ -91,4 +91,3 @@ class HeaderSearchContextTest extends TestCase
         ]);
     }
 }
-

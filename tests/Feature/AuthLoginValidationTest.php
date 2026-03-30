@@ -178,4 +178,3 @@ class AuthLoginValidationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 }
-

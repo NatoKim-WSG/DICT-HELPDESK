@@ -1173,4 +1173,3 @@ class AdminReportsPageTest extends TestCase
         ]);
     }
 }
-

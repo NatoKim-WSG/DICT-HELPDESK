@@ -492,4 +492,3 @@ class AdminTicketFilterConsistencyTest extends TestCase
         ]);
     }
 }
-

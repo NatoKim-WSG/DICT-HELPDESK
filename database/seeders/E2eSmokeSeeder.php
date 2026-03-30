@@ -69,4 +69,3 @@ class E2eSmokeSeeder extends Seeder
         );
     }
 }
-

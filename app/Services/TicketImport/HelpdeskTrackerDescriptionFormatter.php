@@ -40,20 +40,22 @@ class HelpdeskTrackerDescriptionFormatter
         $createdAtDisplay = $createdAt->copy()->setTimezone($displayTimezone);
         $completedAtDisplay = $completedAt?->copy()->setTimezone($displayTimezone);
 
-        return implode(PHP_EOL, [
-            'Date Received: '.($this->formatDisplayDate($fields['date_received'] ?? null) ?? $createdAtDisplay->format('m/d/Y')),
-            'Time Received: '.($this->formatDisplayTime($fields['time_received'] ?? null) ?? $createdAtDisplay->format('g:i:s A')),
-            'Date Resolved: '.($this->formatDisplayDate($fields['date_resolved'] ?? null) ?? ($completedAtDisplay?->format('m/d/Y') ?? '')),
-            'Time Resolved: '.($this->formatDisplayTime($fields['time_resolved'] ?? null) ?? ($completedAtDisplay?->format('g:i:s A') ?? '')),
-            'Issue Via: '.($this->normalizeDisplayText($fields['issue_via'] ?? null) ?? ''),
-            'Requestor Details: '.($this->normalizeDisplayText($fields['requestor_details'] ?? null) ?? ''),
-            'Project Name: '.($this->normalizeDisplayText($fields['project_name'] ?? null) ?? ''),
-            'Issue Description: '.($this->normalizeDisplayText($fields['issue_description'] ?? null) ?? ''),
-            'Resolution: '.($this->normalizeDisplayText($fields['resolution'] ?? null) ?? ''),
-            'Attended By: '.($this->normalizeDisplayText($fields['attended_by'] ?? null) ?? ''),
-            'Created At: '.$createdAtDisplay->format('m/d/Y g:i:s A'),
-            'Completed At: '.($completedAtDisplay?->format('m/d/Y g:i:s A') ?? ''),
-        ]);
+        $lines = [];
+
+        $this->appendLine($lines, 'Date Received', $this->formatDisplayDate($fields['date_received'] ?? null) ?? $createdAtDisplay->format('m/d/Y'));
+        $this->appendLine($lines, 'Time Received', $this->formatDisplayTime($fields['time_received'] ?? null) ?? $createdAtDisplay->format('g:i:s A'));
+        $this->appendLine($lines, 'Date Resolved', $this->formatDisplayDate($fields['date_resolved'] ?? null) ?? $completedAtDisplay?->format('m/d/Y'));
+        $this->appendLine($lines, 'Time Resolved', $this->formatDisplayTime($fields['time_resolved'] ?? null) ?? $completedAtDisplay?->format('g:i:s A'));
+        $this->appendLine($lines, 'Issue Via', $this->normalizeDisplayText($fields['issue_via'] ?? null));
+        $this->appendLine($lines, 'Requestor Details', $this->normalizeDisplayText($fields['requestor_details'] ?? null));
+        $this->appendLine($lines, 'Project Name', $this->normalizeDisplayText($fields['project_name'] ?? null));
+        $this->appendLine($lines, 'Issue Description', $this->normalizeDisplayText($fields['issue_description'] ?? null));
+        $this->appendLine($lines, 'Resolution', $this->normalizeDisplayText($fields['resolution'] ?? null));
+        $this->appendLine($lines, 'Attended By', $this->normalizeDisplayText($fields['attended_by'] ?? null));
+        $this->appendLine($lines, 'Created At', $createdAtDisplay->format('m/d/Y g:i:s A'));
+        $this->appendLine($lines, 'Completed At', $completedAtDisplay?->format('m/d/Y g:i:s A'));
+
+        return implode(PHP_EOL, $lines);
     }
 
     public function combineDateAndTime(?string $date, ?string $time, string $sourceTimezone): ?Carbon
@@ -143,7 +145,10 @@ class HelpdeskTrackerDescriptionFormatter
         }
 
         try {
-            return Carbon::parse($value, 'Asia/Manila')->format('g:i:s A');
+            $parsed = Carbon::parse($value, 'Asia/Manila');
+            $includesSeconds = (bool) preg_match('/:\d{2}:\d{2}\b/', $value);
+
+            return $parsed->format($includesSeconds ? 'g:i:s A' : 'g:i A');
         } catch (\Throwable) {
             return $value;
         }
@@ -189,5 +194,18 @@ class HelpdeskTrackerDescriptionFormatter
         $normalized = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    /**
+     * @param  list<string>  $lines
+     */
+    private function appendLine(array &$lines, string $label, ?string $value): void
+    {
+        $value = $this->normalizeNullableString($value);
+        if ($value === null) {
+            return;
+        }
+
+        $lines[] = $label.': '.$value;
     }
 }

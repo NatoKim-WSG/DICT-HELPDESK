@@ -43,7 +43,7 @@ class UiConsistencyGuardTest extends TestCase
         $modalViewFiles = [
             'admin/reports/partials/shell.blade.php',
             'admin/tickets/index.blade.php',
-            'admin/tickets/show.blade.php',
+            'admin/tickets/partials/show-modals.blade.php',
             'admin/users/index.blade.php',
             'admin/users/show.blade.php',
             'client/tickets/show.blade.php',

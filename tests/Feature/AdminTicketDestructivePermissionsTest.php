@@ -150,4 +150,3 @@ class AdminTicketDestructivePermissionsTest extends TestCase
         return [$client, $category];
     }
 }
-

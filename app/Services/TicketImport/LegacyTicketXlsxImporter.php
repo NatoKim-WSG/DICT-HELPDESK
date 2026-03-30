@@ -30,6 +30,11 @@ class LegacyTicketXlsxImporter
     private ?array $usersByUsername = null;
 
     /**
+     * @var array<string, User>|null
+     */
+    private ?array $supportUsersByName = null;
+
+    /**
      * @var array<int, Category>|null
      */
     private ?array $categoriesById = null;
@@ -103,6 +108,27 @@ class LegacyTicketXlsxImporter
 
         DB::transaction(function () use ($preparedRows, $settings, &$summary, &$existingTicketsByKey): void {
             foreach ($preparedRows as $preparedRow) {
+                $ticketNumber = $preparedRow['ticket_number'];
+
+                if ($ticketNumber !== null) {
+                    $existingTicket = Ticket::query()->where('ticket_number', $ticketNumber)->first();
+
+                    if ($existingTicket instanceof Ticket) {
+                        if (! $settings['update_existing']) {
+                            $summary['skipped']++;
+
+                            continue;
+                        }
+
+                        $existingTicket->timestamps = false;
+                        $existingTicket->forceFill($preparedRow['attributes']);
+                        $existingTicket->save();
+                        $summary['updated']++;
+
+                        continue;
+                    }
+                }
+
                 if (! $settings['update_existing']) {
                     $ticket = new Ticket;
                     $ticket->timestamps = false;
@@ -156,6 +182,7 @@ class LegacyTicketXlsxImporter
      *     values: array<string, string|null>
      * }  $row
      * @return array{
+     *     ticket_number: string|null,
      *     match_subject: string,
      *     match_created_at: Carbon,
      *     attributes: array<string, mixed>
@@ -199,16 +226,21 @@ class LegacyTicketXlsxImporter
         $category = $this->resolveCategoryReference($settings['default_category'], $row['source_row']);
         $subject = $this->formatter->buildSubject($projectName, $issueDescription, $values['issue_via'] ?? null);
         $displayTimezone = (string) config('app.timezone', $settings['source_timezone']);
+        $ticketNumber = $this->nullableString($values['ticket_number'] ?? null);
+        $requesterSnapshot = $this->extractRequesterSnapshot($values['requestor_details'] ?? null, $requester);
+        $assignedUser = $this->resolveOptionalSupportUserByDisplayName($values['attended_by'] ?? null);
 
         return [
+            'ticket_number' => $ticketNumber,
             'match_subject' => $subject,
             'match_created_at' => $createdAt,
             'attributes' => [
-                'name' => null,
-                'contact_number' => null,
-                'email' => null,
-                'province' => null,
-                'municipality' => null,
+                'ticket_number' => $ticketNumber,
+                'name' => $requesterSnapshot['name'],
+                'contact_number' => $requesterSnapshot['contact_number'],
+                'email' => $requesterSnapshot['email'],
+                'province' => $requesterSnapshot['province'],
+                'municipality' => $requesterSnapshot['municipality'],
                 'subject' => $subject,
                 'description' => $this->formatter->buildDescription(
                     fields: [
@@ -217,7 +249,7 @@ class LegacyTicketXlsxImporter
                         'date_resolved' => $values['date_resolved'] ?? null,
                         'time_resolved' => $values['time_resolved'] ?? null,
                         'issue_via' => $values['issue_via'] ?? null,
-                        'requestor_details' => null,
+                        'requestor_details' => $values['requestor_details'] ?? null,
                         'project_name' => $projectName,
                         'issue_description' => $issueDescription,
                         'resolution' => $values['resolution'] ?? null,
@@ -230,8 +262,8 @@ class LegacyTicketXlsxImporter
                 'priority' => $settings['default_priority'],
                 'status' => $completedAt ? 'closed' : $settings['default_status'],
                 'user_id' => $requester->id,
-                'assigned_to' => null,
-                'assigned_at' => null,
+                'assigned_to' => $assignedUser?->id,
+                'assigned_at' => $assignedUser ? $createdAt->copy() : null,
                 'category_id' => $category->id,
                 'created_at' => $createdAt,
                 'updated_at' => $completedAt ?? $createdAt->copy(),
@@ -243,6 +275,7 @@ class LegacyTicketXlsxImporter
 
     /**
      * @param  list<array{
+     *     ticket_number: string|null,
      *     match_subject: string,
      *     match_created_at: Carbon,
      *     attributes: array<string, mixed>
@@ -254,6 +287,10 @@ class LegacyTicketXlsxImporter
         $existingTicketsByKey = [];
 
         foreach ($preparedRows as $preparedRow) {
+            if ($preparedRow['ticket_number'] !== null) {
+                continue;
+            }
+
             $matchKey = $this->buildMatchKey($preparedRow['match_subject'], $preparedRow['match_created_at']);
 
             if (array_key_exists($matchKey, $existingTicketsByKey)) {
@@ -385,6 +422,16 @@ class LegacyTicketXlsxImporter
         throw new RuntimeException(sprintf('Spreadsheet row %d could not resolve category "%s".', $row, $reference));
     }
 
+    private function resolveOptionalSupportUserByDisplayName(?string $displayName): ?User
+    {
+        $displayName = $this->normalizeLookupKey($displayName);
+        if ($displayName === null) {
+            return null;
+        }
+
+        return $this->supportUsersByName()[$displayName] ?? null;
+    }
+
     /**
      * @return array<int, User>
      */
@@ -442,6 +489,28 @@ class LegacyTicketXlsxImporter
     }
 
     /**
+     * @return array<string, User>
+     */
+    private function supportUsersByName(): array
+    {
+        if ($this->supportUsersByName !== null) {
+            return $this->supportUsersByName;
+        }
+
+        $groupedUsers = User::query()
+            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
+            ->get()
+            ->groupBy(fn (User $user): ?string => $this->normalizeLookupKey($user->name));
+
+        $this->supportUsersByName = $groupedUsers
+            ->filter(static fn (Collection $users, ?string $key): bool => $key !== null && $users->count() === 1)
+            ->map(fn (Collection $users): User => $users->first())
+            ->all();
+
+        return $this->supportUsersByName;
+    }
+
+    /**
      * @return array<int, Category>
      */
     private function categoriesById(): array
@@ -480,5 +549,91 @@ class LegacyTicketXlsxImporter
         $normalized = trim((string) $value);
 
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function normalizeLookupKey(mixed $value): ?string
+    {
+        $value = $this->nullableString($value);
+        if ($value === null) {
+            return null;
+        }
+
+        return strtolower(trim((string) preg_replace('/\s+/u', ' ', $value)));
+    }
+
+    /**
+     * @return array{
+     *     name: string,
+     *     contact_number: string,
+     *     email: string,
+     *     province: string,
+     *     municipality: string
+     * }
+     */
+    private function extractRequesterSnapshot(?string $requestorDetails, User $fallbackRequester): array
+    {
+        $details = $this->nullableString($requestorDetails);
+        $snapshot = [
+            'name' => null,
+            'contact_number' => null,
+            'email' => null,
+            'province' => null,
+            'municipality' => null,
+        ];
+
+        if ($details !== null) {
+            $segments = preg_split('/[\r\n;]+/', $details) ?: [];
+
+            foreach ($segments as $segment) {
+                $segment = $this->nullableString($segment);
+                if ($segment === null) {
+                    continue;
+                }
+
+                if (preg_match('/^(name|requester|requestor)\s*[:\-]\s*(.+)$/i', $segment, $matches)) {
+                    $snapshot['name'] = $this->nullableString($matches[2]);
+
+                    continue;
+                }
+
+                if (preg_match('/^(contact(?:\s+number)?|contact\s+no\.?|phone|mobile)\s*[:\-]\s*(.+)$/i', $segment, $matches)) {
+                    $snapshot['contact_number'] = $this->nullableString($matches[2]);
+
+                    continue;
+                }
+
+                if (preg_match('/^email\s*[:\-]\s*(.+)$/i', $segment, $matches)) {
+                    $snapshot['email'] = $this->nullableString($matches[1]);
+
+                    continue;
+                }
+
+                if (preg_match('/^province\s*[:\-]\s*(.+)$/i', $segment, $matches)) {
+                    $snapshot['province'] = $this->nullableString($matches[1]);
+
+                    continue;
+                }
+
+                if (preg_match('/^(municipality|city)\s*[:\-]\s*(.+)$/i', $segment, $matches)) {
+                    $snapshot['municipality'] = $this->nullableString($matches[2]);
+                }
+            }
+
+            if ($snapshot['email'] === null && preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $details, $matches)) {
+                $snapshot['email'] = $this->nullableString($matches[0]);
+            }
+
+            if ($snapshot['contact_number'] === null && preg_match('/(?:\+?\d[\d\s\-]{8,}\d)/', $details, $matches)) {
+                $snapshot['contact_number'] = $this->nullableString($matches[0]);
+            }
+        }
+
+        return [
+            'name' => $snapshot['name'] ?? (string) ($fallbackRequester->name ?: 'Unknown Requester'),
+            'contact_number' => $snapshot['contact_number'] ?? (string) ($fallbackRequester->phone ?: 'N/A'),
+            'email' => $snapshot['email'] ?? (string) ($fallbackRequester->email ?: 'unknown@local.invalid'),
+            'province' => $snapshot['province'] ?? 'Unspecified',
+            'municipality' => $snapshot['municipality'] ?? 'Unspecified',
+        ];
     }
 }

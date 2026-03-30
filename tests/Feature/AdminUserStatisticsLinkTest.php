@@ -169,4 +169,3 @@ class AdminUserStatisticsLinkTest extends TestCase
         ]);
     }
 }
-

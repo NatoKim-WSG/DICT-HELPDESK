@@ -1,0 +1,42 @@
+<div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-semibold text-gray-900">{{ $ticket->subject }}</h1>
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+                    <span class="font-medium">{{ $ticket->ticket_number }}</span>
+                    <span class="hidden text-gray-300 sm:inline">&bull;</span>
+                    <span>Created {{ $ticket->created_at->format('M j, Y \a\t g:i A') }}</span>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->status_color }}">
+                    {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->priority_color }}">
+                    @if(strtolower((string) $ticket->priority) === 'urgent')
+                        <svg class="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2.25m0 3.75h.01M10.34 3.94 1.82 18a2.25 2.25 0 001.92 3.38h16.52a2.25 2.25 0 001.92-3.38L13.66 3.94a2.25 2.25 0 00-3.32 0z"></path>
+                        </svg>
+                    @endif
+                    {{ $ticket->priority_label }}
+                </span>
+                @if($canAcknowledgeTicket)
+                    @if($acknowledgedAt)
+                        <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+                            Acknowledged {{ $acknowledgedAt->diffForHumans($ticket->created_at, short: true, parts: 2) }} after receipt
+                        </span>
+                    @else
+                        <form method="POST" action="{{ route('admin.tickets.acknowledge', $ticket) }}" data-submit-feedback>
+                            @csrf
+                            <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                            <button type="submit" class="inline-flex items-center rounded-full bg-[#0f8d88] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d7672]">
+                                Acknowledge Ticket
+                            </button>
+                        </form>
+                    @endif
+                @endif
+            </div>
+        </div>
+    </div>
+</div>

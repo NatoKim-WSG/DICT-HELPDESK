@@ -612,4 +612,3 @@ class AdminUserManagementNormalizationTest extends TestCase
         $this->assertTrue(Hash::check('custompass123', $client->password));
     }
 }
-

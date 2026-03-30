@@ -264,4 +264,3 @@ class AdminTicketBulkActionSuccessTest extends TestCase
         return [$superUser, $superAdmin, $technical, $ticketOne, $ticketTwo];
     }
 }
-

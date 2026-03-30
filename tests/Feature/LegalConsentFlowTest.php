@@ -162,4 +162,3 @@ class LegalConsentFlowTest extends TestCase
         ]);
     }
 }
-

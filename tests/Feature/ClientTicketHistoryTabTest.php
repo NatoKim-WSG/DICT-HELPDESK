@@ -172,4 +172,3 @@ class ClientTicketHistoryTabTest extends TestCase
         ], $overrides);
     }
 }
-

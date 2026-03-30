@@ -317,4 +317,3 @@ class TicketEmailAlertsTest extends TestCase
         ], $overrides));
     }
 }
-

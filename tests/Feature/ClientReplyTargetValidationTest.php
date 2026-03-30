@@ -116,4 +116,3 @@ class ClientReplyTargetValidationTest extends TestCase
         return [$client, $ticket, $foreignReply];
     }
 }
-

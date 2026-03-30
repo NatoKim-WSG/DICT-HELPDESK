@@ -2,12 +2,12 @@
 
 Current version: `1.0.1` (see `VERSION`)
 
-Laravel 12 help desk application with separate client and admin portals for ticket management.
+Laravel 13 help desk application with separate client and admin portals for ticket management.
 
 ## Tech Stack
 
-- PHP 8.3+ for full development and tests (runtime supports PHP 8.2+)
-- Laravel 12
+- PHP 8.3+
+- Laravel 13
 - PostgreSQL (default) or MySQL/MariaDB
 - Vite 8 + Tailwind CSS 4 + Alpine.js
 
@@ -82,11 +82,20 @@ For server deployments, update dependencies and rebuild frontend assets whenever
 
 ```bash
 composer install --no-dev --optimize-autoloader
-npm install
+npm ci
 npm run build
+php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
 ```
+
+Windows PowerShell deploy helper:
+
+```powershell
+./scripts/deploy-helpdesk.ps1
+```
+
+That script only deploys inside `/opt/helpdesk` on the configured VPS and runs the shared remote deploy script in `scripts/deploy-helpdesk-remote.sh`.
 
 ## Dependency and Security Checks
 
@@ -197,16 +206,22 @@ Optional infra/config variables currently used:
 
 ## Legacy Ticket Import
 
-Use the built-in importer for historical ticket batches instead of direct DB inserts. The importer refuses files without `created_at` so old tickets do not get stamped with the current import time again.
+Use the built-in importer for historical ticket batches instead of direct DB inserts. The CSV importer refuses files without `created_at` so old tickets do not get stamped with the current import time again.
 
 Sample template:
 
 - [legacy-ticket-import-template.csv](docs/legacy-ticket-import-template.csv)
 
-Typical command:
+Typical CSV command:
 
 ```bash
 php artisan tickets:import-csv legacy-batch.csv --default-user=35 --source-timezone=Asia/Manila
+```
+
+Typical XLSX tracker command:
+
+```bash
+php artisan tickets:import-xlsx legacy-tracker.xlsx --default-user=35 --source-timezone=Asia/Manila
 ```
 
 Notes:
@@ -216,6 +231,9 @@ Notes:
 - Supported category lookup columns are `category_id` and `category`
 - If `updated_at` is omitted, the importer uses the source `created_at`
 - Existing rows are skipped unless you pass `--update-existing`
+- The XLSX tracker importer preserves source `ticket_number` values when the sheet includes them
+- The XLSX tracker importer can populate requester snapshot fields from a `Requestor Details` column
+- The XLSX tracker importer tries to map `Attended by` to a real support assignee when the display name matches exactly
 
 ## Seeded Accounts
 
@@ -277,7 +295,7 @@ Use this checklist when setting up or deploying the project.
 
 ### 1) Prerequisites
 
-- [ ] Install PHP `8.2+` (recommended `8.3` for development/tests)
+- [ ] Install PHP `8.3+`
 - [ ] Install Composer
 - [ ] Install Node.js and npm
 - [ ] Install PostgreSQL or MySQL/MariaDB

@@ -180,4 +180,3 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
         return [$technical, $client, $category];
     }
 }
-

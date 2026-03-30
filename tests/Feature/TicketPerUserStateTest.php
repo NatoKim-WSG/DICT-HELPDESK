@@ -89,4 +89,3 @@ class TicketPerUserStateTest extends TestCase
         return [$superUser, $technical, $ticket];
     }
 }
-
