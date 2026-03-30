@@ -20,7 +20,6 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="font-display text-3xl font-semibold text-slate-900">Account Settings</h1>
-            <p class="mt-1 text-sm text-slate-500">Update your account profile and security preferences.</p>
         </div>
         <a href="{{ $backRoute }}" class="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             Back to Dashboard
@@ -82,7 +81,6 @@
                     class="form-input @error('username') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isUsernameLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="Enter username"
                 >
-                <p class="mt-1 px-3.5 text-xs text-slate-500">Used for sign-in. Lowercase letters, numbers, dots, dashes, and underscores only. Example: <span class="font-mono">juan.delacruz</span></p>
                 @if($isUsernameLocked)
                     <p class="mt-1 px-3.5 text-xs text-slate-500">Only admins can change sign-in usernames for this account role.</p>
                 @endif
@@ -104,7 +102,6 @@
                     class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isProfileLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
                     placeholder="Enter display name"
                 >
-                <p class="mt-1 px-3.5 text-xs text-slate-500">This is the name shown in tickets, activity, and user lists.</p>
                 @error('name')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror

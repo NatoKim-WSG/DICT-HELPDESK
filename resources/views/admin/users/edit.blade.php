@@ -13,7 +13,6 @@
             </a>
             <div>
                 <h1 class="text-2xl font-semibold text-gray-900">Edit User</h1>
-                <p class="mt-1 text-sm text-gray-600">Update user information and settings</p>
             </div>
         </div>
     </div>
@@ -26,11 +25,6 @@
             <input type="hidden" name="return_to" value="{{ $returnTo ?? route('admin.users.index', absolute: false) }}">
             <div class="px-4 py-5 sm:p-6">
                 <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <div class="sm:col-span-2 xl:col-span-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-                        <p class="font-semibold">Identity setup</p>
-                        <p class="mt-1">Username controls sign-in. Display Name is the name shown across iOne Helpdesk.</p>
-                    </div>
-
                     <!-- Username -->
                     <div class="sm:col-span-1">
                         <label for="username" class="block text-sm font-medium text-gray-700">
@@ -42,7 +36,6 @@
                                 data-profile-edit-lockable
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('username') border-red-300 @enderror">
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">Used for sign-in. Lowercase letters, numbers, dots, dashes, and underscores only. Example: <span class="font-mono text-xs">juan.delacruz</span></p>
                         @error('username')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -58,7 +51,6 @@
                                 data-profile-edit-lockable
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('name') border-red-300 @enderror">
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">This is the readable name shown in tickets, user lists, and account views.</p>
                         @error('name')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -211,7 +203,6 @@
                         <p id="profile-edit-locked-banner" class="mt-2 hidden rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs text-slate-700">
                             Profile editing is locked. Unlock first to edit this account.
                         </p>
-                        <p class="mt-2 text-xs text-gray-500">When locked, even admins must unlock first before making edits.</p>
                         @error('is_profile_locked')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror

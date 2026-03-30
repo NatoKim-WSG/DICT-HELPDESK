@@ -174,7 +174,6 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Total Tickets Breakdown</h2>
-                        <p class="mt-1 text-sm text-slate-500">Status mix for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Total Tickets Breakdown (Detailed View)" data-chart-source="total-tickets-breakdown-chart">
                         Enlarge
@@ -242,7 +241,6 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Category Mix</h2>
-                        <p class="mt-1 text-sm text-slate-500">Category distribution for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Category Mix (Detailed View)" data-chart-source="category-mix-chart">
                         Enlarge
@@ -307,7 +305,6 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Priority Mix</h2>
-                        <p class="mt-1 text-sm text-slate-500">Priority distribution for tickets created in {{ $mixScopeLabel === 'All Time' ? 'all time by default' : $mixScopeLabel }}.</p>
                     </div>
                     <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Priority Mix (Detailed View)" data-chart-source="priority-mix-chart">
                         Enlarge
@@ -378,7 +375,6 @@
                 <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h2 class="font-display text-xl font-semibold text-slate-900">Monthly Performance (Last 12 Months)</h2>
-                        <p class="mt-1 text-sm text-slate-500">Received and completed bars by month, based on tickets created in that month.</p>
                     </div>
                     <form method="GET" action="{{ route('admin.reports.index') }}" class="flex items-end gap-2" data-submit-feedback>
                         @if($detailFilterApplied)
@@ -461,7 +457,6 @@
                     <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-6">
                         <div>
                             <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                            <p class="mt-1 text-xs text-slate-500">Select a date, or all days in the month, to view tickets created in that scope with resolved and closed tracked separately.</p>
                         </div>
                         <form
                             method="GET"
@@ -533,7 +528,6 @@
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
                     <h2 class="font-display text-lg font-semibold text-slate-900">Details Filter</h2>
-                    <p class="mt-1 text-xs text-slate-500">Use month or set a date for right-side details.</p>
                 </div>
                 <form method="GET" action="{{ route('admin.reports.index') }}" class="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2" data-submit-feedback>
                     <input type="hidden" name="month" value="{{ $selectedMonthKey }}">

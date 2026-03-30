@@ -52,7 +52,6 @@
             <div class="p-8 sm:p-10">
                 <div class="mb-8">
                     <h2 class="font-display text-2xl font-semibold text-slate-900">Sign in</h2>
-                    <p class="mt-1 text-sm text-slate-500">Access your helpdesk account.</p>
                 </div>
 
                 <form action="{{ route('login') }}" method="POST" class="space-y-5">
@@ -63,7 +62,6 @@
                         <input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required
                                class="login-input form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
                                placeholder="Username or email" value="{{ old('login') }}">
-                        <p class="mt-2 text-xs text-slate-500">Use your sign-in username or email address. Display names will not work here.</p>
                     </div>
 
                     <div>
