@@ -23,15 +23,37 @@
             @csrf
             <div class="px-4 py-5 sm:p-6">
                 <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <!-- Name -->
+                    <div class="sm:col-span-2 xl:col-span-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                        <p class="font-semibold">Identity setup</p>
+                        <p class="mt-1">Username is used for sign-in. Display Name is what people see throughout iOne Helpdesk.</p>
+                    </div>
+
+                    <!-- Username -->
+                    <div class="sm:col-span-1">
+                        <label for="username" class="block text-sm font-medium text-gray-700">
+                            Username <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-1">
+                            <input type="text" name="username" id="username" value="{{ old('username') }}" required
+                                autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text"
+                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('username') border-red-300 @enderror">
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">Used for sign-in. Lowercase letters, numbers, dots, dashes, and underscores only. Example: <span class="font-mono text-xs">juan.delacruz</span></p>
+                        @error('username')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Display Name -->
                     <div class="sm:col-span-1">
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            Username <span class="text-red-500">*</span>
+                            Display Name <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
                             <input type="text" name="name" id="name" value="{{ old('name') }}" required
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('name') border-red-300 @enderror">
                         </div>
+                        <p class="mt-2 text-sm text-gray-500">This is the readable name shown in tickets, user lists, and account views.</p>
                         @error('name')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror

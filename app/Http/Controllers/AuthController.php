@@ -7,9 +7,6 @@ use App\Http\Requests\Auth\UpdateAccountSettingsRequest;
 use App\Models\CredentialHandoff;
 use App\Models\User;
 use App\Services\SystemLogService;
-use Illuminate\Database\Connection;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -49,40 +46,20 @@ class AuthController extends Controller
             ])->onlyInput('login');
         }
 
-        if ($isEmailLogin) {
-            // Email login remains case-insensitive.
-            /** @var EloquentCollection<int, User> $matchedUsers */
-            $matchedUsers = User::whereRaw('LOWER(email) = ?', [strtolower($loginInput)])
-                ->get();
-        } else {
-            /** @var EloquentCollection<int, User> $usernameMatches */
-            $usernameMatches = User::whereRaw('LOWER(username) = ?', [strtolower($loginInput)])
-                ->get();
+        $matchedUser = $isEmailLogin
+            ? User::query()->whereRaw('LOWER(email) = ?', [strtolower($loginInput)])->first()
+            : User::query()->whereRaw('LOWER(username) = ?', [strtolower($loginInput)])->first();
 
-            if ($usernameMatches->isNotEmpty()) {
-                $matchedUsers = $usernameMatches;
-            } else {
-                // Full-name login remains case-sensitive.
-                /** @var EloquentCollection<int, User> $matchedUsers */
-                $matchedUsers = $this->usernameMatchQuery($loginInput)->get();
-            }
-
-            /** @var EloquentCollection<int, User> $matchedUsers */
-            if ($matchedUsers->count() > 1) {
+        if ($matchedUser && Hash::check($request->password, $matchedUser->password)) {
+            if (! $matchedUser->is_active) {
                 RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
 
                 return back()->withErrors([
-                    'login' => 'Multiple accounts share this name. Please sign in with email or your username.',
+                    'login' => 'Your account is inactive. Please contact an administrator.',
                 ])->onlyInput('login');
             }
-        }
 
-        $activeUser = $matchedUsers->first(function (User $user) use ($request) {
-            return $user->is_active && Hash::check($request->password, $user->password);
-        });
-
-        if ($activeUser) {
-            Auth::login($activeUser, $remember);
+            Auth::login($matchedUser, $remember);
             $request->session()->regenerate();
             RateLimiter::clear($accountLockKey);
             $this->systemLogs->record(
@@ -90,9 +67,9 @@ class AuthController extends Controller
                 'User signed in.',
                 [
                     'category' => 'auth',
-                    'actor' => $activeUser,
+                    'actor' => $matchedUser,
                     'target_type' => User::class,
-                    'target_id' => $activeUser->id,
+                    'target_id' => $matchedUser->id,
                     'metadata' => [
                         'method' => $isEmailLogin ? 'email' : 'username',
                     ],
@@ -100,19 +77,7 @@ class AuthController extends Controller
                 ]
             );
 
-            return redirect()->to($this->resolvePostLoginRedirectPath($request, $activeUser));
-        }
-
-        $inactiveMatch = $matchedUsers->first(function (User $user) use ($request) {
-            return ! $user->is_active && Hash::check($request->password, $user->password);
-        });
-
-        if ($inactiveMatch) {
-            RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
-
-            return back()->withErrors([
-                'login' => 'Your account is inactive. Please contact an administrator.',
-            ])->onlyInput('login');
+            return redirect()->to($this->resolvePostLoginRedirectPath($request, $matchedUser));
         }
 
         RateLimiter::hit($accountLockKey, self::LOGIN_ACCOUNT_LOCKOUT_SECONDS);
@@ -176,14 +141,16 @@ class AuthController extends Controller
         $normalizedRole = $user->normalizedRole();
         $isSuperAdmin = in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
         $isUsernameLocked = in_array($normalizedRole, [User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true);
+        $username = $isUsernameLocked
+            ? (string) $user->username
+            : $request->string('username')->toString();
         $email = $isSuperAdmin
             ? $request->string('email')->toString()
             : (string) $user->email;
 
         $updateData = [
-            'name' => $isUsernameLocked
-                ? (string) $user->name
-                : $request->string('name')->toString(),
+            'username' => $username !== '' ? $username : (string) $user->username,
+            'name' => $request->string('name')->toString(),
             'phone' => $request->string('phone')->toString(),
         ];
 
@@ -310,22 +277,6 @@ class AuthController extends Controller
         }
 
         return str_starts_with($path, '/client/');
-    }
-
-    /**
-     * @return Builder<User>
-     */
-    private function usernameMatchQuery(string $loginInput): Builder
-    {
-        /** @var Connection $connection */
-        $connection = User::query()->getQuery()->getConnection();
-        $driver = $connection->getDriverName();
-
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            return User::whereRaw('BINARY name = ?', [$loginInput]);
-        }
-
-        return User::where('name', $loginInput);
     }
 
     private function loginAccountThrottleKey(string $loginInput): string

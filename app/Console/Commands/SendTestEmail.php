@@ -21,12 +21,14 @@ class SendTestEmail extends Command
             return self::FAILURE;
         }
 
+        $appName = (string) config('app.name', 'iOne Helpdesk');
+
         try {
             Mail::raw(
-                'This is a live SMTP test email from iOne Helpdesk sent at '.now()->toDateTimeString().'.',
-                function ($message) use ($to) {
+                'This is a live SMTP test email from '.$appName.' sent at '.now()->toDateTimeString().'.',
+                function ($message) use ($to, $appName) {
                     $message->to($to)
-                        ->subject('iOne Helpdesk SMTP Test Email');
+                        ->subject($appName.' SMTP Test Email');
                 }
             );
         } catch (\Throwable $exception) {

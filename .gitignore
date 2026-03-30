@@ -44,3 +44,4 @@ yarn-error.log
 /.claude
 /playwright-report
 /test-results
+/ci-job-logs

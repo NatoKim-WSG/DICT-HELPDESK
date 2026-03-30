@@ -24,6 +24,7 @@ class UpdateUserRequest extends FormRequest
         $canManageClientNotes = $currentUser->isShadow() && $willBeClientRole;
 
         $rules = [
+            'username' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($targetUser->id)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($targetUser->id)],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -44,6 +45,29 @@ class UpdateUserRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        /** @var User|null $targetUser */
+        $targetUser = $this->route('user');
+        $rawName = trim((string) $this->input('name'));
+        $username = trim(mb_strtolower((string) $this->input('username')));
+
+        if ($username === '' && $targetUser instanceof User) {
+            $username = trim(mb_strtolower((string) $targetUser->username));
+        }
+
+        if ($username === '' && $rawName !== '') {
+            $username = User::generateAvailableUsername($rawName, $targetUser?->id);
+        }
+
+        $this->merge([
+            'username' => $username !== '' ? $username : null,
+            'name' => $rawName,
+            'email' => trim((string) $this->input('email')),
+            'phone' => trim((string) $this->input('phone')),
+        ]);
     }
 
     private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool

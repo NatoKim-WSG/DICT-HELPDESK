@@ -109,6 +109,6 @@ class TicketReply extends Model
 
     public function isVisibleTo(?User $viewer = null): bool
     {
-        return $viewer?->isShadow() || ! $this->user?->isShadow();
+        return $viewer?->isShadow() || ! $this->user->isShadow();
     }
 }

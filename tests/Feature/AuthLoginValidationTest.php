@@ -22,7 +22,7 @@ class AuthLoginValidationTest extends TestCase
         $response->assertSessionHasErrors('login');
     }
 
-    public function test_user_can_login_with_full_name(): void
+    public function test_user_cannot_login_with_display_name_only(): void
     {
         $user = User::create([
             'name' => 'Juan Dela Cruz',
@@ -34,18 +34,19 @@ class AuthLoginValidationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->post(route('login'), [
+        $response = $this->from(route('login'))->post(route('login'), [
             'login' => 'Juan Dela Cruz',
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect('/client/dashboard');
-        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHasErrors('login');
+        $this->assertGuest();
     }
 
-    public function test_full_name_login_is_case_sensitive(): void
+    public function test_user_can_login_with_email_case_insensitively(): void
     {
-        User::create([
+        $user = User::create([
             'name' => 'Juan Dela Cruz',
             'email' => 'juan-case-sensitive@example.com',
             'phone' => '09123334444',
@@ -55,14 +56,13 @@ class AuthLoginValidationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->from(route('login'))->post(route('login'), [
-            'login' => 'juan dela cruz',
+        $response = $this->post(route('login'), [
+            'login' => 'JUAN-CASE-SENSITIVE@EXAMPLE.COM',
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHasErrors('login');
-        $this->assertGuest();
+        $response->assertRedirect('/client/dashboard');
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_account_lockout_blocks_login_after_repeated_failed_attempts(): void
@@ -122,11 +122,12 @@ class AuthLoginValidationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_duplicate_full_name_login_requires_email_or_username(): void
+    public function test_duplicate_display_names_do_not_block_username_login(): void
     {
         User::create([
             'name' => 'Same Login Name',
             'email' => 'same-login-1@example.com',
+            'username' => 'same.login.one',
             'phone' => '09128889990',
             'department' => 'DICT',
             'role' => User::ROLE_CLIENT,
@@ -134,9 +135,10 @@ class AuthLoginValidationTest extends TestCase
             'is_active' => true,
         ]);
 
-        User::create([
+        $targetUser = User::create([
             'name' => 'Same Login Name',
             'email' => 'same-login-2@example.com',
+            'username' => 'same.login.two',
             'phone' => '09128889991',
             'department' => 'DICT',
             'role' => User::ROLE_CLIENT,
@@ -144,16 +146,13 @@ class AuthLoginValidationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->from(route('login'))->post(route('login'), [
-            'login' => 'Same Login Name',
+        $response = $this->post(route('login'), [
+            'login' => 'same.login.two',
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHasErrors([
-            'login' => 'Multiple accounts share this name. Please sign in with email or your username.',
-        ]);
-        $this->assertGuest();
+        $response->assertRedirect('/client/dashboard');
+        $this->assertAuthenticatedAs($targetUser);
     }
 
     public function test_client_login_ignores_admin_intended_url_and_redirects_to_client_dashboard(): void

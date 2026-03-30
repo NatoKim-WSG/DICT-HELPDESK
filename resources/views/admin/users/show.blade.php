@@ -39,7 +39,11 @@
                 <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
                     <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
                         <div>
-                            <dt class="text-sm font-medium text-gray-500">Full name</dt>
+                            <dt class="text-sm font-medium text-gray-500">Username</dt>
+                            <dd class="mt-1 font-mono text-sm text-gray-900">{{ '@'.$user->username }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Display name</dt>
                             <dd class="mt-1 text-sm text-gray-900">{{ $user->name }}</dd>
                         </div>
                         <div>

@@ -9,11 +9,12 @@ Laravel 12 help desk application with separate client and admin portals for tick
 - PHP 8.3+ for full development and tests (runtime supports PHP 8.2+)
 - Laravel 12
 - PostgreSQL (default) or MySQL/MariaDB
-- Vite 7 + Tailwind CSS 4 + Alpine.js
+- Vite 8 + Tailwind CSS 4 + Alpine.js
 
 ## Application Scope
 
 - Authentication with role-based access (`client`, `technical`, `super_user`, `admin`, `shadow`)
+- Sign-in via `username` or `email`, with separate display names for user-facing identity
 - Separate client/admin ticket consoles with controlled visibility and assignment scope
 - Ticket lifecycle rules (`open`, `in_progress`, `pending`, `resolved`, `closed`) with policy gates
 - Notification center with per-user seen/dismiss state
@@ -136,6 +137,13 @@ composer diagnose
 ```
 
 ## Environment Variables
+
+User identity behavior:
+
+- `username` is the primary sign-in identifier
+- `name` is the display name shown across the app
+- Admin user management exposes both fields separately
+- Login accepts `username` or `email`, not display name
 
 These project variables are used by seeders and account workflows:
 

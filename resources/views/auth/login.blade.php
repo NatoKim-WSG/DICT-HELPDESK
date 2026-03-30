@@ -60,9 +60,10 @@
 
                     <div>
                         <label for="login" class="form-label">Username or Email</label>
-                        <input id="login" name="login" type="text" autocomplete="username" required
+                        <input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required
                                class="login-input form-input @error('login') border-red-300 focus:border-red-400 focus:ring-red-200 @enderror"
                                placeholder="Username or email" value="{{ old('login') }}">
+                        <p class="mt-2 text-xs text-slate-500">Use your sign-in username or email address. Display names will not work here.</p>
                     </div>
 
                     <div>

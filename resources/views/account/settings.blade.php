@@ -69,18 +69,42 @@
 
         <div class="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
             <div class="sm:col-span-1">
-                <label for="name" class="form-label">
+                <label for="username" class="form-label">
                     Username <span class="text-rose-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    name="username"
+                    id="username"
+                    value="{{ old('username', $user->username) }}"
+                    autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text"
+                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : ($isUsernameLocked ? 'readonly aria-readonly=true' : 'required') }}
+                    class="form-input @error('username') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isUsernameLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    placeholder="Enter username"
+                >
+                <p class="mt-1 px-3.5 text-xs text-slate-500">Used for sign-in. Lowercase letters, numbers, dots, dashes, and underscores only. Example: <span class="font-mono">juan.delacruz</span></p>
+                @if($isUsernameLocked)
+                    <p class="mt-1 px-3.5 text-xs text-slate-500">Only admins can change sign-in usernames for this account role.</p>
+                @endif
+                @error('username')
+                    <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="sm:col-span-1">
+                <label for="name" class="form-label">
+                    Display Name <span class="text-rose-500">*</span>
                 </label>
                 <input
                     type="text"
                     name="name"
                     id="name"
                     value="{{ old('name', $user->name) }}"
-                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : ($isUsernameLocked ? 'readonly aria-readonly=true' : 'required') }}
-                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ ($isUsernameLocked || $isProfileLocked) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
-                    placeholder="Enter username"
+                    {{ $isProfileLocked ? 'readonly aria-readonly=true' : 'required' }}
+                    class="form-input @error('name') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror {{ $isProfileLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '' }}"
+                    placeholder="Enter display name"
                 >
+                <p class="mt-1 px-3.5 text-xs text-slate-500">This is the name shown in tickets, activity, and user lists.</p>
                 @error('name')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
@@ -171,7 +195,7 @@
                     {{ $isProfileLocked ? 'disabled' : '' }}
                     class="form-input @error('current_password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                 >
-                <p class="mt-1 text-xs text-slate-500">Required when changing your password.</p>
+                <p class="mt-1 text-xs text-slate-500">Required when changing your username, email, or password.</p>
                 @error('current_password')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror

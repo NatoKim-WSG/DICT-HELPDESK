@@ -18,14 +18,21 @@ class UpdateAccountSettingsRequest extends FormRequest
         $user = auth()->user();
         $normalizedRole = $user->normalizedRole();
         $isSuperAdmin = in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
-        $email = $isSuperAdmin
+        $username = $isSuperAdmin && $this->has('username')
+            ? $this->string('username')->toString()
+            : (string) $user->username;
+        $email = $isSuperAdmin && $this->has('email')
             ? $this->string('email')->toString()
             : (string) $user->email;
         $requiresCurrentPassword = $user->mustChangePassword()
+            || ($isSuperAdmin && $username !== (string) $user->username)
             || ($isSuperAdmin && $email !== $user->email)
             || $this->filled('password');
 
         $rules = [
+            'username' => $isSuperAdmin
+                ? ['required', 'string', 'max:255', 'regex:/^[a-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($user->id)]
+                : ['nullable', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
             'email' => $isSuperAdmin
                 ? ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)]
@@ -43,5 +50,22 @@ class UpdateAccountSettingsRequest extends FormRequest
         ];
 
         return $rules;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $currentUser = auth()->user();
+        $username = trim(mb_strtolower((string) $this->input('username')));
+
+        if ($username === '' && $currentUser) {
+            $username = trim(mb_strtolower((string) $currentUser->username));
+        }
+
+        $this->merge([
+            'username' => $username !== '' ? $username : null,
+            'name' => trim((string) $this->input('name')),
+            'email' => trim((string) $this->input('email')),
+            'phone' => trim((string) $this->input('phone')),
+        ]);
     }
 }

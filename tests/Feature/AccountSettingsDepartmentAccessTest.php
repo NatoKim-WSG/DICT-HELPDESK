@@ -27,10 +27,11 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_super_user_cannot_change_username_department_or_email_from_account_settings(): void
+    public function test_super_user_cannot_change_username_department_or_email_but_can_change_display_name(): void
     {
         $superUser = User::create([
             'name' => 'Super User A',
+            'username' => 'super.user.a',
             'email' => 'super-user-a@example.com',
             'phone' => '09111111111',
             'department' => 'iOne',
@@ -40,6 +41,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($superUser)->put(route('account.settings.update'), [
+            'username' => 'super.user.updated',
             'name' => 'Super User Updated',
             'email' => 'super-user-updated@example.com',
             'phone' => '09111112222',
@@ -49,16 +51,18 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response->assertRedirect(route('account.settings'));
 
         $superUser->refresh();
-        $this->assertSame('Super User A', $superUser->name);
+        $this->assertSame('super.user.a', $superUser->username);
+        $this->assertSame('Super User Updated', $superUser->name);
         $this->assertSame('super-user-a@example.com', $superUser->email);
         $this->assertSame('iOne', $superUser->department);
         $this->assertSame('09111112222', $superUser->phone);
     }
 
-    public function test_technical_can_access_account_settings_and_only_change_phone_and_password(): void
+    public function test_technical_can_access_account_settings_and_change_display_name_phone_and_password_only(): void
     {
         $technical = User::create([
             'name' => 'Technical A',
+            'username' => 'technical.a',
             'email' => 'technical-a@example.com',
             'phone' => '09122223333',
             'department' => 'iOne',
@@ -71,6 +75,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $settingsResponse->assertOk();
 
         $response = $this->actingAs($technical)->put(route('account.settings.update'), [
+            'username' => 'technical.updated',
             'name' => 'Technical Updated',
             'email' => 'technical-updated@example.com',
             'phone' => '09122224444',
@@ -83,7 +88,8 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response->assertRedirect(route('account.settings'));
 
         $technical->refresh();
-        $this->assertSame('Technical A', $technical->name);
+        $this->assertSame('technical.a', $technical->username);
+        $this->assertSame('Technical Updated', $technical->name);
         $this->assertSame('technical-a@example.com', $technical->email);
         $this->assertSame('iOne', $technical->department);
         $this->assertSame('09122224444', $technical->phone);
@@ -94,6 +100,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
     {
         $superAdmin = User::create([
             'name' => 'Super Admin A',
+            'username' => 'super.admin.a',
             'email' => 'super-admin-a@example.com',
             'phone' => '09100001111',
             'department' => 'iOne',
@@ -103,6 +110,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($superAdmin)->put(route('account.settings.update'), [
+            'username' => 'super.admin.a',
             'name' => 'Super Admin A',
             'email' => 'super-admin-a@example.com',
             'phone' => '09100001111',
@@ -119,6 +127,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
     {
         $superAdmin = User::create([
             'name' => 'Super Admin View',
+            'username' => 'super.admin.view',
             'email' => 'super-admin-view@example.com',
             'phone' => '09100002222',
             'department' => 'iOne',
@@ -129,6 +138,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
 
         $superUser = User::create([
             'name' => 'Super User View',
+            'username' => 'super.user.view',
             'email' => 'super-user-view@example.com',
             'phone' => '09100003333',
             'department' => 'iOne',
@@ -149,11 +159,13 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertStringContainsString('name="department"', $superUserResponse->getContent());
         $this->assertStringContainsString('readonly aria-readonly=true', $superUserResponse->getContent());
         $this->assertStringContainsString('Only admins can change account email addresses.', $superUserResponse->getContent());
-        $this->assertStringNotContainsString('Username updates are disabled for your account role.', $superUserResponse->getContent());
-        $this->assertStringContainsString('Required when changing your password.', $superUserResponse->getContent());
+        $this->assertStringContainsString('Only admins can change sign-in usernames for this account role.', $superUserResponse->getContent());
+        $this->assertStringContainsString('Display Name', $superUserResponse->getContent());
+        $this->assertStringContainsString('Required when changing your username, email, or password.', $superUserResponse->getContent());
 
         $technical = User::create([
             'name' => 'Technical View',
+            'username' => 'technical.view',
             'email' => 'technical-view@example.com',
             'phone' => '09100004444',
             'department' => 'iOne',
@@ -166,13 +178,14 @@ class AccountSettingsDepartmentAccessTest extends TestCase
 
         $technicalResponse = $this->actingAs($technical)->get(route('account.settings'));
         $technicalResponse->assertOk();
-        $this->assertStringNotContainsString('Username updates are disabled for your account role.', $technicalResponse->getContent());
+        $this->assertStringContainsString('Only admins can change sign-in usernames for this account role.', $technicalResponse->getContent());
     }
 
     public function test_changing_email_requires_current_password_for_super_admin(): void
     {
         $superAdmin = User::create([
             'name' => 'Super Admin Email',
+            'username' => 'super.admin.email',
             'email' => 'super-admin-email@example.com',
             'phone' => '09111112222',
             'department' => 'iOne',
@@ -184,6 +197,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $response = $this->actingAs($superAdmin)
             ->from(route('account.settings'))
             ->put(route('account.settings.update'), [
+                'username' => 'super.admin.email',
                 'name' => 'Super Admin Email',
                 'email' => 'super-admin-email-new@example.com',
                 'phone' => '09111112222',
@@ -198,6 +212,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
     {
         $superAdmin = User::create([
             'name' => 'Super Admin Email 2',
+            'username' => 'super.admin.email2',
             'email' => 'super-admin-email2@example.com',
             'phone' => '09111113333',
             'department' => 'iOne',
@@ -207,6 +222,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($superAdmin)->put(route('account.settings.update'), [
+            'username' => 'super.admin.email2',
             'name' => 'Super Admin Email 2',
             'email' => 'super-admin-email2-new@example.com',
             'phone' => '09111113333',

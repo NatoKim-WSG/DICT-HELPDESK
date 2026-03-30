@@ -44,7 +44,7 @@
             <input id="search" name="search" type="text"
                    value="{{ request('search') }}"
                    data-search-history-input
-                   placeholder="Search users"
+                   placeholder="Search username, display name, email, phone, or department"
                    class="h-10 block w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20"
                    autocomplete="off">
             <div class="search-history-panel hidden" data-search-history-panel></div>
@@ -161,6 +161,7 @@
                                     </div>
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                                        <div class="font-mono text-xs text-gray-500">{{ '@'.$user->username }}</div>
                                         <div class="text-sm text-gray-500 break-all">{{ $user->email }}</div>
                                         @if($user->phone)
                                             <div class="text-sm text-gray-500">{{ $user->phone }}</div>

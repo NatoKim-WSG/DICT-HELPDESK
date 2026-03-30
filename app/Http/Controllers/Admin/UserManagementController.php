@@ -68,6 +68,7 @@ class UserManagementController extends Controller
         }
 
         $createdUser = User::create([
+            'username' => $request->string('username')->toString() ?: null,
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
@@ -314,10 +315,14 @@ class UserManagementController extends Controller
         $department = $this->userDirectory->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->userDirectory->normalizeRoleForPersistence($role);
         $requestedIsProfileLocked = $request->boolean('is_profile_locked');
+        $requestedUsername = $request->filled('username')
+            ? $request->string('username')->toString()
+            : (string) $user->username;
 
         if ($user->is_profile_locked) {
             $isChangingProfileFieldsWhileLocked = (
-                (string) $request->string('name')->toString() !== (string) $user->name
+                $requestedUsername !== (string) ($user->username ?? '')
+                || (string) $request->string('name')->toString() !== (string) $user->name
                 || (string) $request->string('email')->toString() !== (string) $user->email
                 || (string) $request->string('phone')->toString() !== (string) ($user->phone ?? '')
                 || (string) $department !== (string) $user->department
@@ -335,6 +340,7 @@ class UserManagementController extends Controller
         }
 
         $updateData = [
+            'username' => $requestedUsername,
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,

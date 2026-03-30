@@ -43,7 +43,8 @@ class UserDirectoryService
             $search = trim((string) $request->search);
 
             $query->where(function (Builder $builder) use ($search) {
-                $builder->where('name', 'like', "%{$search}%")
+                $builder->where('username', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
                     ->orWhere('department', 'like', "%{$search}%");

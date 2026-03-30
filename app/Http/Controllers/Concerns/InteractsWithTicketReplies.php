@@ -7,8 +7,8 @@ use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -99,7 +99,7 @@ trait InteractsWithTicketReplies
         return auth()->user();
     }
 
-    protected function visibleRepliesQueryForTicket(Ticket $ticket, bool $includeInternal = true): HasMany
+    protected function visibleRepliesQueryForTicket(Ticket $ticket, bool $includeInternal = true): HasMany|Builder
     {
         return $ticket->replies()
             ->when(! $includeInternal, fn (Builder $query) => $query->where('is_internal', false))

@@ -71,6 +71,40 @@ class AdminUserManagementNormalizationTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_can_set_username_and_display_name_separately_when_creating_user(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Shadow Admin',
+            'username' => 'shadow.admin',
+            'email' => 'shadow-admin@example.com',
+            'phone' => '09100000030',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
+            'username' => 'technical.agent',
+            'name' => 'Technical Agent',
+            'email' => 'technical-agent@example.com',
+            'phone' => '09223334444',
+            'department' => 'DAR',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('admin.users.index'));
+        $this->assertDatabaseHas('users', [
+            'username' => 'technical.agent',
+            'name' => 'Technical Agent',
+            'email' => 'technical-agent@example.com',
+            'role' => User::ROLE_TECHNICAL,
+            'department' => 'iOne',
+        ]);
+    }
+
     public function test_super_user_cannot_edit_technical_account(): void
     {
         $superUser = User::create([
@@ -396,6 +430,50 @@ class AdminUserManagementNormalizationTest extends TestCase
             $this->assertGreaterThan($previousPosition, $position, "Unexpected order in users table around: {$expectedName}");
             $previousPosition = $position;
         }
+    }
+
+    public function test_admin_user_search_can_find_account_by_username(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Search Super Admin',
+            'username' => 'search.super.admin',
+            'email' => 'search-super-admin@example.com',
+            'phone' => '09100000031',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Visible Search Target',
+            'username' => 'target.visible.user',
+            'email' => 'visible-search-target@example.com',
+            'phone' => '09100000032',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        User::create([
+            'name' => 'Other Search User',
+            'username' => 'other.search.user',
+            'email' => 'other-search-user@example.com',
+            'phone' => '09100000033',
+            'department' => 'DICT',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.users.clients', [
+            'search' => 'target.visible.user',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('@target.visible.user');
+        $response->assertDontSee('@other.search.user');
     }
 
     public function test_shadow_user_can_view_managed_password_access_for_non_shadow_user(): void

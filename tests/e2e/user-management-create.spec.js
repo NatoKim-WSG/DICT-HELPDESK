@@ -34,8 +34,10 @@ test('super user can create a client account from the browser flow', async ({ pa
 
     const stamp = Date.now();
     const email = `e2e-client-${stamp}@example.com`;
+    const username = `e2e.client.${stamp}`;
 
-    await page.getByLabel('Username').fill(`E2E Client ${stamp}`);
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Display Name').fill(`E2E Client ${stamp}`);
     await page.getByLabel('Email Address').fill(email);
     await page.getByLabel('Phone Number').fill('09175550000');
     await page.getByLabel('Role').selectOption('client');
@@ -49,4 +51,5 @@ test('super user can create a client account from the browser flow', async ({ pa
     await page.getByRole('button', { name: 'Filter' }).click();
 
     await expect(page.getByText(email)).toBeVisible();
+    await expect(page.getByText(`@${username}`)).toBeVisible();
 });
