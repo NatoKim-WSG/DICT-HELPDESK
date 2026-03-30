@@ -105,7 +105,7 @@ class RoleHierarchyAccessTest extends TestCase
             'name' => 'Client Ticket Owner',
             'email' => 'client-owner@example.com',
             'phone' => '09120000006',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -159,3 +159,4 @@ class RoleHierarchyAccessTest extends TestCase
         $this->assertSame('high', $ticket->priority);
     }
 }
+

@@ -21,7 +21,7 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
             'name' => 'Legacy Import User',
             'username' => 'legacy.import.xlsx',
             'email' => 'legacy-import-xlsx@example.com',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'phone' => '09171234567',
             'role' => User::ROLE_CLIENT,
             'password' => 'password',
@@ -64,7 +64,7 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
             'name' => 'Legacy Import User',
             'username' => 'legacy.import.xlsx.dup',
             'email' => 'legacy-import-xlsx-dup@example.com',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'phone' => '09171234568',
             'role' => User::ROLE_CLIENT,
             'password' => 'password',
@@ -215,3 +215,4 @@ XML);
         }
     }
 }
+

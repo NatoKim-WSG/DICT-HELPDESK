@@ -84,7 +84,7 @@ class AttachmentDownloadAuthorizationTest extends TestCase
             'name' => 'Attachment Client',
             'email' => 'attachment-client@example.com',
             'phone' => '09123450001',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -140,3 +140,4 @@ class AttachmentDownloadAuthorizationTest extends TestCase
         ]);
     }
 }
+

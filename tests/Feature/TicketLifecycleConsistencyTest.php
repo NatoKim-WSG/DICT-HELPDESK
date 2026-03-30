@@ -339,7 +339,7 @@ class TicketLifecycleConsistencyTest extends TestCase
             'name' => 'Client Lifecycle',
             'email' => 'client-lifecycle@example.com',
             'phone' => '09119990002',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -369,3 +369,4 @@ class TicketLifecycleConsistencyTest extends TestCase
         return [$superUser, $client, $ticket];
     }
 }
+

@@ -49,7 +49,7 @@ class TicketReplyAttachmentOnlyTest extends TestCase
             'name' => 'Attachment Reply Client',
             'email' => 'attachment-reply-client@example.com',
             'phone' => '09125550001',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -79,3 +79,4 @@ class TicketReplyAttachmentOnlyTest extends TestCase
         return [$client, $ticket];
     }
 }
+

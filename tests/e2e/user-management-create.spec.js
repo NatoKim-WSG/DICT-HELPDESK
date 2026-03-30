@@ -41,7 +41,7 @@ test('super user can create a client account from the browser flow', async ({ pa
     await page.getByLabel('Email Address').fill(email);
     await page.getByLabel('Phone Number').fill('09175550000');
     await page.getByLabel('Role').selectOption('client');
-    await page.getByLabel('Department').selectOption('DICT');
+    await page.getByLabel('Department').selectOption('iOne');
     await page.getByRole('button', { name: 'Create User' }).click();
 
     await expect(page).toHaveURL(/\/admin\/users$/);
@@ -53,3 +53,4 @@ test('super user can create a client account from the browser flow', async ({ pa
     await expect(page.getByText(email)).toBeVisible();
     await expect(page.getByText(`@${username}`)).toBeVisible();
 });
+

@@ -68,7 +68,7 @@ class SystemPerformanceGuardTest extends TestCase
                 'name' => "Managed User {$index}",
                 'email' => "managed-user-{$index}@example.com",
                 'phone' => '0916'.str_pad((string) $index, 7, '0', STR_PAD_LEFT),
-                'department' => $index % 2 === 0 ? 'DICT' : 'iOne',
+                'department' => $index % 2 === 0 ? 'iOne' : 'iOne',
                 'role' => $index % 3 === 0 ? User::ROLE_CLIENT : User::ROLE_TECHNICAL,
                 'password' => Hash::make('password123'),
                 'is_active' => true,
@@ -171,7 +171,7 @@ class SystemPerformanceGuardTest extends TestCase
                 'name' => "Performance Client {$index}",
                 'email' => "performance-client-{$index}@example.com",
                 'phone' => '0918'.str_pad((string) $index, 7, '0', STR_PAD_LEFT),
-                'department' => 'DICT',
+                'department' => 'iOne',
                 'role' => User::ROLE_CLIENT,
                 'password' => Hash::make('password123'),
                 'is_active' => true,
@@ -206,3 +206,4 @@ class SystemPerformanceGuardTest extends TestCase
         }
     }
 }
+

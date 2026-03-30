@@ -58,7 +58,7 @@ class TicketPerUserStateTest extends TestCase
             'name' => 'Client User',
             'email' => 'new-badge-client@example.com',
             'phone' => '09170000003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -89,3 +89,4 @@ class TicketPerUserStateTest extends TestCase
         return [$superUser, $technical, $ticket];
     }
 }
+

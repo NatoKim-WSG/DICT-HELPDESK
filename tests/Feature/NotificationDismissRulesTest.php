@@ -251,7 +251,7 @@ class NotificationDismissRulesTest extends TestCase
             'name' => 'Client User',
             'email' => 'notify-client@example.test',
             'phone' => '09170000001',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -302,3 +302,4 @@ class NotificationDismissRulesTest extends TestCase
         return [$client, $admin, $ticket];
     }
 }
+

@@ -17,7 +17,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
             'name' => 'Client A',
             'email' => 'client-a@example.com',
             'phone' => '09123456789',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -79,7 +79,7 @@ class AccountSettingsDepartmentAccessTest extends TestCase
             'name' => 'Technical Updated',
             'email' => 'technical-updated@example.com',
             'phone' => '09122224444',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'current_password' => 'password123',
             'password' => 'newpassword123',
             'password_confirmation' => 'newpassword123',
@@ -236,3 +236,4 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertSame('super-admin-email2-new@example.com', $superAdmin->email);
     }
 }
+

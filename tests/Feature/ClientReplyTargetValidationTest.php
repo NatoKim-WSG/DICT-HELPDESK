@@ -55,7 +55,7 @@ class ClientReplyTargetValidationTest extends TestCase
             'name' => 'Client Reply Target',
             'email' => 'client-reply-target@example.com',
             'phone' => '09122223333',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -65,7 +65,7 @@ class ClientReplyTargetValidationTest extends TestCase
             'name' => 'Other Client',
             'email' => 'other-client-reply-target@example.com',
             'phone' => '09122224444',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -116,3 +116,4 @@ class ClientReplyTargetValidationTest extends TestCase
         return [$client, $ticket, $foreignReply];
     }
 }
+

@@ -20,7 +20,7 @@ class LegacyTicketImportCommandTest extends TestCase
             'name' => 'Legacy Import User',
             'username' => 'legacy.import',
             'email' => 'legacy-import@example.com',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'phone' => '09171234567',
             'role' => User::ROLE_CLIENT,
             'password' => 'password',
@@ -37,7 +37,7 @@ class LegacyTicketImportCommandTest extends TestCase
         File::ensureDirectoryExists(dirname($importPath));
         File::put($importPath, implode(PHP_EOL, [
             'subject,description,created_at,category,priority,status,name,contact_number,email,province,municipality',
-            '"DICT CARAGA - Re-activation of Starlink","Imported from legacy sheet","2025-06-24 15:04:43","Other","high","open","Requester Snapshot","09998887777","requester@example.com","Agusan del Norte","Butuan City"',
+            '"iOne CARAGA - Re-activation of Starlink","Imported from legacy sheet","2025-06-24 15:04:43","Other","high","open","Requester Snapshot","09998887777","requester@example.com","Agusan del Norte","Butuan City"',
             '',
         ]));
 
@@ -54,7 +54,7 @@ class LegacyTicketImportCommandTest extends TestCase
         $this->assertTrue($ticket->updated_at?->equalTo($expectedCreatedAt));
         $this->assertSame($requester->id, $ticket->user_id);
         $this->assertSame('Requester Snapshot', $ticket->name);
-        $this->assertSame('DICT CARAGA - Re-activation of Starlink', $ticket->subject);
+        $this->assertSame('iOne CARAGA - Re-activation of Starlink', $ticket->subject);
     }
 
     public function test_import_command_rejects_files_without_created_at_column(): void
@@ -63,7 +63,7 @@ class LegacyTicketImportCommandTest extends TestCase
             'name' => 'Legacy Import User',
             'username' => 'legacy.import',
             'email' => 'legacy-import@example.com',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'phone' => '09171234567',
             'role' => User::ROLE_CLIENT,
             'password' => 'password',
@@ -100,7 +100,7 @@ class LegacyTicketImportCommandTest extends TestCase
             'name' => 'Legacy Import User',
             'username' => 'legacy.import',
             'email' => 'legacy-import@example.com',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'phone' => '09171234567',
             'role' => User::ROLE_CLIENT,
             'password' => 'password',
@@ -153,3 +153,4 @@ class LegacyTicketImportCommandTest extends TestCase
         $this->assertDatabaseCount('tickets', 1);
     }
 }
+

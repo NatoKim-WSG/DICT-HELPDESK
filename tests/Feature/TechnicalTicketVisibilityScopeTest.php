@@ -164,7 +164,7 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
             'name' => 'Scoped Client',
             'email' => 'scoped-client@example.com',
             'phone' => '09131112222',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -180,3 +180,4 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
         return [$technical, $client, $category];
     }
 }
+

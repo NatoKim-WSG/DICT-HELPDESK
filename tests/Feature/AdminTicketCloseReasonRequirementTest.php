@@ -196,7 +196,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
             'name' => 'Client Owner',
             'email' => 'client-close-reason@example.com',
             'phone' => '09130000002',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -226,3 +226,4 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         return [$admin, $ticket];
     }
 }
+

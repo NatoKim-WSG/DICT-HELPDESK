@@ -30,7 +30,7 @@ class E2eSmokeSeeder extends Seeder
             [
                 'name' => 'E2E Client',
                 'phone' => '09180000999',
-                'department' => 'DICT',
+                'department' => 'iOne',
                 'role' => User::ROLE_CLIENT,
                 'password' => Hash::make('Playwright123!'),
                 'is_active' => true,
@@ -69,3 +69,4 @@ class E2eSmokeSeeder extends Seeder
         );
     }
 }
+

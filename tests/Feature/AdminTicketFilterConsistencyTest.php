@@ -462,7 +462,7 @@ class AdminTicketFilterConsistencyTest extends TestCase
             'name' => $name,
             'email' => $email,
             'phone' => '09112223333',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -492,3 +492,4 @@ class AdminTicketFilterConsistencyTest extends TestCase
         ]);
     }
 }
+

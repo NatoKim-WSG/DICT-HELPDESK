@@ -22,7 +22,7 @@ class ClientTicketNormalizationTest extends TestCase
             'name' => 'Normalization Client',
             'email' => 'normalization-client@example.com',
             'phone' => '09189990001',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -68,7 +68,7 @@ class ClientTicketNormalizationTest extends TestCase
             'name' => 'Search Client',
             'email' => 'search-client@example.com',
             'phone' => '09189990002',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -118,3 +118,4 @@ class ClientTicketNormalizationTest extends TestCase
         $response->assertSee('brokening');
     }
 }
+

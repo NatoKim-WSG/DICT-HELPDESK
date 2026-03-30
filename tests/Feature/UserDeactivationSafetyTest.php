@@ -30,7 +30,7 @@ class UserDeactivationSafetyTest extends TestCase
             'name' => 'Locked Client',
             'email' => 'locked-client@example.com',
             'phone' => '09110002222',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -65,7 +65,7 @@ class UserDeactivationSafetyTest extends TestCase
             'name' => 'Client Preserve',
             'email' => 'client-preserve@example.com',
             'phone' => '09110002222',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -125,3 +125,4 @@ class UserDeactivationSafetyTest extends TestCase
         ]);
     }
 }
+

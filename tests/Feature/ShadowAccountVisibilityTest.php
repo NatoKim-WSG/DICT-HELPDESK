@@ -42,7 +42,7 @@ class ShadowAccountVisibilityTest extends TestCase
             'name' => 'Client User',
             'email' => 'assign-client@example.com',
             'phone' => '09180001102',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -86,7 +86,7 @@ class ShadowAccountVisibilityTest extends TestCase
 
         $admin = $this->createUser('Admin Viewer', 'shadow-view-admin@example.com', User::ROLE_ADMIN, 'iOne');
         $shadow = $this->createUser('Shadow Viewer', 'shadow-view-shadow@example.com', User::ROLE_SHADOW, 'iOne');
-        $client = $this->createUser('Client Viewer', 'shadow-view-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Viewer', 'shadow-view-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory('Shadow Reply Category');
 
         $ticket = Ticket::create([
@@ -129,7 +129,7 @@ class ShadowAccountVisibilityTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $shadow = $this->createUser('Shadow Viewer', 'shadow-viewer@example.com', User::ROLE_SHADOW, 'iOne');
-        $client = $this->createUser('Client Viewer', 'shadow-viewer-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Viewer', 'shadow-viewer-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory('Shadow Visible Category');
 
         $ticket = Ticket::create([
@@ -164,7 +164,7 @@ class ShadowAccountVisibilityTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $shadow = $this->createUser('Shadow Assignee', 'shadow-assignee@example.com', User::ROLE_SHADOW, 'iOne');
-        $client = $this->createUser('Client Assignee', 'client-assignee@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Assignee', 'client-assignee@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory('Shadow Assignment Category');
 
         $ticket = Ticket::create([
@@ -211,3 +211,4 @@ class ShadowAccountVisibilityTest extends TestCase
         ]);
     }
 }
+

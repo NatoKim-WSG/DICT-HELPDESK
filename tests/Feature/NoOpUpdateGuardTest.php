@@ -55,7 +55,7 @@ class NoOpUpdateGuardTest extends TestCase
             'name' => 'NoOp Client',
             'email' => 'noop-client@example.com',
             'phone' => '09130000003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -65,7 +65,7 @@ class NoOpUpdateGuardTest extends TestCase
             'name' => 'NoOp Client',
             'email' => 'noop-client@example.com',
             'phone' => '09130000003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'is_active' => true,
         ]);
@@ -93,7 +93,7 @@ class NoOpUpdateGuardTest extends TestCase
             'name' => 'NoOp Stay Client',
             'email' => 'noop-stay-client@example.com',
             'phone' => '09130000013',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -103,7 +103,7 @@ class NoOpUpdateGuardTest extends TestCase
             'name' => 'NoOp Stay Client',
             'email' => 'noop-stay-client@example.com',
             'phone' => '09130000013',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'is_active' => true,
             'stay_on_edit' => 1,
@@ -157,7 +157,7 @@ class NoOpUpdateGuardTest extends TestCase
             'name' => 'NoOp Ticket Client',
             'email' => 'noop-ticket-client@example.com',
             'phone' => '09130000004',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -197,3 +197,4 @@ class NoOpUpdateGuardTest extends TestCase
         return [$staff, $ticket];
     }
 }
+

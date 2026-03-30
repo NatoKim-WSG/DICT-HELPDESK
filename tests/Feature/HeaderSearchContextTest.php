@@ -84,10 +84,11 @@ class HeaderSearchContextTest extends TestCase
             'name' => 'Header Client',
             'email' => 'header-client@example.com',
             'phone' => '09140000003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
         ]);
     }
 }
+

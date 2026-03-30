@@ -139,7 +139,7 @@ class ClientTicketHistoryTabTest extends TestCase
             'name' => 'History Client',
             'email' => 'history-client@example.com',
             'phone' => '09189990003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -172,3 +172,4 @@ class ClientTicketHistoryTabTest extends TestCase
         ], $overrides);
     }
 }
+

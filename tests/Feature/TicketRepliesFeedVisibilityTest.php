@@ -146,7 +146,7 @@ class TicketRepliesFeedVisibilityTest extends TestCase
 
     private function seedTicketWithUsers(): array
     {
-        $client = $this->createUser('Client User', 'client-feed@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client User', 'client-feed@example.com', User::ROLE_CLIENT, 'iOne');
         $superUser = $this->createUser('Super User', 'super-user-feed@example.com', User::ROLE_SUPER_USER, 'iOne');
 
         $category = Category::create([
@@ -186,3 +186,4 @@ class TicketRepliesFeedVisibilityTest extends TestCase
         ]);
     }
 }
+

@@ -78,7 +78,7 @@ class SystemLogAccessAndAuditTest extends TestCase
             'name' => 'Settings Shadow Updated',
             'email' => 'settings-shadow@example.com',
             'phone' => '09124440003',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'current_password' => 'ShadowPass123!',
             'password' => 'NewShadowPass123!',
             'password_confirmation' => 'NewShadowPass123!',
@@ -126,7 +126,7 @@ class SystemLogAccessAndAuditTest extends TestCase
             'name' => 'Ticket Client',
             'email' => 'ticket-client@example.com',
             'phone' => '09123450006',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('ClientPass123!'),
             'is_active' => true,
@@ -167,3 +167,4 @@ class SystemLogAccessAndAuditTest extends TestCase
         ]);
     }
 }
+

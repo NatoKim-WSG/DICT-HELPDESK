@@ -134,7 +134,7 @@ class AdminTicketDestructivePermissionsTest extends TestCase
             'name' => 'Client User',
             'email' => 'client-ticket-perm@example.com',
             'phone' => '09110002222',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -150,3 +150,4 @@ class AdminTicketDestructivePermissionsTest extends TestCase
         return [$client, $category];
     }
 }
+

@@ -90,7 +90,7 @@ class LegalConsentFlowTest extends TestCase
 
     public function test_ticket_submission_requires_ticket_consent_checkbox(): void
     {
-        $client = $this->createUser(User::ROLE_CLIENT, 'client-consent@example.com', 'DICT');
+        $client = $this->createUser(User::ROLE_CLIENT, 'client-consent@example.com', 'iOne');
         $category = Category::create([
             'name' => 'Consent Validation',
             'description' => 'Consent validation category',
@@ -120,7 +120,7 @@ class LegalConsentFlowTest extends TestCase
             'legal.ticket_consent_version' => 'ticket-v-test',
         ]);
 
-        $client = $this->createUser(User::ROLE_CLIENT, 'client-consent2@example.com', 'DICT');
+        $client = $this->createUser(User::ROLE_CLIENT, 'client-consent2@example.com', 'iOne');
         $category = Category::create([
             'name' => 'Consent Capture',
             'description' => 'Consent capture category',
@@ -162,3 +162,4 @@ class LegalConsentFlowTest extends TestCase
         ]);
     }
 }
+

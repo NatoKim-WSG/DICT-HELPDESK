@@ -220,7 +220,7 @@ class AdminTicketBulkActionSuccessTest extends TestCase
             'name' => 'Bulk Client',
             'email' => 'bulk-client@example.com',
             'phone' => '09130000004',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -264,3 +264,4 @@ class AdminTicketBulkActionSuccessTest extends TestCase
         return [$superUser, $superAdmin, $technical, $ticketOne, $ticketTwo];
     }
 }
+

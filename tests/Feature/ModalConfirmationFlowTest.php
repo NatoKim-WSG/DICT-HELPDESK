@@ -60,7 +60,7 @@ class ModalConfirmationFlowTest extends TestCase
             'name' => 'Managed Client',
             'email' => 'users-modal-client@example.com',
             'phone' => '09124440002',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -93,7 +93,7 @@ class ModalConfirmationFlowTest extends TestCase
             'name' => 'Modal Client',
             'email' => 'modal-client@example.com',
             'phone' => '09113330002',
-            'department' => 'DICT',
+            'department' => 'iOne',
             'role' => User::ROLE_CLIENT,
             'password' => Hash::make('password123'),
             'is_active' => true,
@@ -123,3 +123,4 @@ class ModalConfirmationFlowTest extends TestCase
         return [$supportUser, $ticket];
     }
 }
+

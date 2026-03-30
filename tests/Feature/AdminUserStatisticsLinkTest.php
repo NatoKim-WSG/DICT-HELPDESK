@@ -27,7 +27,7 @@ class AdminUserStatisticsLinkTest extends TestCase
             'Stats Client',
             'stats-client@example.com',
             User::ROLE_CLIENT,
-            'DICT'
+            'iOne'
         );
 
         $response = $this->actingAs($superUser)->get(route('admin.users.show', $client));
@@ -107,7 +107,7 @@ class AdminUserStatisticsLinkTest extends TestCase
             'Dashboard History Client',
             'dashboard-history-client@example.com',
             User::ROLE_CLIENT,
-            'DICT'
+            'iOne'
         );
         $category = Category::create([
             'name' => 'Dashboard History Category',
@@ -169,3 +169,4 @@ class AdminUserStatisticsLinkTest extends TestCase
         ]);
     }
 }
+

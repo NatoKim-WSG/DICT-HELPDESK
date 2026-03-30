@@ -33,7 +33,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Reports Super', 'reports-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Reports Client', 'reports-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Reports Client', 'reports-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
@@ -89,7 +89,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Partial Reports Super', 'partial-reports-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Partial Reports Client', 'partial-reports-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Partial Reports Client', 'partial-reports-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
@@ -125,7 +125,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('SLA Super', 'sla-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('SLA Client', 'sla-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('SLA Client', 'sla-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $underOneHourTicket = Ticket::create([
@@ -269,7 +269,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('All Time Super', 'all-time-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('All Time Client', 'all-time-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('All Time Client', 'all-time-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $januaryTicket = Ticket::create([
@@ -341,7 +341,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Daily Reports Super', 'daily-reports-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Daily Reports Client', 'daily-reports-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Daily Reports Client', 'daily-reports-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $inProgressTicket = Ticket::create([
@@ -405,7 +405,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Daily Default Super', 'daily-default-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Daily Default Client', 'daily-default-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Daily Default Client', 'daily-default-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $todayTicket = Ticket::create([
@@ -462,7 +462,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Daily All Super', 'daily-all-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Daily All Client', 'daily-all-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Daily All Client', 'daily-all-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $inProgressTicket = Ticket::create([
@@ -564,7 +564,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Breakdown Super', 'breakdown-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Breakdown Client', 'breakdown-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Breakdown Client', 'breakdown-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $closedTicket = Ticket::create([
@@ -609,7 +609,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Detail Scope Super', 'detail-scope-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Detail Scope Client', 'detail-scope-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Detail Scope Client', 'detail-scope-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $dayTicketInProgress = Ticket::create([
@@ -689,7 +689,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Detail Clamp Super', 'detail-clamp-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Detail Clamp Client', 'detail-clamp-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Detail Clamp Client', 'detail-clamp-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $januaryTicket = Ticket::create([
@@ -768,7 +768,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Scoped Super', 'scoped-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Scoped Client', 'scoped-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Scoped Client', 'scoped-client@example.com', User::ROLE_CLIENT, 'iOne');
         $technicalInScope = $this->createUser('Scoped Tech', 'scoped-tech@example.com', User::ROLE_TECHNICAL);
         $technicalOutOfScope = $this->createUser('Other Tech', 'other-tech@example.com', User::ROLE_TECHNICAL);
         $category = $this->createCategory();
@@ -868,7 +868,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Monthly Scope Super', 'monthly-scope-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Monthly Scope Client', 'monthly-scope-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Monthly Scope Client', 'monthly-scope-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $inScopeJanuary = Ticket::create([
@@ -934,7 +934,7 @@ class AdminReportsPageTest extends TestCase
     {
         config(['legal.require_acceptance' => false]);
 
-        $client = $this->createUser('Restricted Client', 'restricted-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Restricted Client', 'restricted-client@example.com', User::ROLE_CLIENT, 'iOne');
 
         $response = $this->actingAs($client)->get(route('admin.reports.index'));
 
@@ -957,7 +957,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('PDF Super', 'pdf-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('PDF Client', 'pdf-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('PDF Client', 'pdf-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
@@ -989,7 +989,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Reports Viewer', 'reports-viewer@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Reports Client', 'reports-shadow-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Reports Client', 'reports-shadow-client@example.com', User::ROLE_CLIENT, 'iOne');
         $shadow = $this->createUser('Shadow Hidden', 'shadow-hidden@example.com', User::ROLE_SHADOW);
         $technical = $this->createUser('Visible Technical', 'visible-technical@example.com', User::ROLE_TECHNICAL);
         $category = $this->createCategory();
@@ -1038,7 +1038,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Metrics Super', 'metrics-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Metrics Client', 'metrics-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Metrics Client', 'metrics-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
@@ -1077,7 +1077,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Cohort Super', 'cohort-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Cohort Client', 'cohort-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Cohort Client', 'cohort-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $ticket = Ticket::create([
@@ -1120,7 +1120,7 @@ class AdminReportsPageTest extends TestCase
         config(['legal.require_acceptance' => false]);
 
         $superUser = $this->createUser('Mix Drilldown Super', 'mix-drilldown-super@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Mix Drilldown Client', 'mix-drilldown-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Mix Drilldown Client', 'mix-drilldown-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
@@ -1173,3 +1173,4 @@ class AdminReportsPageTest extends TestCase
         ]);
     }
 }
+

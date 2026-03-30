@@ -37,7 +37,7 @@ class TicketEmailAlertsTest extends TestCase
         $superUser = $this->createUser('Super Alerts', 'super-alerts@example.com', User::ROLE_SUPER_USER);
         $admin = $this->createUser('Admin Alerts', 'admin-alerts@example.com', User::ROLE_ADMIN);
         $shadow = $this->createUser('Shadow Alerts', 'shadow-alerts@example.com', User::ROLE_SHADOW);
-        $client = $this->createUser('Client Alerts', 'client-alerts@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Alerts', 'client-alerts@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $response = $this->actingAs($client)->post(route('client.tickets.store'), [
@@ -81,7 +81,7 @@ class TicketEmailAlertsTest extends TestCase
 
         $superUser = $this->createUser('Super Assigner', 'super-assigner@example.com', User::ROLE_SUPER_USER);
         $technical = $this->createUser('Tech Alerts', 'tech-alerts@example.com', User::ROLE_TECHNICAL);
-        $client = $this->createUser('Client Assign', 'client-assign@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Assign', 'client-assign@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
         $ticket = $this->createTicket($client, $category);
 
@@ -109,7 +109,7 @@ class TicketEmailAlertsTest extends TestCase
 
         $superUser = $this->createUser('Super Closed Assigner', 'super-closed-assigner@example.com', User::ROLE_SUPER_USER);
         $technical = $this->createUser('Tech Closed Alerts', 'tech-closed-alerts@example.com', User::ROLE_TECHNICAL);
-        $client = $this->createUser('Client Closed Assign', 'client-closed-assign@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Closed Assign', 'client-closed-assign@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
         $ticket = $this->createTicket($client, $category, [
             'status' => 'closed',
@@ -140,7 +140,7 @@ class TicketEmailAlertsTest extends TestCase
         $superUser = $this->createUser('Super Multi Assigner', 'super-multi-assigner@example.com', User::ROLE_SUPER_USER);
         $primaryTechnical = $this->createUser('Primary Tech Alerts', 'primary-tech-alerts@example.com', User::ROLE_TECHNICAL);
         $secondaryTechnical = $this->createUser('Secondary Tech Alerts', 'secondary-tech-alerts@example.com', User::ROLE_TECHNICAL);
-        $client = $this->createUser('Client Multi Assign', 'client-multi-assign@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Multi Assign', 'client-multi-assign@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
         $ticket = $this->createTicket($client, $category);
 
@@ -178,7 +178,7 @@ class TicketEmailAlertsTest extends TestCase
         $superUser = $this->createUser('Super Reminder', 'super-reminder@example.com', User::ROLE_SUPER_USER);
         $admin = $this->createUser('Admin Reminder', 'admin-reminder@example.com', User::ROLE_ADMIN);
         $shadow = $this->createUser('Shadow Reminder', 'shadow-reminder@example.com', User::ROLE_SHADOW);
-        $client = $this->createUser('Client Reminder', 'client-reminder@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Reminder', 'client-reminder@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $ticket = $this->createTicket($client, $category);
@@ -216,7 +216,7 @@ class TicketEmailAlertsTest extends TestCase
         $superUser = $this->createUser('Super SLA', 'super-sla@example.com', User::ROLE_SUPER_USER);
         $admin = $this->createUser('Admin SLA', 'admin-sla@example.com', User::ROLE_ADMIN);
         $shadow = $this->createUser('Shadow SLA', 'shadow-sla@example.com', User::ROLE_SHADOW);
-        $client = $this->createUser('Client SLA', 'client-sla@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client SLA', 'client-sla@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $ticket = $this->createTicket($client, $category);
@@ -255,7 +255,7 @@ class TicketEmailAlertsTest extends TestCase
         Mail::fake();
 
         $technical = $this->createUser('Tech SLA', 'tech-sla@example.com', User::ROLE_TECHNICAL);
-        $client = $this->createUser('Client Tech SLA', 'client-tech-sla@example.com', User::ROLE_CLIENT, 'DICT');
+        $client = $this->createUser('Client Tech SLA', 'client-tech-sla@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         $ticket = $this->createTicket($client, $category, [
@@ -316,3 +316,4 @@ class TicketEmailAlertsTest extends TestCase
         ], $overrides));
     }
 }
+
