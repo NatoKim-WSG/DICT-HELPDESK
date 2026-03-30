@@ -292,7 +292,7 @@ class User extends Authenticatable
             $departmentToken === 'dict' => 'dict',
             $departmentToken === 'others' => 'others',
             in_array($normalizedRole, [self::ROLE_SHADOW, self::ROLE_ADMIN, self::ROLE_SUPER_USER, self::ROLE_TECHNICAL], true) => self::departmentBrandKey(self::supportDepartment()),
-            default => 'dict',
+            default => 'others',
         };
     }
 

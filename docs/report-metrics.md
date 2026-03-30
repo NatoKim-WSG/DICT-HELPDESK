@@ -38,17 +38,19 @@ That wording matches the current report calculation and avoids confusing it with
 
 ### First Response Time
 
-- Definition: the average/median minutes from `ticket created` to the first staff action.
+- Definition: minutes from `ticket created` to the first staff action.
 - Staff action is the earliest of:
   - first public staff reply
   - first assignment timestamp
   - resolution timestamp
   - closure timestamp
+- Current reports UI: shows the average first response time for the selected scope.
 
 ### Resolution Time
 
-- Definition: the average/median minutes from `ticket created` to `resolved_at` or `closed_at`.
+- Definition: minutes from `ticket created` to `resolved_at` or `closed_at`.
 - Only completed tickets are included in this metric.
+- Current reports UI: shows the average resolution time for completed tickets in the selected scope.
 
 ### SLA Breach Rate
 
@@ -63,7 +65,7 @@ That wording matches the current report calculation and avoids confusing it with
 ### Customer Satisfaction SLA
 
 - Definition: percentage of rated tickets with a client satisfaction score of `4/5` or higher.
-- Also display the average rating for the rated sample.
+- Current reports UI: shows the SLA percentage only.
 
 ### Severity Bands
 

@@ -55,22 +55,18 @@ class SlaReportService
         $severityBands = [
             [
                 'label' => 'Under 1 Hour',
-                'description' => 'Still within the super user acknowledgment window.',
                 'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'under_1_hour')->count(),
             ],
             [
                 'label' => 'Severity 1',
-                'description' => '1 hour to under 4 hours.',
                 'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_1')->count(),
             ],
             [
                 'label' => 'Severity 2',
-                'description' => '4 hours to under 24 hours.',
                 'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_2')->count(),
             ],
             [
                 'label' => 'Severity 3',
-                'description' => '24 hours or more.',
                 'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_3')->count(),
             ],
         ];
@@ -81,12 +77,7 @@ class SlaReportService
 
         return [
             'label' => $label,
-            'scope_start' => $start->toDateTimeString(),
-            'scope_end' => $end->toDateTimeString(),
             'total_tickets' => $ticketCount,
-            'acknowledgment_target_minutes' => self::ACKNOWLEDGMENT_TARGET_MINUTES,
-            'resolution_target_minutes' => self::RESOLUTION_TARGET_MINUTES,
-            'satisfaction_target_rating' => self::SATISFACTION_TARGET_RATING,
             'first_response' => [
                 'average_minutes' => $this->averageMinutes($firstResponseMinutes),
                 'median_minutes' => $this->medianMinutes($firstResponseMinutes),
