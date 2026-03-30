@@ -84,6 +84,42 @@ class AdminReportsPageTest extends TestCase
         $response->assertDontSee('SLA compliance (selection)');
     }
 
+    public function test_reports_page_can_return_partial_html_for_filter_refresh(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Partial Reports Super', 'partial-reports-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Partial Reports Client', 'partial-reports-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        Ticket::create([
+            'name' => 'Partial Requester',
+            'contact_number' => '09180000003',
+            'email' => 'partial-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Reports partial ticket',
+            'description' => 'Ticket for partial report rendering',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->getJson(route('admin.reports.index', [
+                'month' => 'all',
+                'partial' => 1,
+            ]), [
+                'X-Requested-With' => 'XMLHttpRequest',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonStructure(['html']);
+        $this->assertStringContainsString('data-admin-reports-shell', (string) $response->json('html'));
+        $this->assertStringContainsString('SLA Overview', (string) $response->json('html'));
+    }
+
     public function test_reports_page_builds_sla_metrics_from_ticket_timelines(): void
     {
         config(['legal.require_acceptance' => false]);

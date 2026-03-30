@@ -401,7 +401,7 @@ class ReportController extends Controller
             })
             ->values();
 
-        return view('admin.reports.index', compact(
+        $viewData = compact(
             'stats',
             'ticketsByStatus',
             'ticketsByPriority',
@@ -436,7 +436,15 @@ class ReportController extends Controller
             'detailOverview',
             'ticketHistoryScope',
             'slaReport'
-        ));
+        );
+
+        if ($request->boolean('partial')) {
+            return response()->json([
+                'html' => view('admin.reports.partials.shell', $viewData)->render(),
+            ]);
+        }
+
+        return view('admin.reports.index', $viewData);
     }
 
     public function monthlyPdf(Request $request)
