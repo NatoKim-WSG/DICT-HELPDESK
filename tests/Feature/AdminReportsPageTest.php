@@ -228,6 +228,78 @@ class AdminReportsPageTest extends TestCase
         });
     }
 
+    public function test_reports_page_can_use_all_time_reporting_period(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('All Time Super', 'all-time-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('All Time Client', 'all-time-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $januaryTicket = Ticket::create([
+            'name' => 'January Requester',
+            'contact_number' => '09180001005',
+            'email' => 'january-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'January ticket',
+            'description' => 'Should be included in all-time scope.',
+            'priority' => 'high',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($januaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 1, 10, 9, 0, 0),
+        ]);
+
+        $februaryTicket = Ticket::create([
+            'name' => 'February Requester',
+            'contact_number' => '09180001006',
+            'email' => 'february-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'February ticket',
+            'description' => 'Resolved ticket in all-time scope.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'resolved_at' => Carbon::create(2026, 2, 20, 14, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($februaryTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 20, 10, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 20, 14, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => 'all',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('All Time');
+        $response->assertDontSee('Download Monthly PDF');
+        $response->assertViewHas('selectedMonthKey', 'all');
+        $response->assertViewHas('selectedMonthIsAllTime', true);
+        $response->assertViewHas('periodOverview', function (array $overview) {
+            return ($overview['label'] ?? null) === 'All Time'
+                && (int) ($overview['total_tickets'] ?? 0) === 2
+                && (int) ($overview['resolved'] ?? 0) === 1;
+        });
+        $response->assertViewHas('selectedMonthRow', function (array $row) {
+            return ($row['month_label'] ?? null) === 'All Time'
+                && (int) ($row['received'] ?? 0) === 2
+                && (int) ($row['resolved'] ?? 0) === 1
+                && (float) ($row['resolution_rate'] ?? 0) === 50.0;
+        });
+        $response->assertViewHas('slaReport', function (array $slaReport) {
+            return ($slaReport['label'] ?? null) === 'All Time'
+                && (int) ($slaReport['total_tickets'] ?? 0) === 2;
+        });
+        $response->assertViewHas('monthlyPerformanceFocusMonthKey', '2026-02');
+    }
+
     public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics_for_selected_date(): void
     {
         config(['legal.require_acceptance' => false]);

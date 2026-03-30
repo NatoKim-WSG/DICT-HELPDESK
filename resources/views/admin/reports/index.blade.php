@@ -174,21 +174,23 @@
                     </noscript>
                 </form>
 
-                <a href="{{ route('admin.reports.monthly.pdf', ['month' => $selectedMonthKey]) }}" class="btn-primary py-2">
-                    Download Monthly PDF
-                </a>
+                @unless($selectedMonthIsAllTime ?? false)
+                    <a href="{{ route('admin.reports.monthly.pdf', ['month' => $selectedMonthKey]) }}" class="btn-primary py-2">
+                        Download Monthly PDF
+                    </a>
+                @endunless
             </div>
         </div>
 
         <div class="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3 sm:px-6">
-            <x-ui.stat-card label="Total Tickets This Period" :value="$periodOverview['total_tickets']">
+            <x-ui.stat-card label="Total Tickets in Scope" :value="$periodOverview['total_tickets']">
                 {{ $periodOverview['label'] }}
             </x-ui.stat-card>
             <x-ui.stat-card label="Major Issues / Incidents" :value="$majorIssueSummary['major_count'] ?? 0" value-class="text-rose-600">
                 High or urgent tickets created this period
             </x-ui.stat-card>
             <x-ui.stat-card label="Resolution Rate" :value="number_format((float) ($selectedMonthRow['resolution_rate'] ?? 0), 1) . '%'" value-class="text-sky-600">
-                Tickets created this period that are now resolved/closed
+                Tickets created in the selected scope that are now resolved/closed
             </x-ui.stat-card>
         </div>
 
@@ -205,7 +207,7 @@
             </summary>
 
             <div class="mt-4">
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-5">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <x-ui.stat-card label="First Response Time" :value="$formatMinutes($slaReport['first_response']['average_minutes'])" value-class="text-sky-600">
                         Median {{ $formatMinutes($slaReport['first_response']['median_minutes']) }} across {{ $slaReport['first_response']['sample_count'] }} tickets
                     </x-ui.stat-card>
@@ -463,7 +465,7 @@
                         <div>
                             <label for="monthly-focus-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Focus Month</label>
                                 <select id="monthly-focus-month" name="month" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">
-                                    @foreach($monthOptions as $option)
+                                    @foreach($monthOptions->where('key', '!=', 'all') as $option)
                                         <option value="{{ $option['key'] }}" {{ $monthlyPerformanceFocusMonthKey === $option['key'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
                                         </option>
@@ -549,7 +551,7 @@
                             <div class="min-w-0">
                                 <label for="daily-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
                                 <select id="daily-month" name="daily_month" data-auto-submit-change class="form-input mt-0 w-full py-2 text-sm">
-                                    @foreach($monthOptions as $option)
+                                    @foreach($monthOptions->where('key', '!=', 'all') as $option)
                                         <option value="{{ $option['key'] }}" {{ $dailyMonthKey === $option['key'] ? 'selected' : '' }}>
                                             {{ $option['label'] }}
                                         </option>
@@ -612,7 +614,7 @@
                     <div>
                         <label for="detail-month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
                         <select id="detail-month" name="detail_month" class="form-input w-full py-2 text-sm">
-                            @foreach($monthOptions as $option)
+                            @foreach($monthOptions->where('key', '!=', 'all') as $option)
                                 <option value="{{ $option['key'] }}" {{ $detailMonthKey === $option['key'] ? 'selected' : '' }}>
                                     {{ $option['label'] }}
                                 </option>
