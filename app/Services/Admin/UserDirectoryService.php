@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 class UserDirectoryService
 {
@@ -16,8 +17,8 @@ class UserDirectoryService
             $segment = 'clients';
         }
 
-        $query = User::query()->where('email', 'not like', '%@system.local');
-        $departmentsQuery = User::query()->where('email', 'not like', '%@system.local');
+        $query = User::query()->where('email', 'not like', '%'.User::SYSTEM_RESERVED_EMAIL_DOMAIN);
+        $departmentsQuery = User::query()->where('email', 'not like', '%'.User::SYSTEM_RESERVED_EMAIL_DOMAIN);
 
         $this->applyVisibilityScope($query, $currentUser);
         $this->applyVisibilityScope($departmentsQuery, $currentUser);
@@ -96,13 +97,7 @@ class UserDirectoryService
 
     public function departmentForRole(string $role, string $department): string
     {
-        $normalizedRole = User::normalizeRole($role);
-
-        if (in_array($normalizedRole, [User::ROLE_SHADOW, User::ROLE_ADMIN, User::ROLE_SUPER_USER, User::ROLE_TECHNICAL], true)) {
-            return User::supportDepartment();
-        }
-
-        return $department;
+        return User::managedDepartmentForRole($role, $department);
     }
 
     public function normalizeRoleForPersistence(string $role): string
@@ -178,34 +173,17 @@ class UserDirectoryService
 
     public function canManageStaffAccounts(User $currentUser): bool
     {
-        return in_array($currentUser->normalizedRole(), [User::ROLE_SHADOW, User::ROLE_ADMIN], true);
+        return $currentUser->canManageStaffAccounts();
     }
 
     public function cannotManageTarget(User $currentUser, User $targetUser): bool
     {
-        if ($currentUser->isShadow()) {
-            return false;
-        }
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN && $targetUser->isShadow()) {
-            return true;
-        }
-
-        if ($currentUser->isSuperAdmin()) {
-            return false;
-        }
-
-        return ! $this->isManageableByNonSuperAdmin($targetUser);
+        return Gate::forUser($currentUser)->denies('view', $targetUser);
     }
 
     private function manageableRolesForAdmin(): array
     {
-        return [User::ROLE_CLIENT];
-    }
-
-    private function isManageableByNonSuperAdmin(User $user): bool
-    {
-        return in_array(User::normalizeRole($user->role), $this->manageableRolesForAdmin(), true);
+        return User::USER_MANAGEMENT_CLIENT_ONLY_ROLES;
     }
 
     private function applyVisibilityScope(Builder $query, User $currentUser): void

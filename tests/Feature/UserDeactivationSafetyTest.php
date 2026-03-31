@@ -124,4 +124,73 @@ class UserDeactivationSafetyTest extends TestCase
             'user_id' => $archivedClient->id,
         ]);
     }
+
+    public function test_destroy_user_route_preserves_closed_by_history_for_deleted_support_user(): void
+    {
+        $shadow = User::create([
+            'name' => 'Shadow User',
+            'email' => 'shadow-preserve-closed-by@example.com',
+            'phone' => '09110003333',
+            'department' => 'iOne',
+            'role' => User::ROLE_SHADOW,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $technical = User::create([
+            'name' => 'Closer Technical',
+            'email' => 'closer-technical@example.com',
+            'phone' => '09110004444',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Closed By',
+            'email' => 'client-closed-by@example.com',
+            'phone' => '09110005555',
+            'department' => 'iOne',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Closed By Preservation',
+            'description' => 'Preserve closed_by history',
+            'color' => '#0f8d88',
+            'is_active' => true,
+        ]);
+
+        $ticket = Ticket::create([
+            'name' => 'Closed Requester',
+            'contact_number' => '09110006666',
+            'email' => 'closed-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed ticket',
+            'description' => 'Closed ticket details',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'user_id' => $client->id,
+            'assigned_to' => $technical->id,
+            'category_id' => $category->id,
+            'resolved_at' => now()->subHours(2),
+            'closed_at' => now()->subHour(),
+            'closed_by' => $technical->id,
+        ]);
+        $ticket->assignedUsers()->sync([$technical->id]);
+
+        $response = $this->actingAs($shadow)
+            ->delete(route('admin.users.destroy', $technical));
+
+        $response->assertRedirect(route('admin.users.index'));
+
+        $archivedSupport = User::where('email', 'deleted.support@system.local')->firstOrFail();
+
+        $ticket->refresh();
+        $this->assertSame($archivedSupport->id, (int) $ticket->closed_by);
+    }
 }

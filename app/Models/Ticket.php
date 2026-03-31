@@ -376,4 +376,17 @@ class Ticket extends Model
             default => 'Unread',
         };
     }
+
+    public static function reopenedLifecycleResetAttributes(): array
+    {
+        return [
+            'resolved_at' => null,
+            'closed_at' => null,
+            'closed_by' => null,
+            'satisfaction_rating' => null,
+            'satisfaction_comment' => null,
+            'super_users_notified_unassigned_sla_at' => null,
+            'technical_user_notified_sla_at' => null,
+        ];
+    }
 }

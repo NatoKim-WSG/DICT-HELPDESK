@@ -10,20 +10,30 @@ class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check();
+        return auth()->user()?->can('create', User::class) ?? false;
     }
 
     public function rules(): array
     {
         $user = auth()->user();
-        $availableRoles = $this->availableRolesFor($user);
+        $availableRoles = $user->manageableUserRoleOptions();
         $requestedRole = User::normalizeRole($this->string('role')->toString());
         $canManageClientNotes = $user->isShadow() && $requestedRole === User::ROLE_CLIENT;
 
         return [
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9._-]+$/', 'unique:users,username'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'unique:users,email',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (User::emailUsesReservedSystemDomain((string) $value)) {
+                        $fail('Email addresses ending in @system.local are reserved for system archive accounts.');
+                    }
+                },
+            ],
             'phone' => ['required', 'string', 'max:20'],
             'department' => ['required', Rule::in(User::allowedDepartments())],
             'role' => ['required', Rule::in($availableRoles)],
@@ -49,25 +59,5 @@ class StoreUserRequest extends FormRequest
             'email' => trim((string) $this->input('email')),
             'phone' => trim((string) $this->input('phone')),
         ]);
-    }
-
-    private function availableRolesFor(User $currentUser): array
-    {
-        $roles = [User::ROLE_CLIENT];
-
-        if ($currentUser->isShadow()) {
-            $roles[] = User::ROLE_ADMIN;
-            $roles[] = User::ROLE_TECHNICAL;
-            $roles[] = User::ROLE_SUPER_USER;
-
-            return $roles;
-        }
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-            $roles[] = User::ROLE_TECHNICAL;
-            $roles[] = User::ROLE_SUPER_USER;
-        }
-
-        return $roles;
     }
 }

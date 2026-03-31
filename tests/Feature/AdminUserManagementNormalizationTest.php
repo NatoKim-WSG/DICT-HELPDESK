@@ -105,6 +105,34 @@ class AdminUserManagementNormalizationTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_cannot_create_user_with_reserved_system_email(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Reserved Email Admin',
+            'email' => 'reserved-email-admin@example.com',
+            'phone' => '09100000034',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
+            'name' => 'Reserved Email User',
+            'email' => 'reserved-user@system.local',
+            'phone' => '09229990000',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertDatabaseMissing('users', [
+            'email' => 'reserved-user@system.local',
+        ]);
+    }
+
     public function test_super_user_cannot_edit_technical_account(): void
     {
         $superUser = User::create([
@@ -145,6 +173,46 @@ class AdminUserManagementNormalizationTest extends TestCase
 
         $technical->refresh();
         $this->assertSame('Technical User', $technical->name);
+    }
+
+    public function test_super_user_cannot_promote_client_to_technical_role(): void
+    {
+        $superUser = User::create([
+            'name' => 'Super User Promotion Guard',
+            'email' => 'super-user-promotion-guard@example.com',
+            'phone' => '09100000035',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Promotion Guard',
+            'email' => 'client-promotion-guard@example.com',
+            'phone' => '09100000036',
+            'department' => 'iOne',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->from(route('admin.users.edit', $client))
+            ->put(route('admin.users.update', $client), [
+                'name' => 'Client Promotion Guard',
+                'email' => 'client-promotion-guard@example.com',
+                'phone' => '09100000036',
+                'department' => 'iOne',
+                'role' => User::ROLE_TECHNICAL,
+                'is_active' => true,
+            ]);
+
+        $response->assertRedirect(route('admin.users.edit', $client));
+        $response->assertSessionHasErrors('role');
+
+        $client->refresh();
+        $this->assertSame(User::ROLE_CLIENT, $client->role);
     }
 
     public function test_super_user_user_index_shows_clients_segment(): void

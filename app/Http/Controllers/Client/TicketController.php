@@ -201,10 +201,7 @@ class TicketController extends Controller
         if (in_array($ticket->status, Ticket::CLOSED_STATUSES, true)) {
             $ticket->update([
                 'status' => 'open',
-                'resolved_at' => null,
-                'closed_at' => null,
-                'super_users_notified_unassigned_sla_at' => null,
-                'technical_user_notified_sla_at' => null,
+                ...Ticket::reopenedLifecycleResetAttributes(),
             ]);
         }
 
@@ -331,6 +328,10 @@ class TicketController extends Controller
     public function rate(RateTicketRequest $request, Ticket $ticket)
     {
         $this->assertTicketOwner($ticket);
+
+        if ($ticket->status !== 'resolved' || $ticket->satisfaction_rating !== null) {
+            return redirect()->back()->with('error', 'Only resolved tickets awaiting feedback can be rated.');
+        }
 
         $ticket->update([
             'satisfaction_rating' => $request->integer('rating'),

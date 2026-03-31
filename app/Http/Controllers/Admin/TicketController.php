@@ -832,11 +832,7 @@ class TicketController extends Controller
         $status = $updateData['status'] ?? null;
 
         if (in_array($status, ['open', 'in_progress', 'pending'], true)) {
-            $updateData['resolved_at'] = null;
-            $updateData['closed_at'] = null;
-            $updateData['closed_by'] = null;
-            $updateData['super_users_notified_unassigned_sla_at'] = null;
-            $updateData['technical_user_notified_sla_at'] = null;
+            $updateData = array_merge($updateData, Ticket::reopenedLifecycleResetAttributes());
 
             return;
         }

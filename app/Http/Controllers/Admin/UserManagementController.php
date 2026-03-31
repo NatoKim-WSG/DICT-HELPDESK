@@ -26,11 +26,15 @@ class UserManagementController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', User::class);
+
         return $this->renderUserIndex($request, 'staff');
     }
 
     public function clients(Request $request)
     {
+        $this->authorize('viewAny', User::class);
+
         return $this->renderUserIndex($request, 'clients');
     }
 
@@ -43,13 +47,17 @@ class UserManagementController extends Controller
 
     public function create()
     {
-        $availableRoles = $this->availableRolesFor(auth()->user());
+        $this->authorize('create', User::class);
+
+        $availableRoles = auth()->user()->manageableUserRoleOptions();
 
         return view('admin.users.create', compact('availableRoles'));
     }
 
     public function store(StoreUserRequest $request)
     {
+        $this->authorize('create', User::class);
+
         $user = auth()->user();
 
         $requestedRole = User::normalizeRole($request->string('role')->toString());
@@ -119,7 +127,7 @@ class UserManagementController extends Controller
         $statistics = $this->userDirectory->buildUserTicketStatistics($user);
         $statisticsLinks = $this->userDirectory->buildUserStatisticsLinks($user, $statistics['show_assigned']);
         $recentTickets = $this->userDirectory->recentTicketsForUser($user);
-        $canRevealManagedPassword = $currentUser->isShadow() && ! $user->isShadow() && $user->id !== $currentUser->id;
+        $canRevealManagedPassword = $currentUser->can('revealManagedPassword', $user);
         $activeCredentialHandoff = null;
         if ($canRevealManagedPassword) {
             $activeCredentialHandoff = CredentialHandoff::query()
@@ -145,10 +153,6 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (! $currentUser->isShadow()) {
-            abort(403, 'Access denied. Insufficient permissions.');
-        }
-
         if ($this->isSystemReplacementUser($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'System archive users cannot be modified.');
@@ -163,6 +167,8 @@ class UserManagementController extends Controller
             return redirect()->route('admin.users.show', $user)
                 ->with('error', 'Use Account Settings to update your own password.');
         }
+
+        $this->authorize('resetManagedPassword', $user);
 
         $temporaryPassword = $this->generateTemporaryManagedPassword();
         $expiresAt = now()->addMinutes(10);
@@ -204,10 +210,6 @@ class UserManagementController extends Controller
     {
         $currentUser = auth()->user();
 
-        if (! $currentUser->isShadow()) {
-            abort(403, 'Access denied. Insufficient permissions.');
-        }
-
         if ($this->isSystemReplacementUser($user)) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'System archive users cannot be modified.');
@@ -222,6 +224,8 @@ class UserManagementController extends Controller
             return redirect()->route('admin.users.show', $user)
                 ->with('error', 'Use Account Settings to update your own password.');
         }
+
+        $this->authorize('revealManagedPassword', $user);
 
         $handoff = CredentialHandoff::query()
             ->where('target_user_id', $user->id)
@@ -274,8 +278,8 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to edit this user.');
         }
 
-        $availableRoles = $this->availableRolesFor($currentUser);
-        $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
+        $availableRoles = $currentUser->manageableUserRoleOptions($user);
+        $canEditPassword = $currentUser->canEditManagedUserPassword($user);
         $returnTo = $this->resolveManagedUserReturnUrl($request->query('return_to'), $user);
 
         return view('admin.users.edit', compact('user', 'availableRoles', 'canEditPassword', 'returnTo'));
@@ -306,7 +310,7 @@ class UserManagementController extends Controller
                 ->with('error', 'You do not have permission to edit this user.');
         }
 
-        $canEditPassword = $this->canEditManagedUserPassword($currentUser, $user);
+        $canEditPassword = $currentUser->canEditManagedUserPassword($user);
         $requestedRole = User::normalizeRole($request->string('role')->toString());
         $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
         $canManageClientNotes = $currentUser->isShadow() && $willBeClientRole;
@@ -449,6 +453,10 @@ class UserManagementController extends Controller
                 'user_id' => $replacementUser->id,
             ]);
 
+            Ticket::where('closed_by', $user->id)->update([
+                'closed_by' => $replacementUser->id,
+            ]);
+
             TicketReply::where('user_id', $user->id)->update([
                 'user_id' => $replacementUser->id,
             ]);
@@ -542,56 +550,15 @@ class UserManagementController extends Controller
         ]);
     }
 
-    private function availableRolesFor(User $currentUser): array
-    {
-        $roles = [User::ROLE_CLIENT];
-
-        if ($currentUser->isShadow()) {
-            $roles[] = User::ROLE_ADMIN;
-            $roles[] = User::ROLE_TECHNICAL;
-            $roles[] = User::ROLE_SUPER_USER;
-
-            return $roles;
-        }
-
-        if ($currentUser->normalizedRole() === User::ROLE_ADMIN) {
-            $roles[] = User::ROLE_TECHNICAL;
-            $roles[] = User::ROLE_SUPER_USER;
-        }
-
-        return $roles;
-    }
-
-    private function canEditManagedUserPassword(User $currentUser, User $targetUser): bool
-    {
-        if ($currentUser->isShadow()) {
-            return true;
-        }
-
-        if ($currentUser->isSuperAdmin()) {
-            return ! $targetUser->isShadow();
-        }
-
-        return ! (
-            $currentUser->normalizedRole() === User::ROLE_SUPER_USER
-            && User::normalizeRole($targetUser->role) === User::ROLE_CLIENT
-        );
-    }
-
     private function isSystemReplacementUser(User $user): bool
     {
-        return str_ends_with(strtolower((string) $user->email), '@system.local');
+        return $user->isSystemReplacementAccount();
     }
 
     private function replacementUserForDeletedAccount(User $deletedUser): User
     {
         $normalizedRole = $deletedUser->normalizedRole();
-        $isSupportAccount = in_array($normalizedRole, [
-            User::ROLE_SHADOW,
-            User::ROLE_ADMIN,
-            User::ROLE_SUPER_USER,
-            User::ROLE_TECHNICAL,
-        ], true);
+        $isSupportAccount = in_array($normalizedRole, User::TICKET_CONSOLE_ROLES, true);
 
         if ($isSupportAccount) {
             return User::firstOrCreate(

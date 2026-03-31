@@ -44,6 +44,12 @@ class User extends Authenticatable
         self::ROLE_SUPER_USER,
     ];
 
+    public const USER_MANAGEMENT_CLIENT_ONLY_ROLES = [
+        self::ROLE_CLIENT,
+    ];
+
+    public const SYSTEM_RESERVED_EMAIL_DOMAIN = '@system.local';
+
     public const ALLOWED_DEPARTMENTS = [
         'iOne',
         'BOC',
@@ -195,6 +201,77 @@ class User extends Authenticatable
         return $this->normalizedRole() === self::ROLE_SHADOW;
     }
 
+    public function canManageStaffAccounts(): bool
+    {
+        return in_array($this->normalizedRole(), [self::ROLE_SHADOW, self::ROLE_ADMIN], true);
+    }
+
+    public function canManageUserTarget(User $targetUser): bool
+    {
+        if ($this->isShadow()) {
+            return true;
+        }
+
+        $targetRole = $targetUser->normalizedRole();
+        if ($this->normalizedRole() === self::ROLE_ADMIN) {
+            return ! in_array($targetRole, [self::ROLE_SHADOW, self::ROLE_ADMIN], true);
+        }
+
+        return in_array($targetRole, self::USER_MANAGEMENT_CLIENT_ONLY_ROLES, true);
+    }
+
+    public function canEditManagedUserPassword(User $targetUser): bool
+    {
+        if ($this->isShadow()) {
+            return true;
+        }
+
+        if ($this->isSuperAdmin()) {
+            return ! $targetUser->isShadow();
+        }
+
+        return ! (
+            $this->normalizedRole() === self::ROLE_SUPER_USER
+            && $targetUser->normalizedRole() === self::ROLE_CLIENT
+        );
+    }
+
+    public function manageableUserCreationRoles(): array
+    {
+        $roles = self::USER_MANAGEMENT_CLIENT_ONLY_ROLES;
+
+        if ($this->isShadow()) {
+            return array_merge($roles, [
+                self::ROLE_ADMIN,
+                self::ROLE_TECHNICAL,
+                self::ROLE_SUPER_USER,
+            ]);
+        }
+
+        if ($this->normalizedRole() === self::ROLE_ADMIN) {
+            return array_merge($roles, [
+                self::ROLE_TECHNICAL,
+                self::ROLE_SUPER_USER,
+            ]);
+        }
+
+        return $roles;
+    }
+
+    public function manageableUserRoleOptions(?User $targetUser = null): array
+    {
+        $roles = $this->manageableUserCreationRoles();
+
+        if (
+            $targetUser instanceof User
+            && $this->canManageUserTarget($targetUser)
+        ) {
+            $roles[] = $targetUser->normalizedRole();
+        }
+
+        return array_values(array_unique($roles));
+    }
+
     public function isAdminLevel()
     {
         return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
@@ -264,6 +341,23 @@ class User extends Authenticatable
     public static function publicRoleLabel(?string $role): string
     {
         return ucfirst(str_replace('_', ' ', self::publicRoleValue($role)));
+    }
+
+    public function isSystemReplacementAccount(): bool
+    {
+        return self::emailUsesReservedSystemDomain($this->email);
+    }
+
+    public static function managedDepartmentForRole(string $role, string $department): string
+    {
+        return in_array(self::normalizeRole($role), self::TICKET_CONSOLE_ROLES, true)
+            ? self::supportDepartment()
+            : $department;
+    }
+
+    public static function emailUsesReservedSystemDomain(?string $email): bool
+    {
+        return str_ends_with(strtolower(trim((string) $email)), self::SYSTEM_RESERVED_EMAIL_DOMAIN);
     }
 
     public static function departmentBrandKey(?string $department, ?string $role = null): string

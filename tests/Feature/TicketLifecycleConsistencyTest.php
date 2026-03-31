@@ -23,6 +23,8 @@ class TicketLifecycleConsistencyTest extends TestCase
             'status' => 'closed',
             'resolved_at' => Carbon::now()->subHour(),
             'closed_at' => Carbon::now()->subHour(),
+            'satisfaction_rating' => 4,
+            'satisfaction_comment' => 'Old feedback',
         ]);
 
         $response = $this->actingAs($superUser)
@@ -36,16 +38,21 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertSame('open', $ticket->status);
         $this->assertNull($ticket->resolved_at);
         $this->assertNull($ticket->closed_at);
+        $this->assertNull($ticket->satisfaction_rating);
+        $this->assertNull($ticket->satisfaction_comment);
     }
 
     public function test_client_reply_reopens_closed_or_resolved_ticket_and_clears_timestamps(): void
     {
-        [, $client, $ticket] = $this->seedUsersAndTicket();
+        [$superUser, $client, $ticket] = $this->seedUsersAndTicket();
 
         $ticket->update([
-            'status' => 'resolved',
+            'status' => 'closed',
             'resolved_at' => Carbon::now()->subHour(),
-            'closed_at' => null,
+            'closed_at' => Carbon::now()->subMinutes(30),
+            'closed_by' => $superUser->id,
+            'satisfaction_rating' => 5,
+            'satisfaction_comment' => 'Initial resolution feedback.',
         ]);
 
         $response = $this->actingAs($client)
@@ -59,6 +66,9 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertSame('open', $ticket->status);
         $this->assertNull($ticket->resolved_at);
         $this->assertNull($ticket->closed_at);
+        $this->assertNull($ticket->closed_by);
+        $this->assertNull($ticket->satisfaction_rating);
+        $this->assertNull($ticket->satisfaction_comment);
     }
 
     public function test_client_cannot_resolve_ticket_without_required_rating(): void
@@ -149,6 +159,26 @@ class TicketLifecycleConsistencyTest extends TestCase
         $response->assertSessionHasErrors(['comment']);
 
         $ticket->refresh();
+        $this->assertNull($ticket->satisfaction_rating);
+        $this->assertNull($ticket->satisfaction_comment);
+    }
+
+    public function test_client_cannot_submit_standalone_rating_for_non_resolved_ticket(): void
+    {
+        [, $client, $ticket] = $this->seedUsersAndTicket();
+
+        $response = $this->from(route('client.tickets.show', $ticket))
+            ->actingAs($client)
+            ->post(route('client.tickets.rate', $ticket), [
+                'rating' => '4',
+                'comment' => 'This should not be accepted while still open.',
+            ]);
+
+        $response->assertRedirect(route('client.tickets.show', $ticket));
+        $response->assertSessionHas('error', 'Only resolved tickets awaiting feedback can be rated.');
+
+        $ticket->refresh();
+        $this->assertSame('open', $ticket->status);
         $this->assertNull($ticket->satisfaction_rating);
         $this->assertNull($ticket->satisfaction_comment);
     }

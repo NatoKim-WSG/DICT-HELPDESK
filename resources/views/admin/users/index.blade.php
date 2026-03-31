@@ -119,28 +119,15 @@
                             $avatarUrl = $departmentBrand['logo_url'];
                             $initials = strtoupper(substr((string) $user->name, 0, 2));
                             $normalizedTargetRole = \App\Models\User::normalizeRole($user->role);
-                            $displayRole = \App\Models\User::publicRoleValue($user->role);
                             $currentRole = $currentUser->normalizedRole();
                             $isCurrentShadow = $currentRole === \App\Models\User::ROLE_SHADOW;
                             $isTargetShadow = $normalizedTargetRole === \App\Models\User::ROLE_SHADOW;
                             $isTargetAdmin = $normalizedTargetRole === \App\Models\User::ROLE_ADMIN;
-                            $canEdit = $user->id !== $currentUser->id
-                                && (
-                                    $isCurrentShadow
-                                    || ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetShadow)
-                                    || (! in_array($currentRole, [\App\Models\User::ROLE_SHADOW, \App\Models\User::ROLE_ADMIN], true) && $user->isClient())
-                                );
-                            $canDelete = false;
-
-                            if ($user->id !== $currentUser->id && ! $isTargetShadow && ! $user->is_profile_locked) {
-                                if ($isCurrentShadow) {
-                                    $canDelete = true;
-                                } elseif ($currentRole === \App\Models\User::ROLE_ADMIN && ! $isTargetAdmin) {
-                                    $canDelete = true;
-                                } elseif ($currentUser->isAdmin() && $user->isClient()) {
-                                    $canDelete = true;
-                                }
-                            }
+                            $displayRole = \App\Models\User::publicRoleValue($user->role);
+                            $canView = $currentUser->can('view', $user);
+                            $canEdit = $currentUser->can('update', $user);
+                            $canToggleStatus = $currentUser->can('toggleStatus', $user);
+                            $canDelete = $currentUser->can('delete', $user);
                         @endphp
                         <tr>
                             <td class="px-6 py-4 align-top">
@@ -182,7 +169,7 @@
                                 {{ $user->department ?? '-' }}
                             </td>
                             <td class="px-6 py-4 align-top">
-                                @if($canDelete)
+                                @if($canToggleStatus)
                                     <button
                                             type="button"
                                             class="js-toggle-user-status inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer
@@ -200,10 +187,16 @@
                             </td>
                             <td class="px-6 py-4 align-top text-sm font-medium">
                                 <div class="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-                                    <a href="{{ route('admin.users.show', $user) }}"
-                                       class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-900">
-                                        View
-                                    </a>
+                                    @if($canView)
+                                        <a href="{{ route('admin.users.show', $user) }}"
+                                           class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-900">
+                                            View
+                                        </a>
+                                    @else
+                                        <span class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-gray-400">
+                                            Restricted
+                                        </span>
+                                    @endif
                                     @if($canEdit)
                                         <a href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => $listReturnTo]) }}"
                                            class="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium text-blue-600 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-900">
