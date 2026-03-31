@@ -100,7 +100,7 @@ class MonthlyReportDatasetService
         $graphPoints = $reportRows->map(fn (array $row) => [
             'key' => $row['month_key'],
             'month_label' => $row['month_label'],
-            'label' => Carbon::createFromFormat('Y-m', $row['month_key'])->format('M'),
+            'label' => Carbon::createFromFormat('Y-m', $row['month_key'])->format('M Y'),
             'received' => $row['received'],
             'resolved' => $row['resolved'],
             'completed_in_period' => $row['completed_in_period'],

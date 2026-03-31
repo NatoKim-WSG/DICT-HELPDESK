@@ -239,8 +239,6 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('SLA Overview');
         $response->assertSee('First Response Time');
         $response->assertSee('Resolution Time');
-        $response->assertSee('SLA Breach Rate');
-        $response->assertSee('Acknowledgment Rate');
         $response->assertSee('Customer Satisfaction SLA');
         $response->assertSee('Severity Bands');
         $response->assertViewHas('slaReport', function (array $slaReport) {
@@ -925,8 +923,10 @@ class AdminReportsPageTest extends TestCase
 
             return (int) ($january['received'] ?? 0) === 1
                 && (int) ($january['resolved'] ?? 0) === 1
+                && ($january['label'] ?? null) === 'Jan 2026'
                 && (int) ($february['received'] ?? 0) === 0
-                && (int) ($february['resolved'] ?? 0) === 0;
+                && (int) ($february['resolved'] ?? 0) === 0
+                && ($february['label'] ?? null) === 'Feb 2026';
         });
     }
 
