@@ -14,6 +14,7 @@ class HelpdeskOpsStatusCommandTest extends TestCase
     {
         config()->set('queue.default', 'database');
         config()->set('mail.default', 'smtp');
+        config()->set('helpdesk.ops.queue_worker_running', false);
 
         DB::table('jobs')->insert([
             'queue' => 'default',
@@ -37,6 +38,7 @@ class HelpdeskOpsStatusCommandTest extends TestCase
             ->expectsOutput('Helpdesk operations status')
             ->expectsOutput('Queue connection: database')
             ->expectsOutput('Queue worker required: yes')
+            ->expectsOutput('Queue worker status: not detected')
             ->expectsOutput('Pending jobs: 1')
             ->expectsOutput('Failed jobs: 1')
             ->expectsOutput('Warnings:')
@@ -46,9 +48,26 @@ class HelpdeskOpsStatusCommandTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_ops_status_reports_running_queue_worker_without_warning(): void
+    {
+        config()->set('queue.default', 'database');
+        config()->set('helpdesk.ops.queue_worker_running', true);
+
+        $this->artisan('helpdesk:ops-status')
+            ->expectsOutput('Helpdesk operations status')
+            ->expectsOutput('Queue connection: database')
+            ->expectsOutput('Queue worker required: yes')
+            ->expectsOutput('Queue worker status: running')
+            ->expectsOutput('Pending jobs: 0')
+            ->expectsOutput('Failed jobs: 0')
+            ->expectsOutput('Warnings: none')
+            ->assertSuccessful();
+    }
+
     public function test_ops_status_can_fail_on_warnings(): void
     {
         config()->set('queue.default', 'database');
+        config()->set('helpdesk.ops.queue_worker_running', false);
 
         $this->artisan('helpdesk:ops-status --fail-on-warning')
             ->expectsOutput('Helpdesk operations status')

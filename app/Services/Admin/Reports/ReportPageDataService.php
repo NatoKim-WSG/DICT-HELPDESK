@@ -123,9 +123,12 @@ class ReportPageDataService
             'resolution_rate' => $totalTickets > 0 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1) : 0,
         ];
 
-        $periodStatusSummary = $selectedMonthIsAllTime
-            ? $this->reportStatistics->buildReportStatusBreakdownForAllTime(clone $scopedTickets)
-            : $this->reportStatistics->buildReportStatusBreakdownForPeriod(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
+        $periodStatusSummary = $this->statusBreakdownForScope(
+            clone $scopedTickets,
+            $selectedMonthIsAllTime,
+            $selectedPeriodStart,
+            $selectedPeriodEnd
+        );
         $totalTicketsThisPeriod = $selectedMonthIsAllTime ? (clone $scopedTickets)->count() : (int) ($selectedMonthRow['received'] ?? 0);
         $backlogThisPeriod = $this->monthlyReportDatasets->countOpenTicketsAtCutoff(clone $scopedTickets, $selectedPeriodEnd);
         $majorIssueSummary = $selectedMonthIsAllTime
@@ -153,7 +156,7 @@ class ReportPageDataService
                 'created_to' => $detailScopeEnd->toDateString(),
                 'report_scope' => $mixScopeLabel,
             ];
-            $mixStatusSummary = $this->reportStatistics->buildReportStatusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
+            $mixStatusSummary = $this->statusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
             $mixTotalCreated = (clone $scopedTickets)->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd])->count();
             $ticketsBreakdownOverview = [
                 'label' => $mixScopeLabel,
@@ -171,7 +174,7 @@ class ReportPageDataService
         } else {
             $mixScopeLabel = 'All Time';
             $ticketHistoryScope = [];
-            $mixStatusSummary = $this->reportStatistics->buildReportStatusBreakdownForAllTime(clone $scopedTickets);
+            $mixStatusSummary = $this->statusBreakdownForAllTime(clone $scopedTickets);
             $mixTotalCreated = (clone $scopedTickets)->count();
             $ticketsBreakdownOverview = [
                 'label' => $mixScopeLabel,
@@ -213,7 +216,7 @@ class ReportPageDataService
         $slaScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
         $slaReport = $this->slaReports->build(clone $scopedTickets, $slaScopeStart, $slaScopeEnd, $slaScopeLabel);
 
-        $detailStatusSummary = $this->reportStatistics->buildReportStatusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
+        $detailStatusSummary = $this->statusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
         $detailTotalCreated = (clone $scopedTickets)->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd])->count();
         $detailOverview = [
             'label' => $detailScopeLabel,
@@ -251,9 +254,12 @@ class ReportPageDataService
             ])
             ->values();
 
-        $selectedMonthStatuses = $selectedMonthIsAllTime
-            ? $this->reportStatistics->buildReportStatusBreakdownForAllTime(clone $scopedTickets)
-            : $this->reportStatistics->buildReportStatusBreakdownForPeriod(clone $scopedTickets, $selectedMonthRange['start'], $selectedMonthRange['end']);
+        $selectedMonthStatuses = $this->statusBreakdownForScope(
+            clone $scopedTickets,
+            $selectedMonthIsAllTime,
+            $selectedMonthRange['start'],
+            $selectedMonthRange['end']
+        );
         $selectedMonthPriorities = $selectedMonthIsAllTime
             ? $this->reportStatistics->buildPriorityBreakdownForAllTime(clone $scopedTickets)
             : $this->reportStatistics->buildPriorityBreakdownForPeriod(clone $scopedTickets, $selectedMonthRange['start'], $selectedMonthRange['end']);
@@ -390,5 +396,31 @@ class ReportPageDataService
         }
 
         return $query;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function statusBreakdownForScope(Builder $query, bool $allTime, Carbon $start, Carbon $end): array
+    {
+        return $allTime
+            ? $this->statusBreakdownForAllTime($query)
+            : $this->statusBreakdownForPeriod($query, $start, $end);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function statusBreakdownForAllTime(Builder $query): array
+    {
+        return $this->reportStatistics->buildReportStatusBreakdownForAllTime($query);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function statusBreakdownForPeriod(Builder $query, Carbon $start, Carbon $end): array
+    {
+        return $this->reportStatistics->buildReportStatusBreakdownForPeriod($query, $start, $end);
     }
 }
