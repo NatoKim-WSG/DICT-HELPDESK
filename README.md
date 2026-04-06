@@ -81,12 +81,15 @@ npm run dev
 For server deployments, update dependencies and rebuild frontend assets whenever `package-lock.json`, frontend source files under `resources/`, or Vite/Tailwind dependencies change:
 
 ```bash
+php scripts/check-php-platform.php
 composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
 php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
+php artisan queue:restart
+php artisan helpdesk:ops-status
 ```
 
 Windows PowerShell deploy helper:
@@ -96,6 +99,7 @@ Windows PowerShell deploy helper:
 ```
 
 That script only deploys inside `/opt/helpdesk` on the configured VPS and runs the shared remote deploy script in `scripts/deploy-helpdesk-remote.sh`.
+The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json` and prints an app-level ops status summary after each deploy.
 
 ## Dependency and Security Checks
 
@@ -132,6 +136,27 @@ npm.cmd run lint
 npm.cmd run test:unit
 npm.cmd run build
 npm.cmd audit --audit-level=high
+```
+
+## Runtime Ops Check
+
+Use this command any time you want a quick production-facing status check:
+
+```bash
+php artisan helpdesk:ops-status
+```
+
+It reports:
+
+- Current PHP version versus the `composer.json` PHP requirement
+- Queue connection mode and whether a worker is required
+- Pending and failed job counts
+- Active mailer and scheduled alert command summary
+
+To fail a script when warnings are present:
+
+```bash
+php artisan helpdesk:ops-status --fail-on-warning
 ```
 
 ## CI and CodeQL
@@ -367,7 +392,34 @@ php artisan schedule:work
 * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
 ```
 
-### 5) Production Readiness
+### 5) Queue Worker (Required for Queued Emails)
+
+Ticket alert emails are queued when `QUEUE_CONNECTION` is not `sync`, so production needs a long-running worker in addition to the scheduler.
+
+Development worker:
+
+```bash
+php artisan queue:work
+```
+
+Production worker example:
+
+```bash
+php artisan queue:work --queue=default --sleep=3 --tries=3 --max-time=3600
+```
+
+Systemd example:
+
+- [helpdesk-queue-worker.service.example](docs/helpdesk-queue-worker.service.example)
+
+After each deploy, restart workers so they pick up the new code:
+
+```bash
+php artisan queue:restart
+php artisan helpdesk:ops-status
+```
+
+### 6) Production Readiness
 
 - [ ] Set `APP_ENV=production`
 - [ ] Set `APP_DEBUG=false`
@@ -383,10 +435,12 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-### 6) Post-Deploy Checks
+### 7) Post-Deploy Checks
 
 - [ ] Confirm login works for seeded/admin account
 - [ ] Confirm ticket create/reply flow works
 - [ ] Confirm assignment and notification behavior works
 - [ ] Confirm scheduled alert emails are being sent
+- [ ] Confirm queue worker is running if `QUEUE_CONNECTION` is not `sync`
+- [ ] Run `php artisan helpdesk:ops-status`
 - [ ] Confirm logs and database backups are configured

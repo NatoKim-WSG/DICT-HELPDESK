@@ -151,4 +151,4 @@ jobs:
         run: npm run build
 
       - name: Run end-to-end UI checks
-        run: npm run test:e2e -- tests/e2e/ui-sync.spec.js tests/e2e/accessibility-visual.spec.js tests/e2e/admin-smoke.spec.js
+        run: npm run test:e2e

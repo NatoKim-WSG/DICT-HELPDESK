@@ -47,7 +47,7 @@ test('super user can create a client account from the browser flow', async ({ pa
     await expect(page).toHaveURL(/\/admin\/users$/);
     await expect(page.getByText('User created successfully.')).toBeVisible();
 
-    await page.getByPlaceholder('Search users').fill(email);
+    await page.getByLabel('Search users').fill(email);
     await page.getByRole('button', { name: 'Filter' }).click();
 
     await expect(page.getByText(email)).toBeVisible();
