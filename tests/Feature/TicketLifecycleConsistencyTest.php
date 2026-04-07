@@ -325,6 +325,7 @@ class TicketLifecycleConsistencyTest extends TestCase
         $ticket->update([
             'status' => 'resolved',
             'assigned_to' => $primaryTechnical->id,
+            'assigned_at' => Carbon::now()->subHours(49)->subMinutes(30),
             'resolved_at' => Carbon::now()->subHours(25),
             'closed_at' => null,
             'closed_by' => null,
@@ -355,6 +356,8 @@ class TicketLifecycleConsistencyTest extends TestCase
         $showResponse->assertDontSee('Recognized Technicians');
         $showResponse->assertSee($primaryTechnical->publicDisplayName());
         $showResponse->assertSee($secondaryTechnical->publicDisplayName());
+        $showResponse->assertSee('First Response Time');
+        $showResponse->assertSee('30m');
         $showResponse->assertSee('Resolution Time');
         $showResponse->assertSee('1d 1h');
     }

@@ -1,28 +1,32 @@
 @php
+    $formatTicketDuration = static function ($startAt, $endAt): ?string {
+        if (! $startAt || ! $endAt || $endAt->lt($startAt)) {
+            return null;
+        }
+
+        $minutes = (int) $startAt->diffInMinutes($endAt);
+        $days = intdiv($minutes, 1440);
+        $hours = intdiv($minutes % 1440, 60);
+        $remainingMinutes = $minutes % 60;
+        $parts = [];
+
+        if ($days > 0) {
+            $parts[] = $days.'d';
+        }
+
+        if ($hours > 0) {
+            $parts[] = $hours.'h';
+        }
+
+        if ($remainingMinutes > 0 || $parts === []) {
+            $parts[] = $remainingMinutes.'m';
+        }
+
+        return implode(' ', $parts);
+    };
+    $firstResponseTimeDisplay = $formatTicketDuration($ticket->created_at, $ticket->assigned_at);
     $resolutionEndedAt = $ticket->resolved_at ?? $ticket->closed_at;
-    $resolutionTimeDisplay = null;
-
-    if ($ticket->created_at && $resolutionEndedAt && $resolutionEndedAt->greaterThanOrEqualTo($ticket->created_at)) {
-        $resolutionMinutes = (int) $ticket->created_at->diffInMinutes($resolutionEndedAt);
-        $resolutionDays = intdiv($resolutionMinutes, 1440);
-        $resolutionHours = intdiv($resolutionMinutes % 1440, 60);
-        $remainingResolutionMinutes = $resolutionMinutes % 60;
-        $resolutionParts = [];
-
-        if ($resolutionDays > 0) {
-            $resolutionParts[] = $resolutionDays.'d';
-        }
-
-        if ($resolutionHours > 0) {
-            $resolutionParts[] = $resolutionHours.'h';
-        }
-
-        if ($remainingResolutionMinutes > 0 || $resolutionParts === []) {
-            $resolutionParts[] = $remainingResolutionMinutes.'m';
-        }
-
-        $resolutionTimeDisplay = implode(' ', $resolutionParts);
-    }
+    $resolutionTimeDisplay = $formatTicketDuration($ticket->created_at, $resolutionEndedAt);
 @endphp
 
 <div class="space-y-6">
@@ -60,6 +64,12 @@
                     <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                     <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                 </div>
+                @if($firstResponseTimeDisplay)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">First Response Time</dt>
+                        <dd class="text-sm text-gray-900">{{ $firstResponseTimeDisplay }}</dd>
+                    </div>
+                @endif
                 @if($ticket->resolved_at)
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Resolved At</dt>
