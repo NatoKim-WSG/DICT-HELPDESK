@@ -33,4 +33,15 @@ class QuickUpdateTicketRequest extends FormRequest
             ],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizeAssignedToInput();
+
+        if ($this->has('priority')) {
+            $this->merge([
+                'priority' => Ticket::normalizePriorityValue($this->input('priority')),
+            ]);
+        }
+    }
 }

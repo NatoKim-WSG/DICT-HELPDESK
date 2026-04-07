@@ -159,7 +159,7 @@
                     @endif
                     <th class="{{ $canDeleteTickets ? 'w-[36%]' : 'w-[40%]' }} px-6 py-4">Details</th>
                     <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
-                    <th class="w-[10%] px-6 py-4 text-center">Priority</th>
+                    <th class="w-[10%] px-6 py-4 text-center">Severity</th>
                     @if($isHistoryTab)
                         <th class="w-[16%] px-6 py-4 text-center">Completed At</th>
                     @else

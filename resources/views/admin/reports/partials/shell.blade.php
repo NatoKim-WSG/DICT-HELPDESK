@@ -54,7 +54,7 @@
                 {{ $periodOverview['label'] }}
             </x-ui.stat-card>
             <x-ui.stat-card label="Major Issues / Incidents" :value="$majorIssueSummary['major_count'] ?? 0" value-class="text-rose-600">
-                High or urgent tickets created this period
+                Severity 1 tickets created this period
             </x-ui.stat-card>
             <x-ui.stat-card label="Resolution Rate" :value="number_format((float) ($selectedMonthRow['resolution_rate'] ?? 0), 1) . '%'" value-class="text-sky-600">
                 Tickets created in the selected scope that are now resolved/closed
@@ -184,20 +184,20 @@
             <div class="panel order-5 p-5 sm:p-6">
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
-                        <h2 class="font-display text-xl font-semibold text-slate-900">Priority Mix</h2>
+                        <h2 class="font-display text-xl font-semibold text-slate-900">Severity Mix</h2>
                     </div>
-                    <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Priority Mix (Detailed View)" data-chart-source="priority-mix-chart">
+                    <button type="button" class="btn-secondary py-2 text-xs js-open-volume-chart" data-chart-title="Severity Mix (Detailed View)" data-chart-source="priority-mix-chart">
                         Enlarge
                     </button>
                 </div>
                 <div id="priority-mix-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 flex items-center justify-between">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Priority</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Severity</p>
                         <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $priorityPie['total'] }} total</span>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
                         <div class="flex justify-center">
-                            <svg viewBox="0 0 180 180" class="js-total-pie-chart h-40 w-40" role="img" aria-label="Tickets by priority">
+                            <svg viewBox="0 0 180 180" class="js-total-pie-chart h-40 w-40" role="img" aria-label="Tickets by severity">
                                 <circle cx="90" cy="90" r="{{ $pieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
                                 @if($priorityPie['total'] > 0)
                                     @foreach($priorityPie['segments'] as $segment)
@@ -215,7 +215,7 @@
                                         ></circle>
                                     @endforeach
                                 @endif
-                                <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Priority</text>
+                                <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Severity</text>
                                 <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="20" font-weight="700">{{ $priorityPie['total'] }}</text>
                             </svg>
                         </div>
@@ -432,7 +432,7 @@
                         <span class="font-semibold text-slate-900">{{ $stats['unassigned_open_tickets'] ?? 0 }}</span>
                     </div>
                     <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                        <span class="text-slate-600">Urgent open tickets</span>
+                        <span class="text-slate-600">Severity 1 open tickets</span>
                         <span class="font-semibold text-slate-900">{{ $stats['urgent_open_tickets'] ?? 0 }}</span>
                     </div>
                 </div>

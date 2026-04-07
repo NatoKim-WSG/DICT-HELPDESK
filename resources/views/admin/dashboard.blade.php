@@ -11,7 +11,7 @@
         $totalTicketsUrl = route('admin.tickets.index', ['tab' => 'all']);
         $openTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets']);
         $attentionTicketsUrl = route('admin.tickets.index', ['tab' => 'attention']);
-        $urgentTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'priority' => 'urgent']);
+        $severityOneTicketsUrl = route('admin.tickets.index', ['tab' => 'tickets', 'priority' => 'severity_1']);
     @endphp
 
     <div class="panel mb-8 px-5 py-5 sm:px-6">
@@ -19,7 +19,7 @@
         <div class="mt-4 flex flex-wrap gap-3">
             <a href="{{ route('admin.tickets.index', ['tab' => 'all']) }}" class="btn-primary">View All Tickets</a>
             <a href="{{ route('admin.tickets.index', ['tab' => 'attention']) }}" class="btn-warning">Needs Attention</a>
-            <a href="{{ route('admin.tickets.index', ['priority' => 'urgent']) }}" class="btn-danger">Urgent Tickets</a>
+            <a href="{{ route('admin.tickets.index', ['priority' => 'severity_1']) }}" class="btn-danger">Severity 1 Tickets</a>
             @if(!$isTechnical)
                 <a href="{{ route('admin.reports.index') }}" class="btn-secondary">Reports</a>
             @endif
@@ -60,7 +60,7 @@
             </x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card :href="$urgentTicketsUrl" label="Urgent Tickets" :value="$stats['urgent_tickets']" value-class="text-rose-600" aria-label="View urgent tickets">
+        <x-ui.stat-card :href="$severityOneTicketsUrl" label="Severity 1 Tickets" :value="$stats['urgent_tickets']" value-class="text-rose-600" aria-label="View severity 1 tickets">
             <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -139,16 +139,15 @@
 
             <div class="panel">
                 <div class="border-b border-slate-100 px-5 py-4">
-                    <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Priority</h3>
+                    <h3 class="font-display text-lg font-semibold text-slate-900">Tickets by Severity</h3>
                     <p class="mt-1 text-xs text-slate-500">Current month</p>
                 </div>
                 <div class="space-y-3 px-5 py-4">
                     @foreach([
                         ['value' => null, 'label' => 'Pending review'],
-                        ['value' => 'urgent', 'label' => 'Urgent'],
-                        ['value' => 'high', 'label' => 'High'],
-                        ['value' => 'medium', 'label' => 'Medium'],
-                        ['value' => 'low', 'label' => 'Low'],
+                        ['value' => 'severity_1', 'label' => 'Severity 1'],
+                        ['value' => 'severity_2', 'label' => 'Severity 2'],
+                        ['value' => 'severity_3', 'label' => 'Severity 3'],
                     ] as $priority)
                         @php
                             $priorityLinkParams = ['tab' => 'tickets'];

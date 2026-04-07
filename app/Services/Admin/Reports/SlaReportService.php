@@ -17,11 +17,11 @@ class SlaReportService
 
     public const SATISFACTION_TARGET_RATING = 4;
 
-    public const SEVERITY_ONE_MINUTES = 60;
+    public const RESOLUTION_UNDER_ONE_HOUR_MINUTES = 60;
 
-    public const SEVERITY_TWO_MINUTES = 240;
+    public const RESOLUTION_UNDER_FOUR_HOURS_MINUTES = 240;
 
-    public const SEVERITY_THREE_MINUTES = 1440;
+    public const RESOLUTION_UNDER_TWENTY_FOUR_HOURS_MINUTES = 1440;
 
     public function build(Builder $scopedTickets, Carbon $start, Carbon $end, string $label): array
     {
@@ -45,32 +45,36 @@ class SlaReportService
             ->filter(static fn (array $row): bool => $row['breached_resolution_target'])
             ->count();
 
-        $severityBands = [
+        $resolutionBuckets = [
             [
-                'label' => 'Severity 1',
-                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_1')->count(),
+                'label' => 'Under 1 Hour',
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['resolution_minutes'] < self::RESOLUTION_UNDER_ONE_HOUR_MINUTES)->count(),
             ],
             [
-                'label' => 'Severity 2',
-                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_2')->count(),
+                'label' => 'Under 4 Hours',
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['resolution_minutes'] >= self::RESOLUTION_UNDER_ONE_HOUR_MINUTES && $row['resolution_minutes'] < self::RESOLUTION_UNDER_FOUR_HOURS_MINUTES)->count(),
             ],
             [
-                'label' => 'Severity 3',
-                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_3')->count(),
+                'label' => 'Under 24 Hours',
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['resolution_minutes'] >= self::RESOLUTION_UNDER_FOUR_HOURS_MINUTES && $row['resolution_minutes'] < self::RESOLUTION_UNDER_TWENTY_FOUR_HOURS_MINUTES)->count(),
+            ],
+            [
+                'label' => 'Above 24 Hours',
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['resolution_minutes'] >= self::RESOLUTION_UNDER_TWENTY_FOUR_HOURS_MINUTES)->count(),
             ],
         ];
-        $severityBands = array_map(function (array $band) use ($completedCount): array {
-            $count = (int) $band['count'];
-            $band['rate'] = $completedCount > 0 ? round(($count / $completedCount) * 100, 1) : 0.0;
+        $resolutionBuckets = array_map(function (array $bucket) use ($completedCount): array {
+            $count = (int) $bucket['count'];
+            $bucket['rate'] = $completedCount > 0 ? round(($count / $completedCount) * 100, 1) : 0.0;
 
-            return $band;
-        }, $severityBands);
+            return $bucket;
+        }, $resolutionBuckets);
 
         $satisfactionMetCount = $ratedTickets
             ->filter(static fn (array $row): bool => (int) $row['satisfaction_rating'] >= self::SATISFACTION_TARGET_RATING)
             ->count();
-        $resolvedWithinSeverityOneCount = $completedTicketRows
-            ->filter(static fn (array $row): bool => $row['resolution_minutes'] < self::SEVERITY_TWO_MINUTES)
+        $resolvedWithinOneHourCount = $completedTicketRows
+            ->filter(static fn (array $row): bool => $row['resolution_minutes'] < self::RESOLUTION_UNDER_ONE_HOUR_MINUTES)
             ->count();
 
         return [
@@ -82,8 +86,8 @@ class SlaReportService
                 'sample_count' => $ticketCount,
             ],
             'resolution' => [
-                'within_target_count' => $resolvedWithinSeverityOneCount,
-                'rate' => $completedCount > 0 ? round(($resolvedWithinSeverityOneCount / $completedCount) * 100, 1) : 0.0,
+                'within_target_count' => $resolvedWithinOneHourCount,
+                'rate' => $completedCount > 0 ? round(($resolvedWithinOneHourCount / $completedCount) * 100, 1) : 0.0,
                 'sample_count' => $completedCount,
             ],
             'breach_rate' => [
@@ -104,7 +108,7 @@ class SlaReportService
                     ? round(($satisfactionMetCount / $ratedTickets->count()) * 100, 1)
                     : 0.0,
             ],
-            'severity_bands' => $severityBands,
+            'resolution_buckets' => $resolutionBuckets,
         ];
     }
 
@@ -114,7 +118,6 @@ class SlaReportService
      *     resolution_minutes: int|null,
      *     acknowledged_within_target: bool,
      *     breached_resolution_target: bool,
-     *     severity_band: string,
      *     satisfaction_rating: int|null
      * }>
      */
@@ -185,7 +188,6 @@ class SlaReportService
                     'resolution_minutes' => $resolutionMinutes,
                     'acknowledged_within_target' => (bool) $acknowledgedWithinTarget,
                     'breached_resolution_target' => $elapsedMinutes >= self::RESOLUTION_TARGET_MINUTES,
-                    'severity_band' => $this->severityBandForMinutes($elapsedMinutes),
                     'satisfaction_rating' => $ticket->satisfaction_rating,
                 ];
             })
@@ -225,18 +227,5 @@ class SlaReportService
         usort($validDates, static fn (Carbon $left, Carbon $right) => $left->lt($right) ? -1 : 1);
 
         return $validDates[0];
-    }
-
-    private function severityBandForMinutes(int $minutes): string
-    {
-        if ($minutes < self::SEVERITY_TWO_MINUTES) {
-            return 'severity_1';
-        }
-
-        if ($minutes < self::SEVERITY_THREE_MINUTES) {
-            return 'severity_2';
-        }
-
-        return 'severity_3';
     }
 }

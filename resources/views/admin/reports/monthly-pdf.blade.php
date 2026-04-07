@@ -281,17 +281,16 @@
                     <table class="report-table">
                         <thead>
                             <tr>
-                                <th>Priority</th>
+                                <th>Severity</th>
                                 <th style="width: 80px;">Count</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach([
                                 ['key' => 'pending_review', 'label' => 'Pending review'],
-                                ['key' => 'urgent', 'label' => 'Urgent'],
-                                ['key' => 'high', 'label' => 'High'],
-                                ['key' => 'medium', 'label' => 'Medium'],
-                                ['key' => 'low', 'label' => 'Low'],
+                                ['key' => 'severity_1', 'label' => 'Severity 1'],
+                                ['key' => 'severity_2', 'label' => 'Severity 2'],
+                                ['key' => 'severity_3', 'label' => 'Severity 3'],
                             ] as $priority)
                                 @php
                                     $priorityCount = (int) ($priorityBreakdown[$priority['key']] ?? 0);

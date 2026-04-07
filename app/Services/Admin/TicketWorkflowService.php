@@ -171,7 +171,7 @@ class TicketWorkflowService
         $previousStatus = (string) $ticket->status;
         $nextStatus = $request->string('status')->toString();
         $nextPriority = $request->filled('priority')
-            ? $request->string('priority')->toString()
+            ? Ticket::normalizePriorityValue($request->string('priority')->toString())
             : null;
         $previousAssignedIds = $ticket->assigned_user_ids;
         $requestedAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
@@ -335,7 +335,7 @@ class TicketWorkflowService
      */
     public function bulkPriorityTickets(Request $request, Collection $tickets, array $selectedIds): void
     {
-        $priority = $request->string('priority')->toString();
+        $priority = Ticket::normalizePriorityValue($request->string('priority')->toString());
 
         Ticket::whereIn('id', $selectedIds)->update(['priority' => $priority]);
         $tickets->each(fn (Ticket $ticket) => $this->trackTicketAcknowledgment($ticket));

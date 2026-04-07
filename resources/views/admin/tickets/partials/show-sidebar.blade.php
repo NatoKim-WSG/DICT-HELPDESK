@@ -24,7 +24,6 @@
 
         return implode(' ', $parts);
     };
-    $firstResponseTimeDisplay = $formatTicketDuration($ticket->created_at, $ticket->assigned_at);
     $resolutionEndedAt = $ticket->resolved_at ?? $ticket->closed_at;
     $resolutionTimeDisplay = $formatTicketDuration($ticket->created_at, $resolutionEndedAt);
 @endphp
@@ -64,12 +63,6 @@
                     <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                     <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                 </div>
-                @if($firstResponseTimeDisplay)
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">First Response Time</dt>
-                        <dd class="text-sm text-gray-900">{{ $firstResponseTimeDisplay }}</dd>
-                    </div>
-                @endif
                 @if($ticket->resolved_at)
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Resolved At</dt>
@@ -231,17 +224,16 @@
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <label for="priority" class="form-label">Priority</label>
+                    <label for="priority" class="form-label">Severity</label>
                     <select name="priority" id="priority" class="form-input">
                         @if($ticket->priority === null)
                             <option value="" selected disabled>Pending review</option>
                         @endif
-                        <option value="low" {{ $ticket->priority === 'low' ? 'selected' : '' }}>Low</option>
-                        <option value="medium" {{ $ticket->priority === 'medium' ? 'selected' : '' }}>Medium</option>
-                        <option value="high" {{ $ticket->priority === 'high' ? 'selected' : '' }}>High</option>
-                        <option value="urgent" {{ $ticket->priority === 'urgent' ? 'selected' : '' }}>Urgent</option>
+                        <option value="severity_1" {{ $ticket->priority === 'severity_1' ? 'selected' : '' }}>Severity 1</option>
+                        <option value="severity_2" {{ $ticket->priority === 'severity_2' ? 'selected' : '' }}>Severity 2</option>
+                        <option value="severity_3" {{ $ticket->priority === 'severity_3' ? 'selected' : '' }}>Severity 3</option>
                     </select>
-                    <button type="submit" class="mt-2 btn-secondary w-full">Update Priority</button>
+                    <button type="submit" class="mt-2 btn-secondary w-full">Update Severity</button>
                 </div>
             </form>
         </div>

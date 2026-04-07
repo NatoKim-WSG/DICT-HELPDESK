@@ -45,7 +45,23 @@ class Ticket extends Model
 {
     use HasFactory;
 
-    public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+    public const PRIORITIES = ['severity_1', 'severity_2', 'severity_3'];
+
+    public const PRIORITY_ALIASES = [
+        'severity_1' => 'severity_1',
+        'severity 1' => 'severity_1',
+        'severity-1' => 'severity_1',
+        'urgent' => 'severity_1',
+        'high' => 'severity_1',
+        'severity_2' => 'severity_2',
+        'severity 2' => 'severity_2',
+        'severity-2' => 'severity_2',
+        'medium' => 'severity_2',
+        'severity_3' => 'severity_3',
+        'severity 3' => 'severity_3',
+        'severity-3' => 'severity_3',
+        'low' => 'severity_3',
+    ];
 
     public const STATUSES = ['open', 'in_progress', 'pending', 'resolved', 'closed'];
 
@@ -214,7 +230,7 @@ class Ticket extends Model
 
     public function scopeByPriority(Builder $query, string $priority): Builder
     {
-        return $query->where('priority', $priority);
+        return $query->where('priority', self::normalizePriorityValue($priority));
     }
 
     public function scopeAssignedTo(Builder $query, int $userId): Builder
@@ -235,6 +251,25 @@ class Ticket extends Model
     public function isImported(): bool
     {
         return (bool) $this->is_imported;
+    }
+
+    public static function normalizePriorityValue(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $normalized = strtolower(trim(str_replace('-', '_', $value)));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return self::PRIORITY_ALIASES[$normalized] ?? null;
+    }
+
+    public function setPriorityAttribute(mixed $value): void
+    {
+        $this->attributes['priority'] = self::normalizePriorityValue($value);
     }
 
     public function hasAssignedUser(int $userId): bool
@@ -308,10 +343,9 @@ class Ticket extends Model
     public function getPriorityColorAttribute()
     {
         return match (strtolower(trim((string) $this->priority))) {
-            'urgent' => 'bg-red-100 text-red-800',
-            'high' => 'bg-amber-100 text-amber-800',
-            'medium' => 'bg-yellow-100 text-yellow-800',
-            'low' => 'bg-green-100 text-green-800',
+            'severity_1' => 'bg-red-100 text-red-800',
+            'severity_2' => 'bg-amber-100 text-amber-800',
+            'severity_3' => 'bg-emerald-100 text-emerald-800',
             default => 'bg-gray-100 text-gray-800',
         };
     }
@@ -319,10 +353,9 @@ class Ticket extends Model
     public function getPriorityBadgeClassAttribute(): string
     {
         return match (strtolower(trim((string) $this->priority))) {
-            'urgent' => 'bg-red-100 text-red-800',
-            'high' => 'bg-amber-100 text-amber-800',
-            'medium' => 'bg-yellow-100 text-yellow-800',
-            'low' => 'bg-green-100 text-green-800',
+            'severity_1' => 'bg-red-100 text-red-800',
+            'severity_2' => 'bg-amber-100 text-amber-800',
+            'severity_3' => 'bg-emerald-100 text-emerald-800',
             default => 'bg-slate-100 text-slate-700',
         };
     }
@@ -331,9 +364,12 @@ class Ticket extends Model
     {
         $priority = strtolower(trim((string) $this->priority));
 
-        return $priority !== ''
-            ? ucfirst($priority)
-            : 'Pending review';
+        return match ($priority) {
+            'severity_1' => 'Severity 1',
+            'severity_2' => 'Severity 2',
+            'severity_3' => 'Severity 3',
+            default => 'Pending review',
+        };
     }
 
     public function getStatusColorAttribute()

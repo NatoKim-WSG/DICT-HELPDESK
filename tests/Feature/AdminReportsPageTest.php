@@ -237,19 +237,16 @@ class AdminReportsPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('SLA Overview');
-        $response->assertSee('Reviewed Under 1 Hour');
-        $response->assertSee('Resolved Under Severity 1');
-        $response->assertSee('Customer Satisfaction SLA');
-        $response->assertSee('Resolution Severity Mix');
+        $response->assertSee('Resolution Time Compliance');
         $response->assertViewHas('slaReport', function (array $slaReport) {
-            $bands = collect($slaReport['severity_bands'] ?? [])->keyBy('label');
+            $buckets = collect($slaReport['resolution_buckets'] ?? [])->keyBy('label');
 
             return ($slaReport['label'] ?? null) === 'Feb 2026'
                 && (int) ($slaReport['total_tickets'] ?? 0) === 4
                 && (int) ($slaReport['first_response']['within_target_count'] ?? 0) === 2
                 && (float) ($slaReport['first_response']['rate'] ?? 0) === 50.0
-                && (int) ($slaReport['resolution']['within_target_count'] ?? 0) === 1
-                && (float) ($slaReport['resolution']['rate'] ?? 0) === 50.0
+                && (int) ($slaReport['resolution']['within_target_count'] ?? 0) === 0
+                && (float) ($slaReport['resolution']['rate'] ?? 0) === 0.0
                 && (int) ($slaReport['breach_rate']['breached_count'] ?? 0) === 2
                 && (float) ($slaReport['breach_rate']['rate'] ?? 0) === 50.0
                 && (int) ($slaReport['acknowledgment_rate']['acknowledged_count'] ?? 0) === 2
@@ -257,12 +254,14 @@ class AdminReportsPageTest extends TestCase
                 && (int) ($slaReport['customer_satisfaction']['rated_count'] ?? 0) === 2
                 && (float) ($slaReport['customer_satisfaction']['average_rating'] ?? 0) === 4.0
                 && (float) ($slaReport['customer_satisfaction']['rate'] ?? 0) === 50.0
-                && (int) data_get($bands, 'Severity 1.count', 0) === 1
-                && (float) data_get($bands, 'Severity 1.rate', 0) === 50.0
-                && (int) data_get($bands, 'Severity 2.count', 0) === 0
-                && (float) data_get($bands, 'Severity 2.rate', 0) === 0.0
-                && (int) data_get($bands, 'Severity 3.count', 0) === 1
-                && (float) data_get($bands, 'Severity 3.rate', 0) === 50.0;
+                && (int) data_get($buckets, 'Under 1 Hour.count', 0) === 0
+                && (float) data_get($buckets, 'Under 1 Hour.rate', 0) === 0.0
+                && (int) data_get($buckets, 'Under 4 Hours.count', 0) === 1
+                && (float) data_get($buckets, 'Under 4 Hours.rate', 0) === 50.0
+                && (int) data_get($buckets, 'Under 24 Hours.count', 0) === 0
+                && (float) data_get($buckets, 'Under 24 Hours.rate', 0) === 0.0
+                && (int) data_get($buckets, 'Above 24 Hours.count', 0) === 1
+                && (float) data_get($buckets, 'Above 24 Hours.rate', 0) === 50.0;
         });
     }
 
@@ -857,7 +856,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewHas('stats', function (array $stats) {
             return (int) $stats['total_tickets'] === 2
                 && (int) $stats['open_tickets'] === 1
-                && (int) $stats['urgent_open_tickets'] === 0;
+                && (int) $stats['urgent_open_tickets'] === 1;
         });
         $response->assertViewHas('topTechnicians', function ($rows) {
             return collect($rows)->pluck('name')->contains('Scoped Tech')
@@ -1149,7 +1148,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('ticketHistoryScope', []);
         $response->assertSee('tab=all&amp;category_bucket=', false);
-        $response->assertSee('tab=all&amp;priority=high', false);
+        $response->assertSee('tab=all&amp;priority=severity_1', false);
         $response->assertDontSee('created_from=', false);
         $response->assertDontSee('created_to=', false);
     }

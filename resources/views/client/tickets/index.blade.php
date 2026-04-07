@@ -6,6 +6,7 @@
 @php
     $activeTab = $activeTab ?? 'tickets';
     $selectedStatus = $selectedStatus ?? 'all';
+    $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
     $isHistoryTab = $activeTab === 'history';
     $tabQuery = request()->except(['tab', 'page']);
     $ticketsTabUrl = route('client.tickets.index', array_merge($tabQuery, ['tab' => 'tickets']));
@@ -79,14 +80,13 @@
                 </div>
 
                 <div>
-                    <label for="priority" class="sr-only">Priority</label>
+                    <label for="priority" class="sr-only">Severity</label>
                     <select id="priority" name="priority" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="">All priorities</option>
+                        <option value="">All severities</option>
                         <option value="unassigned" {{ request('priority') === 'unassigned' ? 'selected' : '' }}>Pending review</option>
-                        <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
-                        <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
-                        <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
-                        <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
+                        <option value="severity_1" {{ $selectedPriority === 'severity_1' ? 'selected' : '' }}>Severity 1</option>
+                        <option value="severity_2" {{ $selectedPriority === 'severity_2' ? 'selected' : '' }}>Severity 2</option>
+                        <option value="severity_3" {{ $selectedPriority === 'severity_3' ? 'selected' : '' }}>Severity 3</option>
                     </select>
                 </div>
 
@@ -141,7 +141,7 @@
                     <tr>
                         <th class="w-[40%] px-6 py-4">Details</th>
                         <th class="w-[18%] px-6 py-4">Assigned Technical</th>
-                        <th class="w-[12%] px-6 py-4 text-center">Priority</th>
+                        <th class="w-[12%] px-6 py-4 text-center">Severity</th>
                         <th class="w-[20%] px-6 py-4 text-center">Activity Status</th>
                         <th class="w-[10%] px-6 py-4 text-center">Status</th>
                     </tr>

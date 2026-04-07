@@ -133,7 +133,12 @@ class TicketIndexService
                     return;
                 }
 
-                $builder->where('priority', $priority);
+                $normalizedPriority = Ticket::normalizePriorityValue($priority);
+                if ($normalizedPriority === null) {
+                    return;
+                }
+
+                $builder->where('priority', $normalizedPriority);
             })
             ->when($request->filled('category') && $request->category !== 'all', function (Builder $builder) use ($request) {
                 $builder->where('category_id', $request->integer('category'));

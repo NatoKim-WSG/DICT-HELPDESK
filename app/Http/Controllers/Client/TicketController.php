@@ -78,7 +78,12 @@ class TicketController extends Controller
                     return;
                 }
 
-                $builder->where('priority', $priority);
+                $normalizedPriority = Ticket::normalizePriorityValue($priority);
+                if ($normalizedPriority === null) {
+                    return;
+                }
+
+                $builder->where('priority', $normalizedPriority);
             })
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = mb_strtolower($request->string('search')->toString());

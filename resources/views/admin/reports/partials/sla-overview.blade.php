@@ -11,31 +11,19 @@
     </summary>
 
     <div class="mt-4">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <x-ui.stat-card label="Reviewed Under 1 Hour" :value="number_format((float) ($slaReport['first_response']['rate'] ?? 0), 1) . '%'" value-class="text-sky-600">
-                {{ (int) ($slaReport['first_response']['within_target_count'] ?? 0) }} of {{ (int) ($slaReport['first_response']['sample_count'] ?? 0) }} tickets
-            </x-ui.stat-card>
-            <x-ui.stat-card label="Resolved Under Severity 1" :value="number_format((float) ($slaReport['resolution']['rate'] ?? 0), 1) . '%'" value-class="text-emerald-600">
-                {{ (int) ($slaReport['resolution']['within_target_count'] ?? 0) }} of {{ (int) ($slaReport['resolution']['sample_count'] ?? 0) }} completed tickets
-            </x-ui.stat-card>
-            <x-ui.stat-card label="Customer Satisfaction SLA" :value="number_format((float) ($slaReport['customer_satisfaction']['rate'] ?? 0), 1) . '%'" value-class="text-fuchsia-600">
-                {{ (int) ($slaReport['customer_satisfaction']['met_count'] ?? 0) }} of {{ (int) ($slaReport['customer_satisfaction']['rated_count'] ?? 0) }} rated tickets
-            </x-ui.stat-card>
-        </div>
-
-        <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div class="mb-3 flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="font-display text-lg font-semibold text-slate-900">Resolution Severity Mix</h3>
+                    <h3 class="font-display text-lg font-semibold text-slate-900">Resolution Time Compliance</h3>
                 </div>
                 <span class="text-xs text-slate-500">{{ $slaReport['label'] }}</span>
             </div>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                @foreach($slaReport['severity_bands'] as $band)
+                @foreach($slaReport['resolution_buckets'] as $bucket)
                     <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $band['label'] }}</p>
-                        <p class="mt-1 text-2xl font-semibold text-slate-900">{{ number_format((float) ($band['rate'] ?? 0), 1) }}%</p>
-                        <p class="mt-1 text-xs text-slate-500">{{ (int) ($band['count'] ?? 0) }} completed tickets</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $bucket['label'] }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">{{ number_format((float) ($bucket['rate'] ?? 0), 1) }}%</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ (int) ($bucket['count'] ?? 0) }} completed tickets</p>
                     </div>
                 @endforeach
             </div>

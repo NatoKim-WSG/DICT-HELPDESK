@@ -88,11 +88,11 @@ class AdminTicketBulkActionSuccessTest extends TestCase
 
         $this->assertDatabaseHas('tickets', [
             'id' => $ticketOne->id,
-            'priority' => 'urgent',
+            'priority' => 'severity_1',
         ]);
         $this->assertDatabaseHas('tickets', [
             'id' => $ticketTwo->id,
-            'priority' => 'urgent',
+            'priority' => 'severity_1',
         ]);
     }
 

@@ -349,7 +349,7 @@ CREATE TABLE public.tickets (
     super_users_notified_unchecked_at timestamp(0) without time zone,
     super_users_notified_unassigned_sla_at timestamp(0) without time zone,
     technical_user_notified_sla_at timestamp(0) without time zone,
-    CONSTRAINT tickets_priority_check CHECK (((priority)::text = ANY ((ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'urgent'::character varying])::text[]))),
+    CONSTRAINT tickets_priority_check CHECK ((((priority IS NULL) OR ((priority)::text = ANY ((ARRAY['severity_1'::character varying, 'severity_2'::character varying, 'severity_3'::character varying])::text[]))))),
     CONSTRAINT tickets_status_check CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'in_progress'::character varying, 'pending'::character varying, 'resolved'::character varying, 'closed'::character varying])::text[])))
 );
 

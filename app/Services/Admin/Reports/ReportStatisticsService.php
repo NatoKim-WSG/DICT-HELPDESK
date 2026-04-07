@@ -37,7 +37,7 @@ class ReportStatisticsService
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_tickets")
             ->selectRaw("SUM(CASE WHEN status IN ({$closedStatusesSqlList}) THEN 1 ELSE 0 END) as closed_tickets")
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND assigned_to IS NULL THEN 1 ELSE 0 END) as unassigned_open_tickets")
-            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND priority = 'urgent' THEN 1 ELSE 0 END) as urgent_open_tickets")
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND priority = 'severity_1' THEN 1 ELSE 0 END) as urgent_open_tickets")
             ->first();
         $summaryRow = is_object($summary) ? (array) $summary : [];
 
@@ -191,10 +191,9 @@ class ReportStatisticsService
 
         return [
             ['name' => 'Pending Review', 'count' => (int) ($counts[''] ?? $counts[null] ?? 0)],
-            ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
-            ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
-            ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],
-            ['name' => 'Low', 'count' => (int) ($counts['low'] ?? 0)],
+            ['name' => 'Severity 1', 'count' => (int) ($counts['severity_1'] ?? 0)],
+            ['name' => 'Severity 2', 'count' => (int) ($counts['severity_2'] ?? 0)],
+            ['name' => 'Severity 3', 'count' => (int) ($counts['severity_3'] ?? 0)],
         ];
     }
 
@@ -209,7 +208,7 @@ class ReportStatisticsService
 
         $incidentScopedTickets = (clone $scopedTickets)
             ->whereBetween('tickets.created_at', [$start, $end])
-            ->whereIn('priority', ['urgent', 'high']);
+            ->where('priority', 'severity_1');
 
         $summary = $this->buildMajorIssueAggregate($incidentScopedTickets);
         $this->majorIssueSummaryCache[$cacheKey] = $summary;
@@ -224,7 +223,7 @@ class ReportStatisticsService
             return $this->majorIssueSummaryCache[$cacheKey];
         }
 
-        $summary = $this->buildMajorIssueAggregate((clone $scopedTickets)->whereIn('priority', ['urgent', 'high']));
+        $summary = $this->buildMajorIssueAggregate((clone $scopedTickets)->where('priority', 'severity_1'));
         $this->majorIssueSummaryCache[$cacheKey] = $summary;
 
         return $summary;
@@ -389,7 +388,7 @@ class ReportStatisticsService
         $summary = (clone $incidentScopedTickets)
             ->toBase()
             ->selectRaw('COUNT(*) as major_count')
-            ->selectRaw("SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as urgent_total")
+            ->selectRaw("SUM(CASE WHEN priority = 'severity_1' THEN 1 ELSE 0 END) as urgent_total")
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_major_count")
             ->first();
         $summaryRow = is_object($summary) ? (array) $summary : [];

@@ -19,4 +19,11 @@ class UpdateTicketPriorityRequest extends FormRequest
             'priority' => ['required', Rule::in(Ticket::PRIORITIES)],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'priority' => Ticket::normalizePriorityValue($this->input('priority')),
+        ]);
+    }
 }

@@ -31,7 +31,7 @@ class DashboardController extends Controller
             'attention_tickets' => (clone $scopedTickets)->whereNotIn('status', Ticket::CLOSED_STATUSES)
                 ->where('created_at', '<=', now()->subHours(16))
                 ->count(),
-            'urgent_tickets' => (clone $scopedTickets)->byPriority('urgent')->open()->count(),
+            'urgent_tickets' => (clone $scopedTickets)->byPriority('severity_1')->open()->count(),
         ];
 
         $recentStart = now()->subDays(10)->startOfDay();
@@ -66,10 +66,9 @@ class DashboardController extends Controller
             ->pluck('count', 'priority');
         $ticketsByPriority = collect([
             '__pending__' => (int) ($ticketsByPriority[''] ?? $ticketsByPriority[null] ?? 0),
-            'urgent' => (int) ($ticketsByPriority['urgent'] ?? 0),
-            'high' => (int) ($ticketsByPriority['high'] ?? 0),
-            'medium' => (int) ($ticketsByPriority['medium'] ?? 0),
-            'low' => (int) ($ticketsByPriority['low'] ?? 0),
+            'severity_1' => (int) ($ticketsByPriority['severity_1'] ?? 0),
+            'severity_2' => (int) ($ticketsByPriority['severity_2'] ?? 0),
+            'severity_3' => (int) ($ticketsByPriority['severity_3'] ?? 0),
         ]);
 
         $ticketsTrend = (clone $scopedTickets)->selectRaw('DATE(created_at) as date, COUNT(*) as count')
@@ -81,7 +80,7 @@ class DashboardController extends Controller
         $isTechnical = $user->isTechnician();
         $dashboardTitle = $isTechnical ? 'Technical Dashboard' : 'Support Dashboard';
         $dashboardSubtitle = $isTechnical
-            ? 'Monitor assigned work, aging tickets, and priorities from one place.'
+            ? 'Monitor assigned work, aging tickets, and severities from one place.'
             : 'Operational overview, ticket health, and quick actions in one place.';
 
         return view('admin.dashboard', compact(

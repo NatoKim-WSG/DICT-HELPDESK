@@ -50,18 +50,6 @@ class LegacyTicketCsvImporter
     /**
      * @var array<string, string>
      */
-    private const PRIORITY_ALIASES = [
-        'low' => 'low',
-        'medium' => 'medium',
-        'normal' => 'medium',
-        'high' => 'high',
-        'urgent' => 'urgent',
-        'critical' => 'urgent',
-    ];
-
-    /**
-     * @var array<string, string>
-     */
     private const STATUS_ALIASES = [
         'new' => 'open',
         'open' => 'open',
@@ -437,8 +425,12 @@ class LegacyTicketCsvImporter
     private function normalizePriority(int $line, mixed $value, string $fallback): string
     {
         $rawValue = $this->nullableString($value) ?? $fallback;
-        $normalizedValue = strtolower(str_replace('_', ' ', $rawValue));
-        $resolvedValue = self::PRIORITY_ALIASES[$normalizedValue] ?? null;
+        $normalizedValue = strtolower(trim((string) $rawValue));
+        $resolvedValue = Ticket::normalizePriorityValue(match ($normalizedValue) {
+            'normal' => 'medium',
+            'critical' => 'severity_1',
+            default => $normalizedValue,
+        });
 
         if ($resolvedValue === null) {
             throw new RuntimeException(sprintf('Row %d has an unsupported priority: %s', $line, $rawValue));

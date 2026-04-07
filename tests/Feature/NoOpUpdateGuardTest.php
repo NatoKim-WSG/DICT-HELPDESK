@@ -147,7 +147,7 @@ class NoOpUpdateGuardTest extends TestCase
 
         $ticket->refresh();
         $this->assertSame('open', $ticket->status);
-        $this->assertSame('medium', $ticket->priority);
+        $this->assertSame('severity_2', $ticket->priority);
         $this->assertNull($ticket->assigned_to);
     }
 

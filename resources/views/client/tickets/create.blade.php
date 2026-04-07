@@ -140,7 +140,7 @@
 
                     <div class="xl:col-span-2">
                         <p class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            Priority is assigned by the support staff after the ticket is reviewed.
+                            Severity is assigned by the support staff after the ticket is reviewed.
                         </p>
                     </div>
 

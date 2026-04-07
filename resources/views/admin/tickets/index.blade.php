@@ -8,6 +8,7 @@
     $isAllTab = $tab === 'all';
     $isHistoryTab = $tab === 'history';
     $canDeleteTickets = auth()->user()->isSuperAdmin();
+    $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
@@ -100,14 +101,13 @@
                     </div>
 
                     <div>
-                        <label for="priority" class="sr-only">Priority</label>
+                        <label for="priority" class="sr-only">Severity</label>
                         <select id="priority" name="priority" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
-                            <option value="all">All priorities</option>
+                            <option value="all">All severities</option>
                             <option value="unassigned" {{ request('priority') === 'unassigned' ? 'selected' : '' }}>Pending review</option>
-                            <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
-                            <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
-                            <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
-                            <option value="urgent" {{ request('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
+                            <option value="severity_1" {{ $selectedPriority === 'severity_1' ? 'selected' : '' }}>Severity 1</option>
+                            <option value="severity_2" {{ $selectedPriority === 'severity_2' ? 'selected' : '' }}>Severity 2</option>
+                            <option value="severity_3" {{ $selectedPriority === 'severity_3' ? 'selected' : '' }}>Severity 3</option>
                         </select>
                     </div>
 
@@ -318,13 +318,12 @@
                 </div>
                 <p id="edit-modal-close-hint" class="hidden text-xs text-amber-700"></p>
                 <div>
-                    <label for="edit-modal-priority" class="form-label">Priority</label>
+                    <label for="edit-modal-priority" class="form-label">Severity</label>
                     <select id="edit-modal-priority" name="priority" class="form-input">
                         <option value="">Pending review</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="urgent">Urgent</option>
+                        <option value="severity_1">Severity 1</option>
+                        <option value="severity_2">Severity 2</option>
+                        <option value="severity_3">Severity 3</option>
                     </select>
                 </div>
                 <div class="flex items-center justify-between gap-3">

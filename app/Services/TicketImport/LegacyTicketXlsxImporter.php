@@ -336,11 +336,11 @@ class LegacyTicketXlsxImporter
         }
 
         $defaultCategory = $this->nullableString($options['default_category'] ?? null) ?? 'Other';
-        $defaultPriority = $this->nullableString($options['default_priority'] ?? null) ?? 'medium';
+        $defaultPriority = Ticket::normalizePriorityValue($this->nullableString($options['default_priority'] ?? null) ?? 'severity_2');
         $defaultStatus = $this->nullableString($options['default_status'] ?? null) ?? 'open';
 
-        if (! in_array($defaultPriority, Ticket::PRIORITIES, true)) {
-            throw new InvalidArgumentException('Unsupported default priority: '.$defaultPriority);
+        if ($defaultPriority === null || ! in_array($defaultPriority, Ticket::PRIORITIES, true)) {
+            throw new InvalidArgumentException('Unsupported default priority: '.($options['default_priority'] ?? ''));
         }
 
         if (! in_array($defaultStatus, Ticket::STATUSES, true)) {

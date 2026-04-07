@@ -8,6 +8,11 @@ trait NormalizesAssignedToInput
 {
     protected function prepareForValidation(): void
     {
+        $this->normalizeAssignedToInput();
+    }
+
+    protected function normalizeAssignedToInput(): void
+    {
         if (! $this->exists('assigned_to')) {
             return;
         }

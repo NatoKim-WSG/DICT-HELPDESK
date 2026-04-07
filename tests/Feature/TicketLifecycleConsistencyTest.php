@@ -356,8 +356,6 @@ class TicketLifecycleConsistencyTest extends TestCase
         $showResponse->assertDontSee('Recognized Technicians');
         $showResponse->assertSee($primaryTechnical->publicDisplayName());
         $showResponse->assertSee($secondaryTechnical->publicDisplayName());
-        $showResponse->assertSee('First Response Time');
-        $showResponse->assertSee('30m');
         $showResponse->assertSee('Resolution Time');
         $showResponse->assertSee('1d 1h');
     }

@@ -53,10 +53,9 @@ class ReportBreakdownService
 
         return [
             ['name' => 'Pending Review', 'count' => (int) ($counts[''] ?? $counts[null] ?? 0)],
-            ['name' => 'Critical', 'count' => (int) ($counts['urgent'] ?? 0)],
-            ['name' => 'High', 'count' => (int) ($counts['high'] ?? 0)],
-            ['name' => 'Medium', 'count' => (int) ($counts['medium'] ?? 0)],
-            ['name' => 'Low', 'count' => (int) ($counts['low'] ?? 0)],
+            ['name' => 'Severity 1', 'count' => (int) ($counts['severity_1'] ?? 0)],
+            ['name' => 'Severity 2', 'count' => (int) ($counts['severity_2'] ?? 0)],
+            ['name' => 'Severity 3', 'count' => (int) ($counts['severity_3'] ?? 0)],
         ];
     }
 

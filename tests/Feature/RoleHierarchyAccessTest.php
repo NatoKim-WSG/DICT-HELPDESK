@@ -233,6 +233,6 @@ class RoleHierarchyAccessTest extends TestCase
         $ticket->refresh();
         $this->assertSame($secondTechnical->id, $ticket->assigned_to);
         $this->assertSame('in_progress', $ticket->status);
-        $this->assertSame('high', $ticket->priority);
+        $this->assertSame('severity_1', $ticket->priority);
     }
 }

@@ -586,10 +586,9 @@ class ReportPageDataService
     {
         $priorityPalette = [
             'pending review' => '#64748b',
-            'critical' => '#ef4444',
-            'high' => '#f59e0b',
-            'medium' => '#0ea5e9',
-            'low' => '#10b981',
+            'severity 1' => '#ef4444',
+            'severity 2' => '#f59e0b',
+            'severity 3' => '#10b981',
         ];
 
         return collect($priorityBreakdownBuckets)
@@ -597,10 +596,9 @@ class ReportPageDataService
                 $label = (string) ($bucket['name'] ?? 'Other');
                 $priorityFilter = match (strtolower($label)) {
                     'pending review' => 'unassigned',
-                    'critical' => 'urgent',
-                    'high' => 'high',
-                    'medium' => 'medium',
-                    'low' => 'low',
+                    'severity 1' => 'severity_1',
+                    'severity 2' => 'severity_2',
+                    'severity 3' => 'severity_3',
                     default => null,
                 };
 
