@@ -38,19 +38,15 @@ That wording matches the current report calculation and avoids confusing it with
 
 ### First Response Time
 
-- Definition: minutes from `ticket created` to the first staff action.
-- Staff action is the earliest of:
-  - first public staff reply
-  - first assignment timestamp
-  - resolution timestamp
-  - closure timestamp
-- Current reports UI: shows the average first response time for the selected scope.
+- Definition: percentage of tickets acknowledged by a `super_user` within `1 hour` of creation.
+- Source data: earliest `ticket_user_states.acknowledged_at` for a super user.
+- Current reports UI: shows the percent reviewed under `1 hour` for the selected scope.
 
 ### Resolution Time
 
-- Definition: minutes from `ticket created` to `resolved_at` or `closed_at`.
-- Only completed tickets are included in this metric.
-- Current reports UI: shows the average resolution time for completed tickets in the selected scope.
+- Definition: percentage of completed tickets resolved inside `Severity 1` (`< 4 hours`).
+- Completion uses `resolved_at`, with `closed_at` as a fallback when `resolved_at` is missing.
+- Current reports UI: shows the percent of completed tickets resolved inside `Severity 1`.
 
 ### SLA Breach Rate
 
@@ -69,7 +65,8 @@ That wording matches the current report calculation and avoids confusing it with
 
 ### Severity Bands
 
-- `Under 1 Hour`: still inside the super-user acknowledgment window
-- `Severity 1`: `>= 1 hour` and `< 4 hours`
+- Scope: completed tickets only
+- `Severity 1`: `< 4 hours`
 - `Severity 2`: `>= 4 hours` and `< 24 hours`
 - `Severity 3`: `>= 24 hours`
+- Current reports UI: shows the percentage distribution across completed tickets, with counts as supporting detail.

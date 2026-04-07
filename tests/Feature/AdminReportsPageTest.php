@@ -237,17 +237,19 @@ class AdminReportsPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('SLA Overview');
-        $response->assertSee('First Response Time');
-        $response->assertSee('Resolution Time');
+        $response->assertSee('Reviewed Under 1 Hour');
+        $response->assertSee('Resolved Under Severity 1');
         $response->assertSee('Customer Satisfaction SLA');
-        $response->assertSee('Severity Bands');
+        $response->assertSee('Resolution Severity Mix');
         $response->assertViewHas('slaReport', function (array $slaReport) {
-            $bands = collect($slaReport['severity_bands'] ?? [])->pluck('count', 'label');
+            $bands = collect($slaReport['severity_bands'] ?? [])->keyBy('label');
 
             return ($slaReport['label'] ?? null) === 'Feb 2026'
                 && (int) ($slaReport['total_tickets'] ?? 0) === 4
-                && (float) ($slaReport['first_response']['average_minutes'] ?? 0) === 50.0
-                && (float) ($slaReport['resolution']['average_minutes'] ?? 0) === 825.0
+                && (int) ($slaReport['first_response']['within_target_count'] ?? 0) === 2
+                && (float) ($slaReport['first_response']['rate'] ?? 0) === 50.0
+                && (int) ($slaReport['resolution']['within_target_count'] ?? 0) === 1
+                && (float) ($slaReport['resolution']['rate'] ?? 0) === 50.0
                 && (int) ($slaReport['breach_rate']['breached_count'] ?? 0) === 2
                 && (float) ($slaReport['breach_rate']['rate'] ?? 0) === 50.0
                 && (int) ($slaReport['acknowledgment_rate']['acknowledged_count'] ?? 0) === 2
@@ -255,10 +257,12 @@ class AdminReportsPageTest extends TestCase
                 && (int) ($slaReport['customer_satisfaction']['rated_count'] ?? 0) === 2
                 && (float) ($slaReport['customer_satisfaction']['average_rating'] ?? 0) === 4.0
                 && (float) ($slaReport['customer_satisfaction']['rate'] ?? 0) === 50.0
-                && (int) ($bands['Under 1 Hour'] ?? 0) === 1
-                && (int) ($bands['Severity 1'] ?? 0) === 1
-                && (int) ($bands['Severity 2'] ?? 0) === 1
-                && (int) ($bands['Severity 3'] ?? 0) === 1;
+                && (int) data_get($bands, 'Severity 1.count', 0) === 1
+                && (float) data_get($bands, 'Severity 1.rate', 0) === 50.0
+                && (int) data_get($bands, 'Severity 2.count', 0) === 0
+                && (float) data_get($bands, 'Severity 2.rate', 0) === 0.0
+                && (int) data_get($bands, 'Severity 3.count', 0) === 1
+                && (float) data_get($bands, 'Severity 3.rate', 0) === 50.0;
         });
     }
 

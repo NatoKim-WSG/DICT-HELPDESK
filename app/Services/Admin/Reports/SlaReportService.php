@@ -8,7 +8,6 @@ use App\Models\TicketUserState;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class SlaReportService
 {
@@ -29,16 +28,10 @@ class SlaReportService
         $now = now();
         $ticketRows = collect($this->ticketRows(clone $scopedTickets, $start, $end, $now));
         $ticketCount = $ticketRows->count();
-
-        $firstResponseMinutes = $ticketRows
-            ->pluck('first_response_minutes')
-            ->filter(static fn ($value) => $value !== null)
+        $completedTicketRows = $ticketRows
+            ->filter(static fn (array $row): bool => $row['resolution_minutes'] !== null)
             ->values();
-
-        $resolutionMinutes = $ticketRows
-            ->pluck('resolution_minutes')
-            ->filter(static fn ($value) => $value !== null)
-            ->values();
+        $completedCount = $completedTicketRows->count();
 
         $ratedTickets = $ticketRows
             ->filter(static fn (array $row): bool => $row['satisfaction_rating'] !== null)
@@ -54,47 +47,44 @@ class SlaReportService
 
         $severityBands = [
             [
-                'label' => 'Under 1 Hour',
-                'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'under_1_hour')->count(),
-            ],
-            [
                 'label' => 'Severity 1',
-                'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_1')->count(),
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_1')->count(),
             ],
             [
                 'label' => 'Severity 2',
-                'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_2')->count(),
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_2')->count(),
             ],
             [
                 'label' => 'Severity 3',
-                'count' => $ticketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_3')->count(),
+                'count' => $completedTicketRows->filter(static fn (array $row): bool => $row['severity_band'] === 'severity_3')->count(),
             ],
         ];
+        $severityBands = array_map(function (array $band) use ($completedCount): array {
+            $count = (int) $band['count'];
+            $band['rate'] = $completedCount > 0 ? round(($count / $completedCount) * 100, 1) : 0.0;
+
+            return $band;
+        }, $severityBands);
 
         $satisfactionMetCount = $ratedTickets
             ->filter(static fn (array $row): bool => (int) $row['satisfaction_rating'] >= self::SATISFACTION_TARGET_RATING)
             ->count();
-        $averageFirstResponseMinutes = $this->averageMinutes($firstResponseMinutes);
-        $medianFirstResponseMinutes = $this->medianMinutes($firstResponseMinutes);
-        $averageResolutionMinutes = $this->averageMinutes($resolutionMinutes);
-        $medianResolutionMinutes = $this->medianMinutes($resolutionMinutes);
+        $resolvedWithinSeverityOneCount = $completedTicketRows
+            ->filter(static fn (array $row): bool => $row['resolution_minutes'] < self::SEVERITY_TWO_MINUTES)
+            ->count();
 
         return [
             'label' => $label,
             'total_tickets' => $ticketCount,
             'first_response' => [
-                'average_minutes' => $averageFirstResponseMinutes,
-                'average_display' => $this->formatMinutes($averageFirstResponseMinutes),
-                'median_minutes' => $medianFirstResponseMinutes,
-                'median_display' => $this->formatMinutes($medianFirstResponseMinutes),
-                'sample_count' => $firstResponseMinutes->count(),
+                'within_target_count' => $acknowledgedWithinTarget,
+                'rate' => $ticketCount > 0 ? round(($acknowledgedWithinTarget / $ticketCount) * 100, 1) : 0.0,
+                'sample_count' => $ticketCount,
             ],
             'resolution' => [
-                'average_minutes' => $averageResolutionMinutes,
-                'average_display' => $this->formatMinutes($averageResolutionMinutes),
-                'median_minutes' => $medianResolutionMinutes,
-                'median_display' => $this->formatMinutes($medianResolutionMinutes),
-                'sample_count' => $resolutionMinutes->count(),
+                'within_target_count' => $resolvedWithinSeverityOneCount,
+                'rate' => $completedCount > 0 ? round(($resolvedWithinSeverityOneCount / $completedCount) * 100, 1) : 0.0,
+                'sample_count' => $completedCount,
             ],
             'breach_rate' => [
                 'breached_count' => $breachedTickets,
@@ -237,63 +227,8 @@ class SlaReportService
         return $validDates[0];
     }
 
-    /**
-     * @param  Collection<int, int|float>  $minutes
-     */
-    private function averageMinutes(Collection $minutes): ?float
-    {
-        if ($minutes->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $minutes->avg(), 1);
-    }
-
-    /**
-     * @param  Collection<int, int|float>  $minutes
-     */
-    private function medianMinutes(Collection $minutes): ?float
-    {
-        if ($minutes->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $minutes->median(), 1);
-    }
-
-    private function formatMinutes(?float $minutes): string
-    {
-        if ($minutes === null) {
-            return 'No data';
-        }
-
-        $totalMinutes = max(0, (int) round($minutes));
-        $days = intdiv($totalMinutes, 1440);
-        $hours = intdiv($totalMinutes % 1440, 60);
-        $remainingMinutes = $totalMinutes % 60;
-        $parts = [];
-
-        if ($days > 0) {
-            $parts[] = $days.'d';
-        }
-
-        if ($hours > 0) {
-            $parts[] = $hours.'h';
-        }
-
-        if ($remainingMinutes > 0 || $parts === []) {
-            $parts[] = $remainingMinutes.'m';
-        }
-
-        return implode(' ', $parts);
-    }
-
     private function severityBandForMinutes(int $minutes): string
     {
-        if ($minutes < self::SEVERITY_ONE_MINUTES) {
-            return 'under_1_hour';
-        }
-
         if ($minutes < self::SEVERITY_TWO_MINUTES) {
             return 'severity_1';
         }

@@ -367,12 +367,6 @@
                             <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                             <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                         </div>
-                        @if(in_array($ticket->status, ['resolved', 'closed'], true))
-                            <div>
-                                <dt class="text-sm font-medium text-gray-500">{{ $ticket->status === 'closed' ? 'Recognized Technicians' : 'Resolved/Reviewed By' }}</dt>
-                                <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
-                            </div>
-                        @endif
                         @if($ticket->resolved_at)
                             <div>
                                 <dt class="text-sm font-medium text-gray-500">Resolved At</dt>

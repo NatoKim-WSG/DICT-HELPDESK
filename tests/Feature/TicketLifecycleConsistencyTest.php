@@ -352,7 +352,7 @@ class TicketLifecycleConsistencyTest extends TestCase
             ->get(route('admin.tickets.show', $ticket));
 
         $showResponse->assertOk();
-        $showResponse->assertSee('Recognized Technicians');
+        $showResponse->assertDontSee('Recognized Technicians');
         $showResponse->assertSee($primaryTechnical->publicDisplayName());
         $showResponse->assertSee($secondaryTechnical->publicDisplayName());
         $showResponse->assertSee('Resolution Time');
