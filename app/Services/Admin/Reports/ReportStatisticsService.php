@@ -37,7 +37,7 @@ class ReportStatisticsService
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_tickets")
             ->selectRaw("SUM(CASE WHEN status IN ({$closedStatusesSqlList}) THEN 1 ELSE 0 END) as closed_tickets")
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND assigned_to IS NULL THEN 1 ELSE 0 END) as unassigned_open_tickets")
-            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND priority = 'severity_1' THEN 1 ELSE 0 END) as urgent_open_tickets")
+            ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) AND priority = 'severity_1' THEN 1 ELSE 0 END) as severity_one_open_tickets")
             ->first();
         $summaryRow = is_object($summary) ? (array) $summary : [];
 
@@ -46,7 +46,7 @@ class ReportStatisticsService
             'open_tickets' => (int) ($summaryRow['open_tickets'] ?? 0),
             'closed_tickets' => (int) ($summaryRow['closed_tickets'] ?? 0),
             'unassigned_open_tickets' => (int) ($summaryRow['unassigned_open_tickets'] ?? 0),
-            'urgent_open_tickets' => (int) ($summaryRow['urgent_open_tickets'] ?? 0),
+            'severity_one_open_tickets' => (int) ($summaryRow['severity_one_open_tickets'] ?? 0),
         ];
     }
 

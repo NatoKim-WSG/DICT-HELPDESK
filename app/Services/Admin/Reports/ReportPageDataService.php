@@ -119,7 +119,7 @@ class ReportPageDataService
             'open_tickets' => (int) $kpiSummary['open_tickets'],
             'closed_tickets' => $resolvedTicketsCount,
             'unassigned_open_tickets' => (int) $kpiSummary['unassigned_open_tickets'],
-            'urgent_open_tickets' => (int) $kpiSummary['urgent_open_tickets'],
+            'severity_one_open_tickets' => (int) $kpiSummary['severity_one_open_tickets'],
             'resolution_rate' => $totalTickets > 0 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1) : 0,
         ];
 

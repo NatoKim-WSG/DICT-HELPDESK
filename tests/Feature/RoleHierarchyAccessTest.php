@@ -215,10 +215,10 @@ class RoleHierarchyAccessTest extends TestCase
         ]);
         $statusResponse->assertRedirect();
 
-        $priorityResponse = $this->actingAs($technical)->post(route('admin.tickets.priority', $ticket), [
-            'priority' => 'high',
+        $severityResponse = $this->actingAs($technical)->post(route('admin.tickets.severity', $ticket), [
+            'severity' => 'high',
         ]);
-        $priorityResponse->assertRedirect();
+        $severityResponse->assertRedirect();
 
         $assignResponse = $this->actingAs($technical)->post(route('admin.tickets.assign', $ticket), [
             'assigned_to' => $secondTechnical->id,

@@ -433,7 +433,7 @@
                     </div>
                     <div class="dashboard-summary-link flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
                         <span class="text-slate-600">Severity 1 open tickets</span>
-                        <span class="font-semibold text-slate-900">{{ $stats['urgent_open_tickets'] ?? 0 }}</span>
+                        <span class="font-semibold text-slate-900">{{ $stats['severity_one_open_tickets'] ?? 0 }}</span>
                     </div>
                 </div>
             </div>

@@ -50,7 +50,7 @@
             </x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card :href="$severityOneTicketsUrl" label="Severity 1 Tickets" :value="$stats['urgent_tickets']">
+        <x-ui.stat-card :href="$severityOneTicketsUrl" label="Severity 1 Tickets" :value="$stats['severity_one_tickets']">
             <x-slot:icon>
                 <div class="rounded-xl bg-rose-100 p-3 text-rose-600">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

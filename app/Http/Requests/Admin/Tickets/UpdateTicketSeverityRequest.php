@@ -6,7 +6,7 @@ use App\Models\Ticket;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateTicketPriorityRequest extends FormRequest
+class UpdateTicketSeverityRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,14 +16,14 @@ class UpdateTicketPriorityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'priority' => ['required', Rule::in(Ticket::PRIORITIES)],
+            'severity' => ['required', Rule::in(Ticket::PRIORITIES)],
         ];
     }
 
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'priority' => Ticket::normalizePriorityValue($this->input('priority')),
+            'severity' => Ticket::normalizePriorityValue($this->input('severity', $this->input('priority'))),
         ]);
     }
 }

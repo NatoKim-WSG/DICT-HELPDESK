@@ -60,7 +60,7 @@
             </x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card :href="$severityOneTicketsUrl" label="Severity 1 Tickets" :value="$stats['urgent_tickets']" value-class="text-rose-600" aria-label="View severity 1 tickets">
+        <x-ui.stat-card :href="$severityOneTicketsUrl" label="Severity 1 Tickets" :value="$stats['severity_one_tickets']" value-class="text-rose-600" aria-label="View severity 1 tickets">
             <x-slot:icon>
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">

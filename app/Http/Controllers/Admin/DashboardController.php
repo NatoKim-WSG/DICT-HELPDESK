@@ -31,7 +31,7 @@ class DashboardController extends Controller
             'attention_tickets' => (clone $scopedTickets)->whereNotIn('status', Ticket::CLOSED_STATUSES)
                 ->where('created_at', '<=', now()->subHours(16))
                 ->count(),
-            'urgent_tickets' => (clone $scopedTickets)->byPriority('severity_1')->open()->count(),
+            'severity_one_tickets' => (clone $scopedTickets)->byPriority('severity_1')->open()->count(),
         ];
 
         $recentStart = now()->subDays(10)->startOfDay();

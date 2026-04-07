@@ -8,8 +8,8 @@ use App\Http\Requests\Admin\Tickets\AssignTicketRequest;
 use App\Http\Requests\Admin\Tickets\BulkTicketActionRequest;
 use App\Http\Requests\Admin\Tickets\QuickUpdateTicketRequest;
 use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
-use App\Http\Requests\Admin\Tickets\UpdateTicketPriorityRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketReplyRequest;
+use App\Http\Requests\Admin\Tickets\UpdateTicketSeverityRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketStatusRequest;
 use App\Models\Category;
 use App\Models\Ticket;
@@ -212,34 +212,34 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
     }
 
-    public function updatePriority(UpdateTicketPriorityRequest $request, Ticket $ticket)
+    public function updateSeverity(UpdateTicketSeverityRequest $request, Ticket $ticket)
     {
         $this->authorizeTicketAccess($ticket);
 
-        if ($ticket->priority === $request->priority) {
+        if ($ticket->priority === $request->severity) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
-        $previousPriority = $ticket->priority;
-        $ticket->update(['priority' => $request->priority]);
+        $previousSeverity = $ticket->priority;
+        $ticket->update(['priority' => $request->severity]);
         $this->ticketWorkflow->trackTicketHandlingAction($ticket);
         $this->systemLogs->record(
-            'ticket.priority.updated',
-            'Updated ticket priority.',
+            'ticket.severity.updated',
+            'Updated ticket severity.',
             [
                 'category' => 'ticket',
                 'target_type' => Ticket::class,
                 'target_id' => $ticket->id,
                 'metadata' => [
                     'ticket_number' => $ticket->ticket_number,
-                    'previous_priority' => $previousPriority,
-                    'new_priority' => $request->string('priority')->toString(),
+                    'previous_severity' => $previousSeverity,
+                    'new_severity' => $request->string('severity')->toString(),
                 ],
                 'request' => $request,
             ]
         );
 
-        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket priority updated successfully!');
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket severity updated successfully!');
     }
 
     public function reply(StoreTicketReplyRequest $request, Ticket $ticket)
@@ -493,11 +493,11 @@ class TicketController extends Controller
 
         if ($action === 'priority') {
             if (! $request->filled('priority')) {
-                return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a priority.');
+                return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a severity.');
             }
             $this->ticketWorkflow->bulkPriorityTickets($request, $tickets, $selectedIds->all());
 
-            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket priorities updated.');
+            return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket severities updated.');
         }
 
         if ($action === 'merge') {

@@ -220,12 +220,12 @@
                 </form>
             @endif
 
-            <form action="{{ route('admin.tickets.priority', $ticket) }}" method="POST">
+            <form action="{{ route('admin.tickets.severity', $ticket) }}" method="POST">
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <label for="priority" class="form-label">Severity</label>
-                    <select name="priority" id="priority" class="form-input">
+                    <label for="severity" class="form-label">Severity</label>
+                    <select name="severity" id="severity" class="form-input">
                         @if($ticket->priority === null)
                             <option value="" selected disabled>Pending review</option>
                         @endif

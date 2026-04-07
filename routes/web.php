@@ -112,9 +112,9 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
     Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])
         ->middleware('throttle:60,1')
         ->name('tickets.status');
-    Route::post('/tickets/{ticket}/priority', [AdminTicketController::class, 'updatePriority'])
+    Route::post('/tickets/{ticket}/severity', [AdminTicketController::class, 'updateSeverity'])
         ->middleware('throttle:60,1')
-        ->name('tickets.priority');
+        ->name('tickets.severity');
     Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
         ->middleware(['throttle:20,1', 'role:admin,shadow'])
         ->name('tickets.destroy');

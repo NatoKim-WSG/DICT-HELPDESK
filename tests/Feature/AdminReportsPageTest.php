@@ -856,7 +856,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewHas('stats', function (array $stats) {
             return (int) $stats['total_tickets'] === 2
                 && (int) $stats['open_tickets'] === 1
-                && (int) $stats['urgent_open_tickets'] === 1;
+                && (int) $stats['severity_one_open_tickets'] === 1;
         });
         $response->assertViewHas('topTechnicians', function ($rows) {
             return collect($rows)->pluck('name')->contains('Scoped Tech')

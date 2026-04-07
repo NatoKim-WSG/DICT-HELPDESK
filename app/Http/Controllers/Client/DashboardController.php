@@ -26,7 +26,7 @@ class DashboardController extends Controller
             'total_tickets' => (clone $ticketQuery)->count(),
             'open_tickets' => (clone $ticketQuery)->open()->count(),
             'in_progress_tickets' => (clone $ticketQuery)->where('status', 'in_progress')->count(),
-            'urgent_tickets' => (clone $ticketQuery)->byPriority('severity_1')->open()->count(),
+            'severity_one_tickets' => (clone $ticketQuery)->byPriority('severity_1')->open()->count(),
         ];
 
         $recentStart = now()->subDays(10)->startOfDay();
