@@ -164,14 +164,15 @@ class SlaReportService
 
                 $createdAt = $this->parseOptionalDateTime($ticket->created_at);
                 $assignedAt = $this->parseOptionalDateTime($ticket->assigned_at);
-                $completedAt = $this->parseOptionalDateTime($ticket->closed_at)
-                    ?? $this->parseOptionalDateTime($ticket->resolved_at);
+                $resolvedAt = $this->parseOptionalDateTime($ticket->resolved_at);
+                $closedAt = $this->parseOptionalDateTime($ticket->closed_at);
+                $completedAt = $resolvedAt ?? $closedAt;
                 $firstStaffReplyAt = $this->parseOptionalDateTime($ticket->getAttribute('first_public_staff_reply_at'));
                 $firstSuperUserAcknowledgedAt = $this->parseOptionalDateTime($ticket->getAttribute('first_super_user_acknowledged_at'));
                 $firstResponseAt = $this->earliestDateTime([
+                    $firstSuperUserAcknowledgedAt,
                     $firstStaffReplyAt,
                     $assignedAt,
-                    $completedAt,
                 ]);
                 $firstResponseMinutes = $createdAt && $firstResponseAt
                     ? max(0, (int) $createdAt->diffInMinutes($firstResponseAt))
@@ -180,9 +181,11 @@ class SlaReportService
                     && $firstSuperUserAcknowledgedAt
                     && (int) $createdAt->diffInMinutes($firstSuperUserAcknowledgedAt) < self::ACKNOWLEDGMENT_TARGET_MINUTES;
                 $resolutionReferenceAt = $completedAt ?? $now;
-                $resolutionMinutes = $createdAt && $completedAt
-                    ? max(0, (int) $createdAt->diffInMinutes($completedAt))
-                    : null;
+                $resolutionMinutes = $createdAt && $resolvedAt
+                    ? max(0, (int) $createdAt->diffInMinutes($resolvedAt))
+                    : ($createdAt && $closedAt
+                        ? max(0, (int) $createdAt->diffInMinutes($closedAt))
+                        : null);
                 $elapsedMinutes = $createdAt
                     ? max(0, (int) $createdAt->diffInMinutes($resolutionReferenceAt))
                     : 0;

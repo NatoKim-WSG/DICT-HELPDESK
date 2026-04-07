@@ -246,7 +246,7 @@ class AdminReportsPageTest extends TestCase
 
             return ($slaReport['label'] ?? null) === 'Feb 2026'
                 && (int) ($slaReport['total_tickets'] ?? 0) === 4
-                && (float) ($slaReport['first_response']['average_minutes'] ?? 0) === 105.0
+                && (float) ($slaReport['first_response']['average_minutes'] ?? 0) === 50.0
                 && (float) ($slaReport['resolution']['average_minutes'] ?? 0) === 825.0
                 && (int) ($slaReport['breach_rate']['breached_count'] ?? 0) === 2
                 && (float) ($slaReport['breach_rate']['rate'] ?? 0) === 50.0
