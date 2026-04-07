@@ -2,11 +2,11 @@ param(
     [string]$Host = "redmine.siphosted.com",
     [string]$User = "admin",
     [string]$Branch = "main",
-    [string]$RemotePath = "/opt/helpdesk",
     [switch]$SkipPush
 )
 
 $ErrorActionPreference = "Stop"
+$RemotePath = "/opt/helpdesk"
 
 if (-not $SkipPush) {
     git push origin $Branch

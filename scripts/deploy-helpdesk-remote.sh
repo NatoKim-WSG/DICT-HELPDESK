@@ -3,6 +3,17 @@
 set -euo pipefail
 
 BRANCH="${1:-main}"
+EXPECTED_PATH="/opt/helpdesk"
+
+if [[ "$(pwd -P)" != "$EXPECTED_PATH" ]]; then
+    echo "This deploy script is restricted to $EXPECTED_PATH." >&2
+    exit 1
+fi
+
+if [[ ! -f artisan || ! -f composer.json ]]; then
+    echo "Expected a Laravel app checkout in $EXPECTED_PATH." >&2
+    exit 1
+fi
 
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
