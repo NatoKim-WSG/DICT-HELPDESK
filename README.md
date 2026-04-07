@@ -100,7 +100,7 @@ Windows PowerShell deploy helper:
 ```
 
 That script only deploys inside `/opt/helpdesk` on the configured VPS and runs the shared remote deploy script in `scripts/deploy-helpdesk-remote.sh`.
-The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json`, removes `node_modules` after bundling frontend assets, and prints an app-level ops status summary after each deploy.
+The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json`, removes `node_modules` after bundling frontend assets, and retries the final `helpdesk:ops-status --fail-on-warning` health check after restarting the queue worker.
 Both deploy helpers are intentionally locked to `/opt/helpdesk` so they do not operate on any other app path on the VPS.
 
 ## Dependency and Security Checks
@@ -125,6 +125,7 @@ Run this full gate before push/release:
 ```bash
 composer qa
 npm.cmd run qa
+npm.cmd run qa:full # include Playwright UI and accessibility checks when UI behavior changes
 
 # Or run the individual commands:
 composer validate --strict
@@ -363,6 +364,7 @@ vendor/bin/pint --test
 php artisan test
 npm.cmd run test:unit
 npm.cmd run lint
+npm.cmd run test:e2e
 ```
 
 - [ ] Build frontend:

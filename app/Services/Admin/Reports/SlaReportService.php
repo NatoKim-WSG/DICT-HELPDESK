@@ -74,18 +74,26 @@ class SlaReportService
         $satisfactionMetCount = $ratedTickets
             ->filter(static fn (array $row): bool => (int) $row['satisfaction_rating'] >= self::SATISFACTION_TARGET_RATING)
             ->count();
+        $averageFirstResponseMinutes = $this->averageMinutes($firstResponseMinutes);
+        $medianFirstResponseMinutes = $this->medianMinutes($firstResponseMinutes);
+        $averageResolutionMinutes = $this->averageMinutes($resolutionMinutes);
+        $medianResolutionMinutes = $this->medianMinutes($resolutionMinutes);
 
         return [
             'label' => $label,
             'total_tickets' => $ticketCount,
             'first_response' => [
-                'average_minutes' => $this->averageMinutes($firstResponseMinutes),
-                'median_minutes' => $this->medianMinutes($firstResponseMinutes),
+                'average_minutes' => $averageFirstResponseMinutes,
+                'average_display' => $this->formatMinutes($averageFirstResponseMinutes),
+                'median_minutes' => $medianFirstResponseMinutes,
+                'median_display' => $this->formatMinutes($medianFirstResponseMinutes),
                 'sample_count' => $firstResponseMinutes->count(),
             ],
             'resolution' => [
-                'average_minutes' => $this->averageMinutes($resolutionMinutes),
-                'median_minutes' => $this->medianMinutes($resolutionMinutes),
+                'average_minutes' => $averageResolutionMinutes,
+                'average_display' => $this->formatMinutes($averageResolutionMinutes),
+                'median_minutes' => $medianResolutionMinutes,
+                'median_display' => $this->formatMinutes($medianResolutionMinutes),
                 'sample_count' => $resolutionMinutes->count(),
             ],
             'breach_rate' => [
@@ -248,6 +256,33 @@ class SlaReportService
         }
 
         return round((float) $minutes->median(), 1);
+    }
+
+    private function formatMinutes(?float $minutes): string
+    {
+        if ($minutes === null) {
+            return 'No data';
+        }
+
+        $totalMinutes = max(0, (int) round($minutes));
+        $days = intdiv($totalMinutes, 1440);
+        $hours = intdiv($totalMinutes % 1440, 60);
+        $remainingMinutes = $totalMinutes % 60;
+        $parts = [];
+
+        if ($days > 0) {
+            $parts[] = $days.'d';
+        }
+
+        if ($hours > 0) {
+            $parts[] = $hours.'h';
+        }
+
+        if ($remainingMinutes > 0 || $parts === []) {
+            $parts[] = $remainingMinutes.'m';
+        }
+
+        return implode(' ', $parts);
     }
 
     private function severityBandForMinutes(int $minutes): string

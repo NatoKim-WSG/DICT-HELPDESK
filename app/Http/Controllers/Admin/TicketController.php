@@ -15,12 +15,11 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
-use App\Models\User;
 use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
+use App\Services\Admin\TicketWorkflowService;
 use App\Services\SystemLogService;
 use App\Services\TicketAcknowledgmentService;
-use App\Services\TicketEmailAlertService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,14 +30,12 @@ class TicketController extends Controller
 {
     use InteractsWithTicketReplies;
 
-    private const CLOSED_REVERT_WINDOW_DAYS = 7;
-
     public function __construct(
-        private TicketEmailAlertService $ticketEmailAlerts,
         private TicketAcknowledgmentService $ticketAcknowledgments,
         private SystemLogService $systemLogs,
         private TicketMutationService $ticketMutations,
         private TicketIndexService $ticketIndex,
+        private TicketWorkflowService $ticketWorkflow,
     ) {}
 
     public function index(Request $request)
@@ -183,46 +180,8 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        $previousAssignedIds = $ticket->assigned_user_ids;
-        $newAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
-        $newAssignedTo = $this->primaryAssigneeId($newAssignedIds);
-
-        if ($previousAssignedIds === $newAssignedIds) {
+        if (! $this->ticketWorkflow->assignTicket($request, $ticket)) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
-        }
-
-        $ticket->update([
-            'assigned_to' => $newAssignedTo,
-            ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
-        ]);
-        $ticket->assignedUsers()->sync($newAssignedIds);
-        $this->trackTicketAcknowledgment($ticket);
-        $this->systemLogs->record(
-            'ticket.assignment.updated',
-            'Updated ticket assignment.',
-            [
-                'category' => 'ticket',
-                'target_type' => Ticket::class,
-                'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_assigned_to' => $this->primaryAssigneeId($previousAssignedIds),
-                    'assigned_to' => $newAssignedTo,
-                    'previous_assigned_user_ids' => $previousAssignedIds,
-                    'assigned_user_ids' => $newAssignedIds,
-                ],
-                'request' => $request,
-            ]
-        );
-
-        $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-
-        $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-        if ($newlyAssignedIds !== []) {
-            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                $ticket->fresh(['assignedUser', 'assignedUsers']),
-                $newlyAssignedIds
-            );
         }
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket assignment updated successfully!');
@@ -232,57 +191,23 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
-        $previousAssignedIds = $ticket->assigned_user_ids;
-        $newAssignedIds = $this->determineReviewerAssigneeIds($nextStatus, $previousAssignedIds);
-        $newAssignedTo = $this->primaryAssigneeId($newAssignedIds);
-
-        if ($previousStatus === $nextStatus) {
+        if ((string) $ticket->status === $nextStatus) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
-        $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
         if ($reopenGateError !== null) {
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
-        if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
-            $closeGateError = $this->closeStatusGateErrorForTicket($ticket);
+        if ($nextStatus === 'closed' && (string) $ticket->status !== 'closed') {
+            $closeGateError = $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($ticket);
             if ($closeGateError !== null) {
                 return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
             }
         }
-
-        $updateData = ['status' => $nextStatus];
-        if ($previousAssignedIds !== $newAssignedIds) {
-            $updateData['assigned_to'] = $newAssignedTo;
-            $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds));
-        }
-        $this->applyLifecycleTimestamps($ticket, $updateData);
-
-        $ticket->update($updateData);
-        if ($previousAssignedIds !== $newAssignedIds) {
-            $ticket->assignedUsers()->sync($newAssignedIds);
-            $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-        }
-        $this->trackTicketAcknowledgment($ticket);
-        $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
-        $this->systemLogs->record(
-            'ticket.status.updated',
-            'Updated ticket status.',
-            [
-                'category' => 'ticket',
-                'target_type' => Ticket::class,
-                'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_status' => $previousStatus,
-                    'new_status' => $nextStatus,
-                ],
-                'request' => $request,
-            ]
-        );
+        $this->ticketWorkflow->updateTicketStatus($request, $ticket);
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
     }
@@ -297,7 +222,7 @@ class TicketController extends Controller
 
         $previousPriority = $ticket->priority;
         $ticket->update(['priority' => $request->priority]);
-        $this->trackTicketAcknowledgment($ticket);
+        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
         $this->systemLogs->record(
             'ticket.priority.updated',
             'Updated ticket priority.',
@@ -350,7 +275,7 @@ class TicketController extends Controller
         if ($ticket->status === 'open' && ! $isInternal) {
             $ticket->update(['status' => 'in_progress']);
         }
-        $this->trackTicketAcknowledgment($ticket);
+        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
 
         if ($request->expectsJson()) {
             $reply->loadMissing(['user', 'attachments', 'replyTo']);
@@ -414,78 +339,22 @@ class TicketController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        $previousStatus = $ticket->status;
         $nextStatus = $request->string('status')->toString();
-        $nextPriority = $request->filled('priority')
-            ? $request->string('priority')->toString()
-            : null;
-        $previousAssignedIds = $ticket->assigned_user_ids;
-        $requestedAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
-        $newAssignedIds = $this->determineReviewerAssigneeIds($nextStatus, $requestedAssignedIds);
-        $newAssignedTo = $this->primaryAssigneeId($newAssignedIds);
-        $updateData = [
-            'assigned_to' => $newAssignedTo,
-            'status' => $nextStatus,
-            'priority' => $nextPriority,
-        ];
-        $previousPriority = $ticket->priority;
 
-        if (
-            $previousAssignedIds === $newAssignedIds
-            && $previousStatus === $nextStatus
-            && $previousPriority === $nextPriority
-        ) {
-            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
-        }
-
-        $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
         if ($reopenGateError !== null) {
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
-        if ($nextStatus === 'closed' && $previousStatus !== 'closed') {
-            $closeGateError = $this->closeStatusGateErrorForTicket($ticket);
+        if ($nextStatus === 'closed' && (string) $ticket->status !== 'closed') {
+            $closeGateError = $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($ticket);
             if ($closeGateError !== null) {
                 return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
             }
         }
 
-        $this->applyLifecycleTimestamps($ticket, $updateData);
-        $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds));
-
-        $ticket->update($updateData);
-        $ticket->assignedUsers()->sync($newAssignedIds);
-        $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-        $this->trackTicketAcknowledgment($ticket);
-        $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
-        $this->systemLogs->record(
-            'ticket.quick_update',
-            'Applied quick ticket update.',
-            [
-                'category' => 'ticket',
-                'target_type' => Ticket::class,
-                'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_assigned_to' => $this->primaryAssigneeId($previousAssignedIds),
-                    'assigned_to' => $newAssignedTo,
-                    'previous_assigned_user_ids' => $previousAssignedIds,
-                    'assigned_user_ids' => $newAssignedIds,
-                    'previous_status' => $previousStatus,
-                    'new_status' => $nextStatus,
-                    'previous_priority' => $previousPriority,
-                    'new_priority' => $nextPriority,
-                ],
-                'request' => $request,
-            ]
-        );
-
-        $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-        if ($newlyAssignedIds !== []) {
-            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                $ticket->fresh(['assignedUser', 'assignedUsers']),
-                $newlyAssignedIds
-            );
+        if (! $this->ticketWorkflow->quickUpdateTicket($request, $ticket)) {
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket updated successfully.');
@@ -581,43 +450,11 @@ class TicketController extends Controller
         }
 
         if ($action === 'assign') {
-            $newAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
+            $newAssignedIds = $this->ticketWorkflow->normalizedAssigneeIdsFromRequest($request);
             if ($newAssignedIds === []) {
                 return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a technical user.');
             }
-
-            $newAssignedTo = $this->primaryAssigneeId($newAssignedIds);
-            Ticket::whereIn('id', $selectedIds)->with(['assignedUser', 'assignedUsers'])->get()->each(function (Ticket $ticket) use ($newAssignedIds, $newAssignedTo) {
-                $previousAssignedIds = $ticket->assigned_user_ids;
-                $ticket->update([
-                    'assigned_to' => $newAssignedTo,
-                    ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
-                ]);
-                $ticket->assignedUsers()->sync($newAssignedIds);
-                $this->trackTicketAcknowledgment($ticket);
-                $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-
-                $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-                if ($newlyAssignedIds !== []) {
-                    $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                        $ticket->fresh(['assignedUser', 'assignedUsers']),
-                        $newlyAssignedIds
-                    );
-                }
-            });
-            $this->systemLogs->record(
-                'ticket.bulk.assign',
-                'Assigned tickets in bulk.',
-                [
-                    'category' => 'ticket',
-                    'metadata' => [
-                        'ticket_ids' => $selectedIds->all(),
-                        'assigned_to' => $newAssignedTo,
-                        'assigned_user_ids' => $newAssignedIds,
-                    ],
-                    'request' => $request,
-                ]
-            );
+            $this->ticketWorkflow->bulkAssignTickets($request, $tickets, $selectedIds->all());
 
             return $this->redirectBackOrReturnTo($request)->with('success', 'Selected tickets assigned successfully.');
         }
@@ -635,7 +472,7 @@ class TicketController extends Controller
             if ($newStatus === 'closed') {
                 foreach ($tickets as $candidateTicket) {
                     /** @var Ticket $candidateTicket */
-                    $closeGateError = $this->closeStatusGateErrorForTicket($candidateTicket);
+                    $closeGateError = $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($candidateTicket);
                     if ($closeGateError !== null) {
                         return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
                     }
@@ -643,54 +480,13 @@ class TicketController extends Controller
             } else {
                 foreach ($tickets as $candidateTicket) {
                     /** @var Ticket $candidateTicket */
-                    $reopenGateError = $this->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
+                    $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
                     if ($reopenGateError !== null) {
                         return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
                     }
                 }
             }
-
-            $tickets->each(function (Ticket $ticket) use ($newStatus, $closeReason) {
-                $previousStatus = (string) $ticket->status;
-                $previousAssignedIds = $ticket->assigned_user_ids;
-                $newAssignedIds = $this->determineReviewerAssigneeIds($newStatus, $previousAssignedIds);
-                $newAssignedTo = $this->primaryAssigneeId($newAssignedIds);
-
-                $updateData = ['status' => $newStatus];
-                if ($previousAssignedIds !== $newAssignedIds) {
-                    $updateData['assigned_to'] = $newAssignedTo;
-                    $updateData = array_merge($updateData, $this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds));
-                }
-                $this->applyLifecycleTimestamps($ticket, $updateData);
-
-                if ($previousStatus === $newStatus && $previousAssignedIds === $newAssignedIds) {
-                    return;
-                }
-
-                $ticket->update($updateData);
-                $this->trackTicketAcknowledgment($ticket);
-
-                if ($previousAssignedIds !== $newAssignedIds) {
-                    $ticket->assignedUsers()->sync($newAssignedIds);
-                    $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-                }
-
-                if ($newStatus === 'closed') {
-                    $this->recordStatusClosureReason($ticket, $previousStatus, 'closed', $closeReason);
-                }
-            });
-            $this->systemLogs->record(
-                'ticket.bulk.status',
-                'Updated ticket statuses in bulk.',
-                [
-                    'category' => 'ticket',
-                    'metadata' => [
-                        'ticket_ids' => $selectedIds->all(),
-                        'status' => $newStatus,
-                    ],
-                    'request' => $request,
-                ]
-            );
+            $this->ticketWorkflow->bulkStatusTickets($request, $tickets, $selectedIds->all());
 
             return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket statuses updated.');
         }
@@ -699,21 +495,7 @@ class TicketController extends Controller
             if (! $request->filled('priority')) {
                 return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a priority.');
             }
-
-            Ticket::whereIn('id', $selectedIds)->update(['priority' => $request->string('priority')->toString()]);
-            Ticket::whereIn('id', $selectedIds)->get()->each(fn (Ticket $ticket) => $this->trackTicketAcknowledgment($ticket));
-            $this->systemLogs->record(
-                'ticket.bulk.priority',
-                'Updated ticket priorities in bulk.',
-                [
-                    'category' => 'ticket',
-                    'metadata' => [
-                        'ticket_ids' => $selectedIds->all(),
-                        'priority' => $request->string('priority')->toString(),
-                    ],
-                    'request' => $request,
-                ]
-            );
+            $this->ticketWorkflow->bulkPriorityTickets($request, $tickets, $selectedIds->all());
 
             return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket priorities updated.');
         }
@@ -753,54 +535,6 @@ class TicketController extends Controller
         return $this->redirectBackOrReturnTo($request)->with('error', 'Invalid bulk action.');
     }
 
-    private function closeStatusGateErrorForTicket(Ticket $ticket): ?string
-    {
-        if (! $this->requiresCloseDelayForCurrentActor()) {
-            return null;
-        }
-
-        if (! $ticket->resolved_at) {
-            return "Ticket {$ticket->ticket_number} must be resolved first. Super users and technical users can close tickets only after 24 hours from resolution.";
-        }
-
-        $closeAvailableAt = $ticket->resolved_at->copy()->addDay();
-        if (now()->lt($closeAvailableAt)) {
-            return "Ticket {$ticket->ticket_number} can be closed on ".$closeAvailableAt->format('M j, Y \\a\\t g:i A').'.';
-        }
-
-        return null;
-    }
-
-    private function reopenClosedStatusGateErrorForTicket(Ticket $ticket, ?string $nextStatus): ?string
-    {
-        if ($ticket->status !== 'closed' || $nextStatus === null || $nextStatus === 'closed') {
-            return null;
-        }
-
-        if (! $ticket->closed_at) {
-            return null;
-        }
-
-        $reopenDeadline = $ticket->closed_at->copy()->addDays(self::CLOSED_REVERT_WINDOW_DAYS);
-        if (now()->gt($reopenDeadline)) {
-            return "Ticket {$ticket->ticket_number} can no longer be reverted because it was closed more than "
-                .self::CLOSED_REVERT_WINDOW_DAYS
-                .' days ago.';
-        }
-
-        return null;
-    }
-
-    private function requiresCloseDelayForCurrentActor(): bool
-    {
-        $actor = auth()->user();
-        if (! $actor) {
-            return false;
-        }
-
-        return in_array($actor->normalizedRole(), [User::ROLE_TECHNICAL, User::ROLE_SUPER_USER], true);
-    }
-
     private function returnPathFromRequest(Request $request): ?string
     {
         $returnTo = trim($request->string('return_to')->toString());
@@ -811,12 +545,6 @@ class TicketController extends Controller
         return $returnTo;
     }
 
-    private function trackTicketAcknowledgment(Ticket $ticket): void
-    {
-        $actor = auth()->user();
-        $this->ticketAcknowledgments->trackHandlingAction($ticket, $actor);
-    }
-
     private function redirectBackOrReturnTo(Request $request)
     {
         $returnPath = $this->returnPathFromRequest($request);
@@ -825,35 +553,6 @@ class TicketController extends Controller
         }
 
         return redirect()->back();
-    }
-
-    private function applyLifecycleTimestamps(?Ticket $ticket, array &$updateData): void
-    {
-        $status = $updateData['status'] ?? null;
-
-        if (in_array($status, ['open', 'in_progress', 'pending'], true)) {
-            $updateData = array_merge($updateData, Ticket::reopenedLifecycleResetAttributes());
-
-            return;
-        }
-
-        if ($status === 'resolved' && (! $ticket || ! $ticket->resolved_at)) {
-            $updateData['resolved_at'] = now();
-        }
-
-        if ($status === 'resolved') {
-            $updateData['closed_at'] = null;
-            $updateData['closed_by'] = null;
-        }
-
-        if ($status === 'closed' && (! $ticket || ! $ticket->closed_at)) {
-            $updateData['closed_at'] = now();
-            $updateData['closed_by'] = auth()->id();
-        }
-
-        if ($status === 'closed' && (! $ticket || ! $ticket->resolved_at)) {
-            $updateData['resolved_at'] = now();
-        }
     }
 
     private function canRunDestructiveAction(): bool
@@ -868,131 +567,6 @@ class TicketController extends Controller
         $user = auth()->user();
 
         return $user && $user->isSuperAdmin();
-    }
-
-    private function determineReviewerAssigneeIds(string $nextStatus, array $requestedAssignedIds): array
-    {
-        if ($requestedAssignedIds !== []) {
-            return $requestedAssignedIds;
-        }
-
-        if (! in_array($nextStatus, Ticket::CLOSED_STATUSES, true)) {
-            return [];
-        }
-
-        $actor = auth()->user();
-        if (! $actor || ! $actor->isAdminLevel() || $actor->isShadow()) {
-            return [];
-        }
-
-        return [(int) $actor->id];
-    }
-
-    private function assignmentMetadataForChange(array $previousAssignedIds, array $newAssignedIds): array
-    {
-        if ($previousAssignedIds === $newAssignedIds) {
-            return [];
-        }
-
-        return [
-            'assigned_at' => $newAssignedIds !== [] ? now() : null,
-            'technical_user_notified_assignment_at' => null,
-            'technical_user_notified_sla_at' => null,
-            'super_users_notified_unassigned_sla_at' => null,
-        ];
-    }
-
-    private function recordAssignmentHandoff(Ticket $ticket, array $previousAssignedIds, array $newAssignedIds): void
-    {
-        if ($previousAssignedIds === $newAssignedIds) {
-            return;
-        }
-
-        $actorName = optional(auth()->user())->name ?? 'System';
-        $previousAssigneeName = $this->assigneeDisplayNames($previousAssignedIds);
-        $newAssigneeName = $this->assigneeDisplayNames($newAssignedIds);
-
-        $message = match (true) {
-            $previousAssignedIds === [] && $newAssigneeName !== null => "Ticket was assigned to {$newAssigneeName} by {$actorName}.",
-            $previousAssigneeName !== null && $newAssigneeName !== null => "Ticket assignment updated by {$actorName}. Previous: {$previousAssigneeName}. New: {$newAssigneeName}.",
-            $previousAssigneeName !== null && $newAssignedIds === [] => "Ticket was unassigned from {$previousAssigneeName} by {$actorName}.",
-            default => null,
-        };
-
-        if (! $message) {
-            return;
-        }
-
-        TicketReply::create([
-            'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
-            'message' => $message.' Previous conversation remains available for continuity.',
-            'is_internal' => true,
-        ]);
-    }
-
-    private function assigneeDisplayNames(array $userIds): ?string
-    {
-        if ($userIds === []) {
-            return null;
-        }
-
-        static $displayNameCache = [];
-        $displayNames = [];
-
-        foreach ($userIds as $userId) {
-            if (! array_key_exists($userId, $displayNameCache)) {
-                $user = User::find($userId);
-                $displayNameCache[$userId] = $user && ! $user->isShadow()
-                    ? $user->publicDisplayName()
-                    : null;
-            }
-
-            $displayName = $displayNameCache[$userId];
-            if ($displayName) {
-                $displayNames[] = $displayName;
-            }
-        }
-
-        $displayNames = array_values(array_unique($displayNames));
-
-        return $displayNames !== [] ? implode(', ', $displayNames) : null;
-    }
-
-    private function normalizedAssigneeIdsFromRequest(Request $request): array
-    {
-        return collect($request->input('assigned_to', []))
-            ->map(fn ($userId) => (int) $userId)
-            ->filter(fn (int $userId) => $userId > 0)
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    private function primaryAssigneeId(array $assigneeIds): ?int
-    {
-        return $assigneeIds[0] ?? null;
-    }
-
-    private function recordStatusClosureReason(Ticket $ticket, string $previousStatus, string $nextStatus, string $closeReason): void
-    {
-        if ($nextStatus !== 'closed' || $previousStatus === 'closed') {
-            return;
-        }
-
-        $reason = trim($closeReason);
-        if ($reason === '') {
-            return;
-        }
-
-        $actorName = optional(auth()->user())->name ?? 'System';
-
-        TicketReply::create([
-            'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
-            'message' => "Ticket was closed by {$actorName}.\nReason: {$reason}",
-            'is_internal' => true,
-        ]);
     }
 
     private function authorizeTicketAccess(Ticket $ticket): void

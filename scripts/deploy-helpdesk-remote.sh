@@ -30,4 +30,15 @@ php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
 php artisan queue:restart || true
-php artisan helpdesk:ops-status
+
+for attempt in 1 2 3 4 5; do
+    if php artisan helpdesk:ops-status --fail-on-warning; then
+        break
+    fi
+
+    if [[ "$attempt" == "5" ]]; then
+        exit 1
+    fi
+
+    sleep 3
+done

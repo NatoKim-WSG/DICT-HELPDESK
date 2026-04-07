@@ -12,8 +12,8 @@
 
     <div class="mt-4">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <x-ui.stat-card label="First Response Time" :value="$formatMinutes($slaReport['first_response']['average_minutes'])" value-class="text-sky-600" />
-            <x-ui.stat-card label="Resolution Time" :value="$formatMinutes($slaReport['resolution']['average_minutes'])" value-class="text-emerald-600" />
+            <x-ui.stat-card label="First Response Time" :value="$slaReport['first_response']['average_display'] ?? 'No data'" value-class="text-sky-600" />
+            <x-ui.stat-card label="Resolution Time" :value="$slaReport['resolution']['average_display'] ?? 'No data'" value-class="text-emerald-600" />
             <x-ui.stat-card label="Customer Satisfaction SLA" :value="number_format((float) ($slaReport['customer_satisfaction']['rate'] ?? 0), 1) . '%'" value-class="text-fuchsia-600" />
         </div>
 

@@ -1,142 +1,13 @@
 <div data-admin-reports-shell>
 @php
-    $monthlyPerformanceSeries = ($monthlyPerformanceGraphPoints ?? $monthlyGraphPoints)->values();
-    $monthlyPerformanceFocusMonthKey = $monthlyPerformanceFocusMonthKey ?? $selectedMonthKey;
-    $monthlyCountMax = max(1, (int) $monthlyPerformanceSeries->max(fn ($point) => max((int) $point['received'], (int) $point['resolved'])));
-    $chartHeight = 320;
-    $chartWidth = max(760, ($monthlyPerformanceSeries->count() * 70));
-    $paddingLeft = 44;
-    $paddingRight = 24;
-    $paddingTop = 18;
-    $paddingBottom = 52;
-    $plotWidth = max(1, $chartWidth - $paddingLeft - $paddingRight);
-    $plotHeight = max(1, $chartHeight - $paddingTop - $paddingBottom);
-    $step = $monthlyPerformanceSeries->count() > 0 ? ($plotWidth / $monthlyPerformanceSeries->count()) : $plotWidth;
-    $selectedPerformancePoint = $monthlyPerformanceSeries->firstWhere('key', $monthlyPerformanceFocusMonthKey)
-        ?? $monthlyPerformanceSeries->last();
-
+    $ticketPie = $reportVisuals['ticket_pie'];
+    $categoryPie = $reportVisuals['category_pie'];
+    $priorityPie = $reportVisuals['priority_pie'];
+    $monthlyPerformance = $reportVisuals['monthly_performance'];
+    $mixScopeLabel = $reportVisuals['mix_scope_label'];
+    $pieRadius = $reportVisuals['pie_radius'];
+    $pieCircumference = $reportVisuals['pie_circumference'];
     $pieTotalCreated = (int) ($ticketsBreakdownOverview['total_created'] ?? 0);
-    $pieResolved = (int) ($ticketsBreakdownOverview['resolved'] ?? 0);
-    $pieClosed = (int) ($ticketsBreakdownOverview['closed'] ?? 0);
-    $pieResolvedOnly = max($pieResolved - $pieClosed, 0);
-    $ticketPieSlices = [
-        ['label' => 'Open', 'count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['open'] ?? 0), 'color' => '#8b5cf6', 'tab' => 'tickets', 'status' => 'open'],
-        ['label' => 'In Progress', 'count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['in_progress'] ?? 0), 'color' => '#0ea5e9', 'tab' => 'tickets', 'status' => 'in_progress'],
-        ['label' => 'Pending', 'count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'display_count' => (int) ($ticketsBreakdownOverview['pending'] ?? 0), 'color' => '#f59e0b', 'tab' => 'tickets', 'status' => 'pending'],
-        ['label' => 'Resolved', 'count' => $pieResolvedOnly, 'display_count' => $pieResolved, 'color' => '#10b981', 'tab' => 'history', 'status' => null],
-        ['label' => 'Closed', 'count' => $pieClosed, 'display_count' => $pieClosed, 'color' => '#64748b', 'tab' => 'history', 'status' => 'closed'],
-    ];
-    $ticketPieTotal = max(0, (int) collect($ticketPieSlices)->sum('count'));
-    $mixScopeLabel = (string) ($ticketsBreakdownOverview['label'] ?? 'All Time');
-    $ticketPieRadius = 58;
-    $ticketPieCircumference = 2 * pi() * $ticketPieRadius;
-    $buildPieSegments = function (array $slices, int $total) use ($ticketPieCircumference): array {
-        if ($total <= 0) {
-            return [];
-        }
-
-        $segments = [];
-        $accumulatedLength = 0.0;
-        foreach ($slices as $slice) {
-            $count = (int) ($slice['count'] ?? 0);
-            if ($count <= 0) {
-                continue;
-            }
-
-            $segmentLength = ($count / $total) * $ticketPieCircumference;
-            $segments[] = [
-                'label' => (string) ($slice['label'] ?? ''),
-                'count' => $count,
-                'color' => (string) ($slice['color'] ?? '#94a3b8'),
-                'length' => $segmentLength,
-                'offset' => -$accumulatedLength,
-            ];
-            $accumulatedLength += $segmentLength;
-        }
-
-        return $segments;
-    };
-    $ticketPieSegments = $buildPieSegments($ticketPieSlices, $ticketPieTotal);
-
-    $categoryPalette = [
-        'hardware' => '#0ea5e9',
-        'software' => '#8b5cf6',
-        'network' => '#14b8a6',
-        'access / permissions' => '#f59e0b',
-        'security' => '#ef4444',
-        'other' => '#64748b',
-    ];
-    $categoryPieSlices = collect($categoryBreakdownBuckets ?? [])
-        ->map(function ($bucket) use ($categoryPalette) {
-            $label = (string) ($bucket['name'] ?? 'Other');
-            $count = (int) ($bucket['count'] ?? 0);
-            $color = $categoryPalette[strtolower($label)] ?? '#94a3b8';
-
-            return [
-                'label' => $label,
-                'count' => $count,
-                'color' => $color,
-            ];
-        })
-        ->filter(fn ($slice) => $slice['count'] > 0)
-        ->values()
-        ->all();
-    $categoryPieTotal = max(0, (int) collect($categoryPieSlices)->sum('count'));
-
-    $priorityPalette = [
-        'pending review' => '#64748b',
-        'critical' => '#ef4444',
-        'high' => '#f59e0b',
-        'medium' => '#0ea5e9',
-        'low' => '#10b981',
-    ];
-    $priorityPieSlices = collect($priorityBreakdownBuckets ?? [])
-        ->map(function ($bucket) use ($priorityPalette) {
-            $label = (string) ($bucket['name'] ?? 'Other');
-            $count = (int) ($bucket['count'] ?? 0);
-            $color = $priorityPalette[strtolower($label)] ?? '#94a3b8';
-
-            return [
-                'label' => $label,
-                'count' => $count,
-                'color' => $color,
-            ];
-        })
-        ->filter(fn ($slice) => $slice['count'] > 0)
-        ->values()
-        ->all();
-    $priorityPieTotal = max(0, (int) collect($priorityPieSlices)->sum('count'));
-    $categoryPieSegments = $buildPieSegments($categoryPieSlices, $categoryPieTotal);
-    $priorityPieSegments = $buildPieSegments($priorityPieSlices, $priorityPieTotal);
-    $ticketHistoryScopeParams = collect($ticketHistoryScope ?? [])
-        ->filter(fn ($value) => $value !== null && $value !== '')
-        ->all();
-    $formatMinutes = function (?float $minutes): string {
-        if ($minutes === null) {
-            return 'N/A';
-        }
-
-        $roundedMinutes = (int) round($minutes);
-        if ($roundedMinutes < 60) {
-            return $roundedMinutes.'m';
-        }
-
-        $hours = intdiv($roundedMinutes, 60);
-        $remainingMinutes = $roundedMinutes % 60;
-
-        if ($hours < 24) {
-            return $remainingMinutes > 0
-                ? $hours.'h '.$remainingMinutes.'m'
-                : $hours.'h';
-        }
-
-        $days = intdiv($hours, 24);
-        $remainingHours = $hours % 24;
-
-        return $remainingHours > 0
-            ? $days.'d '.$remainingHours.'h'
-            : $days.'d';
-    };
 @endphp
 
 <div class="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-8" data-admin-reports-page data-route-base="{{ route('admin.reports.index', absolute: false) }}">
@@ -212,18 +83,18 @@
                     <div class="grid gap-4 md:grid-cols-[auto_1fr] md:items-center">
                         <div class="flex justify-center">
                             <svg viewBox="0 0 180 180" class="js-total-pie-chart h-44 w-44" role="img" aria-label="Total tickets breakdown">
-                                <circle cx="90" cy="90" r="{{ $ticketPieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
-                                @if($ticketPieTotal > 0)
-                                    @foreach($ticketPieSegments as $segment)
+                                <circle cx="90" cy="90" r="{{ $pieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
+                                @if($ticketPie['total'] > 0)
+                                    @foreach($ticketPie['segments'] as $segment)
                                         <circle
                                             cx="90"
                                             cy="90"
-                                            r="{{ $ticketPieRadius }}"
+                                            r="{{ $pieRadius }}"
                                             fill="none"
                                             stroke="{{ $segment['color'] }}"
                                             stroke-width="20"
                                             stroke-linecap="butt"
-                                            stroke-dasharray="{{ $segment['length'] }} {{ $ticketPieCircumference }}"
+                                            stroke-dasharray="{{ $segment['length'] }} {{ $pieCircumference }}"
                                             stroke-dashoffset="{{ $segment['offset'] }}"
                                             transform="rotate(-90 90 90)"
                                         ></circle>
@@ -234,18 +105,9 @@
                             </svg>
                         </div>
                         <div class="space-y-2">
-                            @foreach($ticketPieSlices as $slice)
-                                @php
-                                    $sliceCount = (int) ($slice['display_count'] ?? $slice['count'] ?? 0);
-                                    $statusFilter = $slice['status'] ?? null;
-                                    $statusTab = $slice['tab'] ?? 'tickets';
-                                    $statusLinkParams = array_merge($ticketHistoryScopeParams, ['tab' => $statusTab]);
-                                    if ($statusFilter !== null) {
-                                        $statusLinkParams['status'] = $statusFilter;
-                                    }
-                                    $statusLink = route('admin.tickets.index', $statusLinkParams);
-                                @endphp
-                                <a href="{{ $statusLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
+                            @foreach($ticketPie['slices'] as $slice)
+                                @php($sliceCount = (int) ($slice['display_count'] ?? $slice['count'] ?? 0))
+                                <a href="{{ $slice['link'] }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition hover:bg-slate-200">
                                     <div class="flex items-center gap-2">
                                         <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
                                             <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
@@ -274,42 +136,35 @@
                 <div id="category-mix-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Category</p>
-                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $categoryPieTotal }} total</span>
+                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $categoryPie['total'] }} total</span>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
                         <div class="flex justify-center">
                             <svg viewBox="0 0 180 180" class="js-total-pie-chart h-40 w-40" role="img" aria-label="Tickets by category">
-                                <circle cx="90" cy="90" r="{{ $ticketPieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
-                                @if($categoryPieTotal > 0)
-                                    @foreach($categoryPieSegments as $segment)
+                                <circle cx="90" cy="90" r="{{ $pieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
+                                @if($categoryPie['total'] > 0)
+                                    @foreach($categoryPie['segments'] as $segment)
                                         <circle
                                             cx="90"
                                             cy="90"
-                                            r="{{ $ticketPieRadius }}"
+                                            r="{{ $pieRadius }}"
                                             fill="none"
                                             stroke="{{ $segment['color'] }}"
                                             stroke-width="20"
                                             stroke-linecap="butt"
-                                            stroke-dasharray="{{ $segment['length'] }} {{ $ticketPieCircumference }}"
+                                            stroke-dasharray="{{ $segment['length'] }} {{ $pieCircumference }}"
                                             stroke-dashoffset="{{ $segment['offset'] }}"
                                             transform="rotate(-90 90 90)"
                                         ></circle>
                                     @endforeach
                                 @endif
                                 <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Category</text>
-                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="20" font-weight="700">{{ $categoryPieTotal }}</text>
+                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="20" font-weight="700">{{ $categoryPie['total'] }}</text>
                             </svg>
                         </div>
                         <div class="space-y-1.5">
-                            @foreach($categoryPieSlices as $slice)
-                                @php
-                                    $categoryBucket = strtolower(str_replace([' / ', ' '], ['_', '_'], (string) ($slice['label'] ?? 'other')));
-                                    $categoryLink = route('admin.tickets.index', array_merge($ticketHistoryScopeParams, [
-                                        'tab' => 'all',
-                                        'category_bucket' => $categoryBucket,
-                                    ]));
-                                @endphp
-                                <a href="{{ $categoryLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
+                            @foreach($categoryPie['slices'] as $slice)
+                                <a href="{{ $slice['link'] }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
                                         <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
                                             <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
@@ -338,48 +193,35 @@
                 <div id="priority-mix-chart" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div class="mb-2 flex items-center justify-between">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">By Priority</p>
-                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $priorityPieTotal }} total</span>
+                        <span class="text-xs text-slate-500">{{ $mixScopeLabel }} · {{ $priorityPie['total'] }} total</span>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
                         <div class="flex justify-center">
                             <svg viewBox="0 0 180 180" class="js-total-pie-chart h-40 w-40" role="img" aria-label="Tickets by priority">
-                                <circle cx="90" cy="90" r="{{ $ticketPieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
-                                @if($priorityPieTotal > 0)
-                                    @foreach($priorityPieSegments as $segment)
+                                <circle cx="90" cy="90" r="{{ $pieRadius }}" fill="none" class="pie-track" stroke-width="20"></circle>
+                                @if($priorityPie['total'] > 0)
+                                    @foreach($priorityPie['segments'] as $segment)
                                         <circle
                                             cx="90"
                                             cy="90"
-                                            r="{{ $ticketPieRadius }}"
+                                            r="{{ $pieRadius }}"
                                             fill="none"
                                             stroke="{{ $segment['color'] }}"
                                             stroke-width="20"
                                             stroke-linecap="butt"
-                                            stroke-dasharray="{{ $segment['length'] }} {{ $ticketPieCircumference }}"
+                                            stroke-dasharray="{{ $segment['length'] }} {{ $pieCircumference }}"
                                             stroke-dashoffset="{{ $segment['offset'] }}"
                                             transform="rotate(-90 90 90)"
                                         ></circle>
                                     @endforeach
                                 @endif
                                 <text x="90" y="84" text-anchor="middle" class="pie-center-label" font-size="11" font-weight="600">Priority</text>
-                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="20" font-weight="700">{{ $priorityPieTotal }}</text>
+                                <text x="90" y="104" text-anchor="middle" class="pie-center-value" font-size="20" font-weight="700">{{ $priorityPie['total'] }}</text>
                             </svg>
                         </div>
                         <div class="space-y-1.5">
-                            @foreach($priorityPieSlices as $slice)
-                                @php
-                                    $priorityFilter = match (strtolower((string) ($slice['label'] ?? ''))) {
-                                        'pending review' => 'unassigned',
-                                        'critical' => 'urgent',
-                                        'high' => 'high',
-                                        'medium' => 'medium',
-                                        'low' => 'low',
-                                        default => null,
-                                    };
-                                    $priorityLink = $priorityFilter
-                                        ? route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'all', 'priority' => $priorityFilter]))
-                                        : route('admin.tickets.index', array_merge($ticketHistoryScopeParams, ['tab' => 'all']));
-                                @endphp
-                                <a href="{{ $priorityLink }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
+                            @foreach($priorityPie['slices'] as $slice)
+                                <a href="{{ $slice['link'] }}" class="pie-legend-row group flex items-center justify-between rounded-lg bg-slate-100 px-3 py-2 text-sm transition">
                                     <div class="flex items-center gap-2">
                                         <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" aria-hidden="true">
                                             <circle cx="5" cy="5" r="5" fill="{{ $slice['color'] }}"></circle>
@@ -430,29 +272,16 @@
                         <span class="inline-flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>Completed</span>
                     </div>
                     <div class="w-full overflow-hidden">
-                        <svg viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" class="h-80 w-full">
-                            @foreach([0, 25, 50, 75, 100] as $lineRate)
-                                @php
-                                    $lineY = $paddingTop + ($plotHeight - (($lineRate / 100) * $plotHeight));
-                                    $countLabel = (int) round(($lineRate / 100) * $monthlyCountMax);
-                                @endphp
-                                <line x1="{{ $paddingLeft }}" y1="{{ $lineY }}" x2="{{ $chartWidth - $paddingRight }}" y2="{{ $lineY }}" stroke="#334155" stroke-width="1" stroke-dasharray="3 4"></line>
-                                <text x="6" y="{{ $lineY + 4 }}" fill="#94a3b8" font-size="10">{{ $countLabel }}</text>
+                        <svg viewBox="0 0 {{ $monthlyPerformance['chart_width'] }} {{ $monthlyPerformance['chart_height'] }}" class="h-80 w-full">
+                            @foreach($monthlyPerformance['grid_lines'] as $line)
+                                <line x1="{{ $monthlyPerformance['padding_left'] }}" y1="{{ $line['y'] }}" x2="{{ $monthlyPerformance['chart_width'] - $monthlyPerformance['padding_right'] }}" y2="{{ $line['y'] }}" stroke="#334155" stroke-width="1" stroke-dasharray="3 4"></line>
+                                <text x="6" y="{{ $line['y'] + 4 }}" fill="#94a3b8" font-size="10">{{ $line['count_label'] }}</text>
                             @endforeach
 
-                            @foreach($monthlyPerformanceSeries as $pointIndex => $point)
-                                @php
-                                    $centerX = $paddingLeft + ($pointIndex * $step) + ($step / 2);
-                                    $barWidth = max(8, (int) floor(($step * 0.28)));
-                                    $receivedHeight = $point['received'] > 0 ? (($point['received'] / $monthlyCountMax) * $plotHeight) : 0;
-                                    $resolvedHeight = $point['resolved'] > 0 ? (($point['resolved'] / $monthlyCountMax) * $plotHeight) : 0;
-                                    $receivedY = $paddingTop + ($plotHeight - $receivedHeight);
-                                    $resolvedY = $paddingTop + ($plotHeight - $resolvedHeight);
-                                    $labelY = $paddingTop + $plotHeight + 14;
-                                @endphp
-                                <rect x="{{ $centerX - $barWidth - 2 }}" y="{{ $receivedY }}" width="{{ $barWidth }}" height="{{ max(1, $receivedHeight) }}" rx="2" fill="#0ea5e9"></rect>
-                                <rect x="{{ $centerX + 2 }}" y="{{ $resolvedY }}" width="{{ $barWidth }}" height="{{ max(1, $resolvedHeight) }}" rx="2" fill="#10b981"></rect>
-                                <text x="{{ $centerX }}" y="{{ $labelY }}" fill="#94a3b8" font-size="10" text-anchor="middle">{{ $point['label'] }}</text>
+                            @foreach($monthlyPerformance['bars'] as $bar)
+                                <rect x="{{ $bar['center_x'] - $bar['bar_width'] - 2 }}" y="{{ $bar['received_y'] }}" width="{{ $bar['bar_width'] }}" height="{{ $bar['received_height'] }}" rx="2" fill="#0ea5e9"></rect>
+                                <rect x="{{ $bar['center_x'] + 2 }}" y="{{ $bar['resolved_y'] }}" width="{{ $bar['bar_width'] }}" height="{{ $bar['resolved_height'] }}" rx="2" fill="#10b981"></rect>
+                                <text x="{{ $bar['center_x'] }}" y="{{ $bar['label_y'] }}" fill="#94a3b8" font-size="10" text-anchor="middle">{{ $bar['label'] }}</text>
                             @endforeach
                         </svg>
                     </div>
@@ -460,19 +289,19 @@
                 <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Detailed Month</p>
-                        <p class="mt-1 text-base font-semibold text-slate-900">{{ $selectedPerformancePoint['month_label'] ?? ($selectedMonthRow['month_label'] ?? '') }}</p>
+                        <p class="mt-1 text-base font-semibold text-slate-900">{{ $monthlyPerformance['selected_point']['month_label'] ?? ($selectedMonthRow['month_label'] ?? '') }}</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Received</p>
-                        <p class="mt-1 text-2xl font-semibold text-sky-600">{{ $selectedPerformancePoint['received'] ?? ($selectedMonthRow['received'] ?? 0) }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-sky-600">{{ $monthlyPerformance['selected_point']['received'] ?? ($selectedMonthRow['received'] ?? 0) }}</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed</p>
-                        <p class="mt-1 text-2xl font-semibold text-emerald-600">{{ $selectedPerformancePoint['resolved'] ?? ($selectedMonthRow['resolved'] ?? 0) }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-emerald-600">{{ $monthlyPerformance['selected_point']['resolved'] ?? ($selectedMonthRow['resolved'] ?? 0) }}</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Completion Rate</p>
-                        <p class="mt-1 text-2xl font-semibold text-slate-900">{{ number_format((float) ($selectedPerformancePoint['resolution_rate'] ?? ($selectedMonthRow['resolution_rate'] ?? 0)), 1) }}%</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">{{ number_format((float) ($monthlyPerformance['selected_point']['resolution_rate'] ?? ($selectedMonthRow['resolution_rate'] ?? 0)), 1) }}%</p>
                     </div>
                 </div>
             </div>

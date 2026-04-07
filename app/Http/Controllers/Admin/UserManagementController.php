@@ -149,116 +149,6 @@ class UserManagementController extends Controller
         ));
     }
 
-    public function resetManagedUserPassword(User $user)
-    {
-        $currentUser = auth()->user();
-
-        if ($this->isSystemReplacementUser($user)) {
-            return redirect()->route('admin.users.index')
-                ->with('error', 'System archive users cannot be modified.');
-        }
-
-        if ($user->isShadow()) {
-            return redirect()->route('admin.users.show', $user)
-                ->with('error', 'Shadow account passwords cannot be revealed from user management.');
-        }
-
-        if ($user->id === $currentUser->id) {
-            return redirect()->route('admin.users.show', $user)
-                ->with('error', 'Use Account Settings to update your own password.');
-        }
-
-        $this->authorize('resetManagedPassword', $user);
-
-        $temporaryPassword = $this->generateTemporaryManagedPassword();
-        $expiresAt = now()->addMinutes(10);
-
-        $user->forceFill([
-            'password' => Hash::make($temporaryPassword),
-            'must_change_password' => ! $user->isClient(),
-        ])->save();
-
-        CredentialHandoff::query()->updateOrCreate(
-            ['target_user_id' => $user->id],
-            [
-                'issued_by_user_id' => $currentUser->id,
-                'temporary_password' => $temporaryPassword,
-                'expires_at' => $expiresAt,
-                'revealed_at' => null,
-                'consumed_at' => null,
-            ]
-        );
-
-        $this->systemLogs->record(
-            'user.password.handoff_issued',
-            'Issued a one-time managed password handoff.',
-            [
-                'category' => 'security',
-                'target_type' => User::class,
-                'target_id' => $user->id,
-                'metadata' => [
-                    'expires_at' => $expiresAt->toIso8601String(),
-                ],
-            ]
-        );
-
-        return redirect()->route('admin.users.show', $user)
-            ->with('success', 'Temporary password issued. Reveal it once before it expires.');
-    }
-
-    public function revealManagedUserPassword(User $user)
-    {
-        $currentUser = auth()->user();
-
-        if ($this->isSystemReplacementUser($user)) {
-            return redirect()->route('admin.users.index')
-                ->with('error', 'System archive users cannot be modified.');
-        }
-
-        if ($user->isShadow()) {
-            return redirect()->route('admin.users.show', $user)
-                ->with('error', 'Shadow account passwords cannot be revealed from user management.');
-        }
-
-        if ($user->id === $currentUser->id) {
-            return redirect()->route('admin.users.show', $user)
-                ->with('error', 'Use Account Settings to update your own password.');
-        }
-
-        $this->authorize('revealManagedPassword', $user);
-
-        $handoff = CredentialHandoff::query()
-            ->where('target_user_id', $user->id)
-            ->whereNull('consumed_at')
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (! $handoff) {
-            return redirect()->route('admin.users.show', $user)
-                ->with('error', 'No active temporary password is available for this account.');
-        }
-
-        $temporaryPassword = (string) $handoff->temporary_password;
-        $handoff->forceFill([
-            'revealed_at' => $handoff->revealed_at ?? now(),
-            'consumed_at' => now(),
-        ])->save();
-
-        $this->systemLogs->record(
-            'user.password.handoff_revealed',
-            'Revealed a one-time managed password handoff.',
-            [
-                'category' => 'security',
-                'target_type' => User::class,
-                'target_id' => $user->id,
-            ]
-        );
-
-        return redirect()->route('admin.users.show', $user)
-            ->with('managed_password_reveal', $temporaryPassword)
-            ->with('success', 'Temporary password revealed once. Copy it now; it cannot be viewed again.');
-    }
-
     public function edit(Request $request, User $user)
     {
         $currentUser = auth()->user();
@@ -585,11 +475,6 @@ class UserManagementController extends Controller
                 'is_active' => false,
             ]
         );
-    }
-
-    private function generateTemporaryManagedPassword(): string
-    {
-        return strtoupper(Str::random(4)).'-'.Str::random(8);
     }
 
     private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message, string $returnTo, bool $hasReturnTo)
