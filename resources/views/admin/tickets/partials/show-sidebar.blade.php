@@ -1,3 +1,30 @@
+@php
+    $resolutionEndedAt = $ticket->resolved_at ?? $ticket->closed_at;
+    $resolutionTimeDisplay = null;
+
+    if ($ticket->created_at && $resolutionEndedAt && $resolutionEndedAt->greaterThanOrEqualTo($ticket->created_at)) {
+        $resolutionMinutes = (int) $ticket->created_at->diffInMinutes($resolutionEndedAt);
+        $resolutionDays = intdiv($resolutionMinutes, 1440);
+        $resolutionHours = intdiv($resolutionMinutes % 1440, 60);
+        $remainingResolutionMinutes = $resolutionMinutes % 60;
+        $resolutionParts = [];
+
+        if ($resolutionDays > 0) {
+            $resolutionParts[] = $resolutionDays.'d';
+        }
+
+        if ($resolutionHours > 0) {
+            $resolutionParts[] = $resolutionHours.'h';
+        }
+
+        if ($remainingResolutionMinutes > 0 || $resolutionParts === []) {
+            $resolutionParts[] = $remainingResolutionMinutes.'m';
+        }
+
+        $resolutionTimeDisplay = implode(' ', $resolutionParts);
+    }
+@endphp
+
 <div class="space-y-6">
     <div class="bg-white shadow sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6">
@@ -43,6 +70,12 @@
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Resolved At</dt>
                         <dd class="text-sm text-gray-900">{{ $ticket->resolved_at->format('M j, Y \a\t g:i A') }}</dd>
+                    </div>
+                @endif
+                @if($resolutionTimeDisplay)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Resolution Time</dt>
+                        <dd class="text-sm text-gray-900">{{ $resolutionTimeDisplay }}</dd>
                     </div>
                 @endif
                 @if($ticket->closed_at)

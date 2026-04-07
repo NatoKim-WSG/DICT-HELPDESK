@@ -329,6 +329,10 @@ class TicketLifecycleConsistencyTest extends TestCase
             'closed_at' => null,
             'closed_by' => null,
         ]);
+        Ticket::query()->whereKey($ticket->id)->update([
+            'created_at' => Carbon::now()->subHours(50),
+        ]);
+        $ticket->refresh();
         $ticket->assignedUsers()->sync([$primaryTechnical->id, $secondaryTechnical->id]);
 
         $response = $this->actingAs($secondaryTechnical)
@@ -351,6 +355,8 @@ class TicketLifecycleConsistencyTest extends TestCase
         $showResponse->assertSee('Recognized Technicians');
         $showResponse->assertSee($primaryTechnical->publicDisplayName());
         $showResponse->assertSee($secondaryTechnical->publicDisplayName());
+        $showResponse->assertSee('Resolution Time');
+        $showResponse->assertSee('1d 1h');
     }
 
     private function seedUsersAndTicket(): array
