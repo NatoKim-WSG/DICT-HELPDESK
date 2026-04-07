@@ -85,6 +85,7 @@ php scripts/check-php-platform.php
 composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
+rm -rf node_modules
 php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
@@ -99,7 +100,7 @@ Windows PowerShell deploy helper:
 ```
 
 That script only deploys inside `/opt/helpdesk` on the configured VPS and runs the shared remote deploy script in `scripts/deploy-helpdesk-remote.sh`.
-The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json` and prints an app-level ops status summary after each deploy.
+The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json`, removes `node_modules` after bundling frontend assets, and prints an app-level ops status summary after each deploy.
 
 ## Dependency and Security Checks
 
