@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -17,6 +18,16 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
 
     public function test_xlsx_import_command_preserves_ticket_number_and_populates_clean_requester_snapshot_fields(): void
     {
+        $superUser = User::create([
+            'name' => 'Import Reviewing Super User',
+            'username' => 'import.review.super.xlsx',
+            'email' => 'import-review-super-xlsx@example.com',
+            'department' => 'iOne',
+            'phone' => '09170000002',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
         $requester = User::create([
             'name' => 'Legacy Import User',
             'username' => 'legacy.import.xlsx',
@@ -66,6 +77,10 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
         ])->assertSuccessful();
 
         $ticket = Ticket::query()->sole();
+        $state = TicketUserState::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('user_id', $superUser->id)
+            ->sole();
 
         $this->assertSame('TK-U3GFYDVS', $ticket->ticket_number);
         $this->assertSame('Kawasaki Client - Set up Access point for starlink', $ticket->subject);
@@ -76,10 +91,12 @@ class LegacyTicketXlsxImportCommandTest extends TestCase
         $this->assertSame('Butuan City', $ticket->municipality);
         $this->assertSame($supportUser->id, $ticket->assigned_to);
         $this->assertSame('closed', $ticket->status);
+        $this->assertTrue($ticket->isImported());
         $this->assertTrue($ticket->created_at?->equalTo(Carbon::parse('2026-03-17 14:00:00', 'Asia/Manila')->utc()));
         $this->assertTrue($ticket->assigned_at?->equalTo(Carbon::parse('2026-03-17 14:00:00', 'Asia/Manila')->utc()));
         $this->assertTrue($ticket->resolved_at?->equalTo(Carbon::parse('2026-03-17 17:00:00', 'Asia/Manila')->utc()));
         $this->assertTrue($ticket->closed_at?->equalTo(Carbon::parse('2026-03-17 17:00:00', 'Asia/Manila')->utc()));
+        $this->assertTrue($state->acknowledged_at?->equalTo(Carbon::parse('2026-03-17 14:00:00', 'Asia/Manila')->utc()));
         $this->assertStringContainsString('Requestor Details: Name: Requester Snapshot', (string) $ticket->description);
         $this->assertStringContainsString('Completed At: 03/17/2026 5:00:00 PM', (string) $ticket->description);
         $this->assertStringNotContainsString('1899', (string) $ticket->description);

@@ -232,9 +232,9 @@ Optional infra/config variables currently used:
 - `REDIS_URL`, `REDIS_PREFIX`, `REDIS_USERNAME`, `REDIS_CLUSTER`, `REDIS_DB`, `REDIS_CACHE_DB`
 - `MAIL_URL`, `MAIL_EHLO_DOMAIN`, `MAIL_LOG_CHANNEL`
 
-## Legacy Ticket Import
+## Imported Ticket Import
 
-Use the built-in importer for historical ticket batches instead of direct DB inserts. The CSV importer refuses files without `created_at` so old tickets do not get stamped with the current import time again.
+Use the built-in importer for ticket batches instead of direct DB inserts. The CSV importer refuses files without `created_at` so imported tickets do not get stamped with the current import time again.
 
 Sample template:
 

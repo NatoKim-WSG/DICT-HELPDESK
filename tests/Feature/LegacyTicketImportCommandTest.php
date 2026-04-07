@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Ticket;
+use App\Models\TicketUserState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -16,6 +17,16 @@ class LegacyTicketImportCommandTest extends TestCase
 
     public function test_import_command_preserves_source_created_at_and_uses_default_user(): void
     {
+        $superUser = User::create([
+            'name' => 'Import Reviewing Super User',
+            'username' => 'import.review.super',
+            'email' => 'import-review-super@example.com',
+            'department' => 'iOne',
+            'phone' => '09170000009',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
         $requester = User::create([
             'name' => 'Legacy Import User',
             'username' => 'legacy.import',
@@ -32,12 +43,22 @@ class LegacyTicketImportCommandTest extends TestCase
             'color' => '#6B7280',
             'is_active' => true,
         ]);
+        $assignedUser = User::create([
+            'name' => 'CSV Import Tech',
+            'username' => 'csv.import.tech',
+            'email' => 'csv-import-tech@example.com',
+            'department' => 'iOne',
+            'phone' => '09171230001',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
 
         $importPath = storage_path('app/private/imports/legacy-created-at.csv');
         File::ensureDirectoryExists(dirname($importPath));
         File::put($importPath, implode(PHP_EOL, [
-            'subject,description,created_at,category,priority,status,name,contact_number,email,province,municipality',
-            '"iOne CARAGA - Re-activation of Starlink","Imported from legacy sheet","2025-06-24 15:04:43","Other","high","open","Requester Snapshot","09998887777","requester@example.com","Agusan del Norte","Butuan City"',
+            'subject,description,created_at,category,priority,status,name,contact_number,email,province,municipality,assigned_to_email',
+            '"iOne CARAGA - Re-activation of Starlink","Imported from legacy sheet","2025-06-24 15:04:43","Other","high","open","Requester Snapshot","09998887777","requester@example.com","Agusan del Norte","Butuan City","csv-import-tech@example.com"',
             '',
         ]));
 
@@ -48,13 +69,21 @@ class LegacyTicketImportCommandTest extends TestCase
         ])->assertSuccessful();
 
         $ticket = Ticket::query()->sole();
+        $state = TicketUserState::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('user_id', $superUser->id)
+            ->sole();
         $expectedCreatedAt = Carbon::parse('2025-06-24 15:04:43', 'Asia/Manila')->utc();
 
         $this->assertTrue($ticket->created_at?->equalTo($expectedCreatedAt));
         $this->assertTrue($ticket->updated_at?->equalTo($expectedCreatedAt));
+        $this->assertTrue($ticket->assigned_at?->equalTo($expectedCreatedAt));
         $this->assertSame($requester->id, $ticket->user_id);
+        $this->assertSame($assignedUser->id, $ticket->assigned_to);
+        $this->assertTrue($ticket->isImported());
         $this->assertSame('Requester Snapshot', $ticket->name);
         $this->assertSame('iOne CARAGA - Re-activation of Starlink', $ticket->subject);
+        $this->assertTrue($state->acknowledged_at?->equalTo($expectedCreatedAt));
     }
 
     public function test_import_command_rejects_files_without_created_at_column(): void

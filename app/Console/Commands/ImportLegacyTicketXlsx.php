@@ -18,7 +18,7 @@ class ImportLegacyTicketXlsx extends Command
         {--dry-run : Validate workbook rows without writing tickets}
         {--update-existing : Update existing rows matched by subject + created_at}';
 
-    protected $description = 'Import legacy helpdesk tracker XLSX files while preserving source date and time values.';
+    protected $description = 'Import helpdesk tracker XLSX files while preserving source date and time values.';
 
     public function handle(LegacyTicketXlsxImporter $importer, SystemLogService $systemLogs): int
     {
@@ -64,7 +64,7 @@ class ImportLegacyTicketXlsx extends Command
 
         $systemLogs->record(
             'ticket.imported_legacy_xlsx_batch',
-            'Imported legacy tickets from XLSX tracker files.',
+            'Imported tickets from XLSX tracker files.',
             [
                 'category' => 'ticket',
                 'metadata' => [

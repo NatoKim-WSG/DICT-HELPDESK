@@ -14,6 +14,10 @@ use SplFileObject;
 
 class LegacyTicketCsvImporter
 {
+    public function __construct(
+        private readonly ImportedTicketService $importedTickets,
+    ) {}
+
     /**
      * @var array<string, list<string>>
      */
@@ -157,6 +161,7 @@ class LegacyTicketCsvImporter
                         $existingTicket->timestamps = false;
                         $existingTicket->forceFill($preparedRow['attributes']);
                         $existingTicket->save();
+                        $this->importedTickets->syncImportedReviewState($existingTicket);
                         $summary['updated']++;
 
                         continue;
@@ -167,6 +172,7 @@ class LegacyTicketCsvImporter
                 $ticket->timestamps = false;
                 $ticket->forceFill($preparedRow['attributes']);
                 $ticket->save();
+                $this->importedTickets->syncImportedReviewState($ticket);
                 $summary['imported']++;
             }
         });
@@ -226,7 +232,7 @@ class LegacyTicketCsvImporter
         return [
             'line' => $line,
             'ticket_number' => $ticketNumber,
-            'attributes' => [
+            'attributes' => $this->importedTickets->applyImportMetadata([
                 'ticket_number' => $ticketNumber,
                 'name' => $this->nullableString($row['name'] ?? null) ?? $requester->name ?? 'Unknown Requester',
                 'contact_number' => $this->nullableString($row['contact_number'] ?? null) ?? $requester->phone ?? 'N/A',
@@ -239,13 +245,14 @@ class LegacyTicketCsvImporter
                 'status' => $status,
                 'user_id' => $requester->id,
                 'assigned_to' => $assignedUser?->id,
-                'assigned_at' => $this->optionalDateTime($line, $row['assigned_at'] ?? null, 'assigned_at', $settings['source_timezone']),
+                'assigned_at' => $this->optionalDateTime($line, $row['assigned_at'] ?? null, 'assigned_at', $settings['source_timezone'])
+                    ?? ($assignedUser ? $createdAt->copy() : null),
                 'category_id' => $category->id,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
                 'resolved_at' => $this->optionalDateTime($line, $row['resolved_at'] ?? null, 'resolved_at', $settings['source_timezone']),
                 'closed_at' => $this->optionalDateTime($line, $row['closed_at'] ?? null, 'closed_at', $settings['source_timezone']),
-            ],
+            ]),
         ];
     }
 

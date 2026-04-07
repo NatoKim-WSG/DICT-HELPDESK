@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
  * @property string $subject
  * @property string|null $priority
  * @property string $status
+ * @property bool $is_imported
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $resolved_at
@@ -66,6 +67,7 @@ class Ticket extends Model
         'user_id',
         'assigned_to',
         'assigned_at',
+        'is_imported',
         'category_id',
         'resolved_at',
         'closed_at',
@@ -87,6 +89,7 @@ class Ticket extends Model
     {
         return [
             'assigned_at' => 'datetime',
+            'is_imported' => 'boolean',
             'resolved_at' => 'datetime',
             'closed_at' => 'datetime',
             'satisfaction_rating' => 'integer',
@@ -227,6 +230,11 @@ class Ticket extends Model
     public function isClosed()
     {
         return in_array($this->status, self::CLOSED_STATUSES, true);
+    }
+
+    public function isImported(): bool
+    {
+        return (bool) $this->is_imported;
     }
 
     public function hasAssignedUser(int $userId): bool

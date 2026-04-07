@@ -47,6 +47,7 @@ class LegacyTicketXlsxImporter
     public function __construct(
         private readonly HelpdeskTrackerXlsxParser $parser,
         private readonly HelpdeskTrackerDescriptionFormatter $formatter,
+        private readonly ImportedTicketService $importedTickets,
     ) {}
 
     /**
@@ -123,6 +124,7 @@ class LegacyTicketXlsxImporter
                         $existingTicket->timestamps = false;
                         $existingTicket->forceFill($preparedRow['attributes']);
                         $existingTicket->save();
+                        $this->importedTickets->syncImportedReviewState($existingTicket);
                         $summary['updated']++;
 
                         continue;
@@ -134,6 +136,7 @@ class LegacyTicketXlsxImporter
                     $ticket->timestamps = false;
                     $ticket->forceFill($preparedRow['attributes']);
                     $ticket->save();
+                    $this->importedTickets->syncImportedReviewState($ticket);
                     $summary['imported']++;
 
                     continue;
@@ -150,6 +153,7 @@ class LegacyTicketXlsxImporter
                     $existingTicket->timestamps = false;
                     $existingTicket->forceFill($preparedRow['attributes']);
                     $existingTicket->save();
+                    $this->importedTickets->syncImportedReviewState($existingTicket);
                     $summary['updated']++;
 
                     continue;
@@ -159,6 +163,7 @@ class LegacyTicketXlsxImporter
                 $ticket->timestamps = false;
                 $ticket->forceFill($preparedRow['attributes']);
                 $ticket->save();
+                $this->importedTickets->syncImportedReviewState($ticket);
                 $summary['imported']++;
             }
         });
@@ -234,7 +239,7 @@ class LegacyTicketXlsxImporter
             'ticket_number' => $ticketNumber,
             'match_subject' => $subject,
             'match_created_at' => $createdAt,
-            'attributes' => [
+            'attributes' => $this->importedTickets->applyImportMetadata([
                 'ticket_number' => $ticketNumber,
                 'name' => $requesterSnapshot['name'],
                 'contact_number' => $requesterSnapshot['contact_number'],
@@ -269,7 +274,7 @@ class LegacyTicketXlsxImporter
                 'updated_at' => $completedAt ?? $createdAt->copy(),
                 'resolved_at' => $completedAt,
                 'closed_at' => $completedAt,
-            ],
+            ]),
         ];
     }
 

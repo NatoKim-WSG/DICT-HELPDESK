@@ -19,7 +19,7 @@ class ImportLegacyTickets extends Command
         {--dry-run : Validate the file without writing any tickets}
         {--update-existing : Update existing tickets when the CSV includes a matching ticket_number}';
 
-    protected $description = 'Import legacy tickets from CSV while preserving historical created_at values.';
+    protected $description = 'Import tickets from CSV while preserving historical created_at values.';
 
     public function handle(LegacyTicketCsvImporter $importer, SystemLogService $systemLogs): int
     {
@@ -62,7 +62,7 @@ class ImportLegacyTickets extends Command
 
         $systemLogs->record(
             'ticket.imported_legacy_batch',
-            'Imported legacy tickets from CSV.',
+            'Imported tickets from CSV.',
             [
                 'category' => 'ticket',
                 'metadata' => [
