@@ -21,21 +21,10 @@ class NotificationController extends Controller
         $ticket = Ticket::findOrFail($request->integer('ticket_id'));
         $this->authorize('view', $ticket);
 
-        $activityAt = Carbon::parse($request->string('activity_at')->toString());
-        $state = TicketUserState::query()->firstOrNew([
-            'ticket_id' => $ticket->id,
-            'user_id' => (int) auth()->id(),
-        ]);
-
-        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
-            return back()->with('error', 'You can dismiss notifications only after viewing them.');
-        }
-
-        $state->dismissed_at = $activityAt;
-        $state->save();
-        TicketUserState::forgetHeaderNotificationCacheForUser((int) auth()->id());
-
-        return back();
+        return $this->dismissNotificationForTicket(
+            $ticket,
+            Carbon::parse($request->string('activity_at')->toString())
+        );
     }
 
     public function clientClear(Request $request): JsonResponse|RedirectResponse
@@ -58,45 +47,25 @@ class NotificationController extends Controller
     {
         $this->authorize('view', $ticket);
 
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return response()->json([
-            'ok' => true,
-            'seen_at' => $seenAt->toIso8601String(),
-        ]);
+        return $this->markTicketNotificationSeen($ticket, $request->input('activity_at'));
     }
 
     public function clientOpen(Request $request, Ticket $ticket): RedirectResponse
     {
         $this->authorize('view', $ticket);
 
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
-        TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
-
-        return redirect()->route('client.tickets.show', $ticket);
+        return $this->openTicketFromNotification($ticket, $request->query('activity_at'), 'client.tickets.show');
     }
 
     public function adminDismiss(DismissNotificationRequest $request): RedirectResponse
     {
         $ticket = Ticket::findOrFail($request->integer('ticket_id'));
-        $this->assertAdminCanInteractWithTicket($ticket);
+        $this->authorize('view', $ticket);
 
-        $activityAt = Carbon::parse($request->string('activity_at')->toString());
-        $state = TicketUserState::query()->firstOrNew([
-            'ticket_id' => $ticket->id,
-            'user_id' => (int) auth()->id(),
-        ]);
-
-        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
-            return back()->with('error', 'You can dismiss notifications only after viewing them.');
-        }
-
-        $state->dismissed_at = $activityAt;
-        $state->save();
-        TicketUserState::forgetHeaderNotificationCacheForUser((int) auth()->id());
-
-        return back();
+        return $this->dismissNotificationForTicket(
+            $ticket,
+            Carbon::parse($request->string('activity_at')->toString())
+        );
     }
 
     public function adminClear(Request $request): JsonResponse|RedirectResponse
@@ -120,9 +89,40 @@ class NotificationController extends Controller
 
     public function adminSeen(Request $request, Ticket $ticket): JsonResponse
     {
-        $this->assertAdminCanInteractWithTicket($ticket);
+        $this->authorize('view', $ticket);
 
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->input('activity_at'));
+        return $this->markTicketNotificationSeen($ticket, $request->input('activity_at'));
+    }
+
+    public function adminOpen(Request $request, Ticket $ticket): RedirectResponse
+    {
+        $this->authorize('view', $ticket);
+
+        return $this->openTicketFromNotification($ticket, $request->query('activity_at'), 'admin.tickets.show');
+    }
+
+    private function dismissNotificationForTicket(Ticket $ticket, Carbon $activityAt): RedirectResponse
+    {
+        $userId = (int) auth()->id();
+        $state = TicketUserState::query()->firstOrNew([
+            'ticket_id' => $ticket->id,
+            'user_id' => $userId,
+        ]);
+
+        if (! $state->exists || ! $state->hasViewedActivity($activityAt)) {
+            return back()->with('error', 'You can dismiss notifications only after viewing them.');
+        }
+
+        $state->dismissed_at = $activityAt;
+        $state->save();
+        TicketUserState::forgetHeaderNotificationCacheForUser($userId);
+
+        return back();
+    }
+
+    private function markTicketNotificationSeen(Ticket $ticket, mixed $activityAtInput): JsonResponse
+    {
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $activityAtInput);
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
         return response()->json([
@@ -131,19 +131,12 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function adminOpen(Request $request, Ticket $ticket): RedirectResponse
+    private function openTicketFromNotification(Ticket $ticket, mixed $activityAtInput, string $routeName): RedirectResponse
     {
-        $this->assertAdminCanInteractWithTicket($ticket);
-
-        $seenAt = TicketUserState::resolveSeenAt($ticket, $request->query('activity_at'));
+        $seenAt = TicketUserState::resolveSeenAt($ticket, $activityAtInput);
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $seenAt);
 
-        return redirect()->route('admin.tickets.show', $ticket);
-    }
-
-    private function assertAdminCanInteractWithTicket(Ticket $ticket): void
-    {
-        $this->authorize('view', $ticket);
+        return redirect()->route($routeName, $ticket);
     }
 
     /**

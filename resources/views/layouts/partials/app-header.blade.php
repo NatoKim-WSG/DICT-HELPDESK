@@ -1,8 +1,9 @@
             <header class="sticky top-0 z-30 border-b border-slate-200 bg-[#f3f5f7]/95 backdrop-blur">
                 @php
                     $user = auth()->user();
-                    $isClient = !$user->canAccessAdminTickets();
-                    $canAccessAccountSettings = $user->canAccessAdminTickets();
+                    $isTicketConsole = $user->canAccessAdminTickets();
+                    $isClient = !$isTicketConsole;
+                    $canAccessAccountSettings = $isTicketConsole;
                     $departmentBrand = \App\Models\User::departmentBrandAssets($user->department, $user->role);
                     $clientCompanyName = $departmentBrand['name'];
                     $clientCompanyLogo = $departmentBrand['logo_url'];
@@ -104,7 +105,7 @@
                             </a>
                         @endif
 
-                        @if($user->canAccessAdminTickets())
+                        @if($isTicketConsole)
                             <span class="hidden items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 xl:inline-flex">
                                 {{ $consoleLabel }}
                             </span>

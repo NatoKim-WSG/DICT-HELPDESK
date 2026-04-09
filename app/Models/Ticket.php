@@ -249,12 +249,12 @@ class Ticket extends Model
         return self::applyAssignedToConstraint($query, $userId);
     }
 
-    public function isOpen()
+    public function isOpen(): bool
     {
         return in_array($this->status, self::OPEN_STATUSES, true);
     }
 
-    public function isClosed()
+    public function isClosed(): bool
     {
         return in_array($this->status, self::CLOSED_STATUSES, true);
     }
@@ -365,23 +365,23 @@ class Ticket extends Model
         return $label !== '' ? $label : 'Unassigned';
     }
 
-    public function getPriorityColorAttribute()
+    public function getPriorityColorAttribute(): string
     {
-        return match (strtolower(trim((string) $this->priority))) {
-            'severity_1' => 'bg-red-100 text-red-800',
-            'severity_2' => 'bg-amber-100 text-amber-800',
-            'severity_3' => 'bg-emerald-100 text-emerald-800',
-            default => 'bg-gray-100 text-gray-800',
-        };
+        return $this->resolvePriorityBadgeClasses('bg-gray-100 text-gray-800');
     }
 
     public function getPriorityBadgeClassAttribute(): string
     {
+        return $this->resolvePriorityBadgeClasses('bg-slate-100 text-slate-700');
+    }
+
+    private function resolvePriorityBadgeClasses(string $defaultClasses): string
+    {
         return match (strtolower(trim((string) $this->priority))) {
             'severity_1' => 'bg-red-100 text-red-800',
             'severity_2' => 'bg-amber-100 text-amber-800',
             'severity_3' => 'bg-emerald-100 text-emerald-800',
-            default => 'bg-slate-100 text-slate-700',
+            default => $defaultClasses,
         };
     }
 

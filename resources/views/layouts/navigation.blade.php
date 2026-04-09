@@ -68,17 +68,11 @@
 >
     <div class="flex h-full flex-col">
         <div @class([
-            'relative flex items-center border-b border-[#0d5053] px-5',
+            'relative flex items-center justify-center border-b border-[#0d5053] px-5',
             'h-28 lg:h-32' => $isTicketConsole,
             'h-32 lg:h-36' => $isClient,
-            'justify-center' => $isTicketConsole,
-            'justify-center' => $isClient,
         ])>
-            <a href="{{ $isTicketConsole ? route('admin.dashboard') : route('client.dashboard') }}" @class([
-                'mx-auto',
-                'flex w-full justify-center' => $isTicketConsole,
-                'flex w-full justify-center' => $isClient,
-            ])>
+            <a href="{{ $isTicketConsole ? route('admin.dashboard') : route('client.dashboard') }}" class="mx-auto flex w-full justify-center">
                 <span class="flex flex-col items-center text-center">
                     <span class="inline-flex items-center justify-center px-1 py-1">
                         <img
@@ -91,11 +85,7 @@
                 </span>
             </a>
 
-            <button @click="sidebarOpen = false" @class([
-                'app-pressable inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden',
-                'absolute right-5 top-1/2 -translate-y-1/2' => $isTicketConsole,
-                'absolute right-5 top-1/2 -translate-y-1/2' => $isClient,
-            ]) aria-label="Close sidebar">
+            <button @click="sidebarOpen = false" class="app-pressable absolute right-5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close sidebar">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>

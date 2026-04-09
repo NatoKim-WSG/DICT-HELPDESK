@@ -73,7 +73,6 @@ class UserDirectoryService
                 END
             ")
             ->orderByRaw("LOWER(COALESCE(name, ''))")
-            ->orderBy('name')
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
@@ -131,21 +130,14 @@ class UserDirectoryService
 
     public function buildUserStatisticsLinks(User $user, bool $showAssigned): array
     {
-        $isClient = $user->normalizedRole() === User::ROLE_CLIENT;
-        $openFilter = $isClient
-            ? ['account_id' => $user->id]
-            : ['related_user_id' => $user->id];
-        $allFilter = $isClient
-            ? ['account_id' => $user->id]
-            : ['related_user_id' => $user->id];
-        $historyFilter = $isClient
+        $ticketFilter = $user->normalizedRole() === User::ROLE_CLIENT
             ? ['account_id' => $user->id]
             : ['related_user_id' => $user->id];
 
         return [
-            'total_tickets' => route('admin.tickets.index', array_merge($allFilter, ['tab' => 'all'])),
-            'open_tickets' => route('admin.tickets.index', array_merge($openFilter, ['tab' => 'tickets'])),
-            'closed_tickets' => route('admin.tickets.index', array_merge($historyFilter, ['tab' => 'history'])),
+            'total_tickets' => route('admin.tickets.index', array_merge($ticketFilter, ['tab' => 'all'])),
+            'open_tickets' => route('admin.tickets.index', array_merge($ticketFilter, ['tab' => 'tickets'])),
+            'closed_tickets' => route('admin.tickets.index', array_merge($ticketFilter, ['tab' => 'history'])),
             'assigned_tickets' => $showAssigned
                 ? route('admin.tickets.index', ['tab' => 'tickets', 'assigned_to' => $user->id])
                 : null,

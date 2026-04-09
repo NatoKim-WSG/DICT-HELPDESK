@@ -151,12 +151,7 @@ class User extends Authenticatable
         return UserLegalConsent::hasCurrentConsentForUser($this);
     }
 
-    public function isAdmin()
-    {
-        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
-    }
-
-    public function isSuperAdmin()
+    public function isSuperAdmin(): bool
     {
         return in_array($this->normalizedRole(), [self::ROLE_ADMIN, self::ROLE_SHADOW], true);
     }
@@ -166,12 +161,12 @@ class User extends Authenticatable
         return $this->normalizedRole() === self::ROLE_SHADOW;
     }
 
-    public function isClient()
+    public function isClient(): bool
     {
-        return $this->role === self::ROLE_CLIENT;
+        return $this->normalizedRole() === self::ROLE_CLIENT;
     }
 
-    public function isTechnician()
+    public function isTechnician(): bool
     {
         return $this->normalizedRole() === self::ROLE_TECHNICAL;
     }
@@ -181,19 +176,19 @@ class User extends Authenticatable
         return (bool) $this->must_change_password;
     }
 
-    public function canAccessAdminTickets()
+    public function canAccessAdminTickets(): bool
     {
         return in_array($this->normalizedRole(), self::TICKET_CONSOLE_ROLES, true);
     }
 
-    public function canManageTickets()
+    public function canManageTickets(): bool
     {
         return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
     }
 
-    public function canManageUsers()
+    public function canManageUsers(): bool
     {
-        return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
+        return $this->canManageTickets();
     }
 
     public function canCreateClientTickets(): bool
@@ -204,11 +199,6 @@ class User extends Authenticatable
     public function canManageTicketType(): bool
     {
         return $this->normalizedRole() === self::ROLE_SUPER_USER;
-    }
-
-    public function canCreateAdmins()
-    {
-        return $this->normalizedRole() === self::ROLE_SHADOW;
     }
 
     public function canManageStaffAccounts(): bool

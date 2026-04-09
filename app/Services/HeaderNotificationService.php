@@ -183,46 +183,55 @@ class HeaderNotificationService
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values();
-        $ticketUserIds = $tickets
-            ->mapWithKeys(fn (Ticket $ticket) => [(int) $ticket->id => (int) $ticket->user_id])
-            ->all();
 
         $query = TicketReply::query()
-            ->select(['id', 'ticket_id', 'user_id', 'message', 'created_at'])
+            ->select('ticket_replies.*')
             ->with('user:id,name')
-            ->whereIn('ticket_id', $ticketIds)
-            ->where('is_internal', false)
-            ->visibleToViewer($user);
+            ->join('tickets as notification_tickets', 'notification_tickets.id', '=', 'ticket_replies.ticket_id')
+            ->whereIn('ticket_replies.ticket_id', $ticketIds)
+            ->where('ticket_replies.is_internal', false);
 
-        if ($user->canAccessAdminTickets()) {
-            $query->whereIn('user_id', collect($ticketUserIds)->unique()->values());
-        } else {
-            $query->where('user_id', '!=', $user->id);
+        if (! $user->isShadow()) {
+            $query->join('users as reply_users', 'reply_users.id', '=', 'ticket_replies.user_id')
+                ->where('reply_users.role', '!=', User::ROLE_SHADOW);
         }
 
-        $latestRepliesByTicket = [];
-        $query->orderByDesc('created_at')
+        if ($user->canAccessAdminTickets()) {
+            $query->whereColumn('ticket_replies.user_id', 'notification_tickets.user_id');
+        } else {
+            $query->where('ticket_replies.user_id', '!=', $user->id);
+        }
+
+        $query->whereNotExists(function ($subquery) use ($user) {
+            $subquery->selectRaw('1')
+                ->from('ticket_replies as newer_replies')
+                ->join('tickets as newer_tickets', 'newer_tickets.id', '=', 'newer_replies.ticket_id')
+                ->whereColumn('newer_replies.ticket_id', 'ticket_replies.ticket_id')
+                ->where('newer_replies.is_internal', false)
+                ->where(function ($comparisonQuery) {
+                    $comparisonQuery->whereColumn('newer_replies.created_at', '>', 'ticket_replies.created_at')
+                        ->orWhere(function ($tieBreakerQuery) {
+                            $tieBreakerQuery->whereColumn('newer_replies.created_at', 'ticket_replies.created_at')
+                                ->whereColumn('newer_replies.id', '>', 'ticket_replies.id');
+                        });
+                });
+
+            if (! $user->isShadow()) {
+                $subquery->join('users as newer_reply_users', 'newer_reply_users.id', '=', 'newer_replies.user_id')
+                    ->where('newer_reply_users.role', '!=', User::ROLE_SHADOW);
+            }
+
+            if ($user->canAccessAdminTickets()) {
+                $subquery->whereColumn('newer_replies.user_id', 'newer_tickets.user_id');
+            } else {
+                $subquery->where('newer_replies.user_id', '!=', $user->id);
+            }
+        });
+
+        return $query
+            ->orderByDesc('ticket_replies.created_at')
+            ->orderByDesc('ticket_replies.id')
             ->get()
-            ->each(function (TicketReply $reply) use (
-                &$latestRepliesByTicket,
-                $ticketUserIds,
-                $user
-            ) {
-                $ticketId = (int) $reply->ticket_id;
-                if (isset($latestRepliesByTicket[$ticketId])) {
-                    return;
-                }
-
-                if ($user->canAccessAdminTickets()) {
-                    $expectedUserId = $ticketUserIds[$ticketId] ?? null;
-                    if ($expectedUserId === null || (int) $reply->user_id !== $expectedUserId) {
-                        return;
-                    }
-                }
-
-                $latestRepliesByTicket[$ticketId] = $reply;
-            });
-
-        return collect($latestRepliesByTicket);
+            ->keyBy(fn (TicketReply $reply) => (int) $reply->ticket_id);
     }
 }

@@ -60,9 +60,6 @@ class UserManagementController extends Controller
 
         $user = auth()->user();
 
-        $requestedRole = User::normalizeRole($request->string('role')->toString());
-        $willBeClientRole = $requestedRole === User::ROLE_CLIENT;
-
         $role = $request->string('role')->toString();
         $department = $this->userDirectory->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->userDirectory->normalizeRoleForPersistence($role);
