@@ -60,6 +60,14 @@
                     <dd class="text-sm text-gray-900">{{ $ticket->category->name }}</dd>
                 </div>
                 <div>
+                    <dt class="text-sm font-medium text-gray-500">Ticket Type</dt>
+                    <dd class="text-sm text-gray-900">
+                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $ticket->ticket_type_badge_class }}">
+                            {{ $ticket->ticket_type_label }}
+                        </span>
+                    </dd>
+                </div>
+                <div>
                     <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
                     <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                 </div>
@@ -236,6 +244,24 @@
                     <button type="submit" class="mt-2 btn-secondary w-full">Update Severity</button>
                 </div>
             </form>
+
+            @if(auth()->user()->canManageTicketType())
+                <form action="{{ route('admin.tickets.type', $ticket) }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                    <div>
+                        <label for="ticket_type" class="form-label">Ticket Type</label>
+                        <select name="ticket_type" id="ticket_type" class="form-input">
+                            <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}" {{ old('ticket_type', $ticket->ticket_type) === \App\Models\Ticket::TYPE_EXTERNAL ? 'selected' : '' }}>External</option>
+                            <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}" {{ old('ticket_type', $ticket->ticket_type) === \App\Models\Ticket::TYPE_INTERNAL ? 'selected' : '' }}>Internal</option>
+                        </select>
+                        @error('ticket_type')
+                            <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
+                        @enderror
+                        <button type="submit" class="mt-2 btn-secondary w-full">Update Ticket Type</button>
+                    </div>
+                </form>
+            @endif
         </div>
     </div>
 </div>

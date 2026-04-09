@@ -27,6 +27,7 @@ const initAdminTicketsIndexPage = () => {
     const editCloseReasonInput = document.getElementById('edit-modal-close-reason');
     const editCloseHint = document.getElementById('edit-modal-close-hint');
     const editPrioritySelect = document.getElementById('edit-modal-priority');
+    const editTicketTypeSelect = document.getElementById('edit-modal-ticket-type');
     const editDeleteButton = document.getElementById('edit-modal-delete-btn');
     const deleteForm = document.getElementById('delete-ticket-form');
     const deleteModal = document.getElementById('delete-ticket-modal');
@@ -356,6 +357,7 @@ const initAdminTicketsIndexPage = () => {
         if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
         if (editCloseReasonInput) editCloseReasonInput.value = '';
         if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || '';
+        if (editTicketTypeSelect) editTicketTypeSelect.value = button.dataset.ticketType || 'external';
 
         if (editStatusSelect) {
             const closeAllowed = button.dataset.canCloseNow === '1';

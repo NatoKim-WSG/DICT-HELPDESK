@@ -8,6 +8,8 @@
     $isAllTab = $tab === 'all';
     $isHistoryTab = $tab === 'history';
     $canDeleteTickets = auth()->user()->isSuperAdmin();
+    $canCreateTickets = auth()->user()->canCreateClientTickets();
+    $canManageTicketType = auth()->user()->canManageTicketType();
     $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
@@ -24,8 +26,13 @@
     data-status-route-template="{{ route('admin.tickets.status', ['ticket' => '__TICKET__'], absolute: false) }}"
     data-quick-update-route-template="{{ route('admin.tickets.quick-update', ['ticket' => '__TICKET__'], absolute: false) }}"
     data-delete-route-template="{{ route('admin.tickets.destroy', ['ticket' => '__TICKET__'], absolute: false) }}">
-    <div class="mb-6">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 class="font-display text-4xl font-semibold text-slate-900">Tickets</h1>
+        @if($canCreateTickets)
+            <a href="{{ route('admin.tickets.create') }}" class="btn-primary">
+                Create Ticket
+            </a>
+        @endif
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -326,6 +333,15 @@
                         <option value="severity_3">Severity 3</option>
                     </select>
                 </div>
+                @if($canManageTicketType)
+                    <div>
+                        <label for="edit-modal-ticket-type" class="form-label">Ticket Type</label>
+                        <select id="edit-modal-ticket-type" name="ticket_type" class="form-input">
+                            <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}">External</option>
+                            <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}">Internal</option>
+                        </select>
+                    </div>
+                @endif
                 <div class="flex items-center justify-between gap-3">
                     @if($canDeleteTickets)
                         <button type="button" id="edit-modal-delete-btn" class="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">

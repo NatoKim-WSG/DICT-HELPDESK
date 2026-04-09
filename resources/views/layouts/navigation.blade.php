@@ -10,8 +10,15 @@
 
     if ($isTicketConsole) {
         $menuItems = [
+            ...($user->canCreateClientTickets() ? [[
+                'label' => 'New Ticket',
+                'icon' => 'plus',
+                'href' => route('admin.tickets.create'),
+                'active' => request()->routeIs('admin.tickets.create'),
+                'disabled' => false,
+            ]] : []),
             ['label' => 'Dashboard', 'icon' => 'home', 'href' => route('admin.dashboard'), 'active' => request()->routeIs('admin.dashboard'), 'disabled' => false],
-            ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.*'), 'disabled' => false],
+            ['label' => 'Tickets', 'icon' => 'ticket', 'href' => route('admin.tickets.index'), 'active' => request()->routeIs('admin.tickets.index') || request()->routeIs('admin.tickets.show'), 'disabled' => false],
         ];
 
         if ($canManageConsole) {

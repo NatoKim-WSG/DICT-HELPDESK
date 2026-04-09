@@ -98,6 +98,10 @@
                             <a href="{{ route('client.tickets.create') }}" class="app-pressable inline-flex items-center rounded-xl bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#022a2c] sm:px-4 sm:py-2.5">
                                 New ticket
                             </a>
+                        @elseif($user->canCreateClientTickets())
+                            <a href="{{ route('admin.tickets.create') }}" class="app-pressable inline-flex items-center rounded-xl bg-[#033b3d] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#022a2c] sm:px-4 sm:py-2.5">
+                                New ticket
+                            </a>
                         @endif
 
                         @if($user->canAccessAdminTickets())

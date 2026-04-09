@@ -16,6 +16,9 @@
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->priority_color }}">
                     {{ $ticket->priority_label }}
                 </span>
+                <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium {{ $ticket->ticket_type_badge_class }}">
+                    {{ $ticket->ticket_type_label }}
+                </span>
                 @if($canAcknowledgeTicket)
                     @if($acknowledgedAt)
                         <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">

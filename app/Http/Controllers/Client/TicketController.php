@@ -125,6 +125,7 @@ class TicketController extends Controller
             'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
             'description' => $request->description,
             'category_id' => $request->category_id,
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
             'priority' => null,
             'user_id' => auth()->id(),
             'consent_accepted_at' => now(),

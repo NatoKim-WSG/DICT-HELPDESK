@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Tickets\AssignTicketRequest;
 use App\Http\Requests\Admin\Tickets\BulkTicketActionRequest;
 use App\Http\Requests\Admin\Tickets\QuickUpdateTicketRequest;
+use App\Http\Requests\Admin\Tickets\StoreTicketRequest;
 use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
+use App\Http\Requests\Admin\Tickets\UpdateTicketTypeRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketReplyRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketSeverityRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketStatusRequest;
@@ -15,6 +17,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\TicketUserState;
+use App\Models\User;
 use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
 use App\Services\Admin\TicketWorkflowService;
@@ -107,6 +110,62 @@ class TicketController extends Controller
             'ticketSeenTimestamps',
             'createdDateRange'
         ));
+    }
+
+    public function create()
+    {
+        abort_unless(auth()->user()?->canCreateClientTickets(), 403);
+
+        $categories = Category::active()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $clientAccounts = User::query()
+            ->where('role', User::ROLE_CLIENT)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'phone', 'department']);
+
+        return view('admin.tickets.create', compact('categories', 'clientAccounts'));
+    }
+
+    public function store(StoreTicketRequest $request)
+    {
+        $ticket = Ticket::create([
+            'name' => $request->string('name')->toString(),
+            'contact_number' => $request->string('contact_number')->toString(),
+            'email' => $request->string('email')->toString(),
+            'province' => $this->normalizeLeadingUppercase($request->string('province')->toString()),
+            'municipality' => $this->normalizeLeadingUppercase($request->string('municipality')->toString()),
+            'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
+            'description' => $request->string('description')->toString(),
+            'category_id' => $request->integer('category_id'),
+            'ticket_type' => $request->string('ticket_type')->toString(),
+            'priority' => null,
+            'status' => 'open',
+            'user_id' => $request->integer('user_id'),
+        ]);
+
+        $this->persistAttachmentsFromRequest($request, $ticket);
+        $this->ticketAcknowledgments->acknowledge($ticket, auth()->user());
+        $this->systemLogs->record(
+            'ticket.created_by_super_user',
+            'Created a ticket on behalf of a client.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'ticket_type' => $ticket->ticket_type,
+                    'client_user_id' => (int) $ticket->user_id,
+                    'category_id' => (int) $ticket->category_id,
+                ],
+                'request' => $request,
+            ]
+        );
+
+        return redirect()->route('admin.tickets.show', $ticket)
+            ->with('success', 'Ticket created successfully.');
     }
 
     public function show(Ticket $ticket)
@@ -240,6 +299,39 @@ class TicketController extends Controller
         );
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket severity updated successfully!');
+    }
+
+    public function updateType(UpdateTicketTypeRequest $request, Ticket $ticket)
+    {
+        $this->authorizeTicketAccess($ticket);
+
+        $nextType = $request->string('ticket_type')->toString();
+        if ($ticket->ticket_type === $nextType) {
+            return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
+        }
+
+        $previousType = $ticket->ticket_type;
+        $ticket->update([
+            'ticket_type' => $nextType,
+        ]);
+        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
+        $this->systemLogs->record(
+            'ticket.type.updated',
+            'Updated ticket type.',
+            [
+                'category' => 'ticket',
+                'target_type' => Ticket::class,
+                'target_id' => $ticket->id,
+                'metadata' => [
+                    'ticket_number' => $ticket->ticket_number,
+                    'previous_ticket_type' => $previousType,
+                    'new_ticket_type' => $nextType,
+                ],
+                'request' => $request,
+            ]
+        );
+
+        return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket type updated successfully!');
     }
 
     public function reply(StoreTicketReplyRequest $request, Ticket $ticket)
@@ -572,5 +664,15 @@ class TicketController extends Controller
     private function authorizeTicketAccess(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
+    }
+
+    private function normalizeLeadingUppercase(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return $trimmed;
+        }
+
+        return mb_strtoupper(mb_substr($trimmed, 0, 1)).mb_substr($trimmed, 1);
     }
 }

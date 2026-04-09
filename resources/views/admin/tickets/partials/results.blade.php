@@ -94,6 +94,9 @@
                         <span class="inline-flex min-w-16 items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $ticket->priority_badge_class }}">
                             {{ $ticket->priority_label }}
                         </span>
+                        <span class="inline-flex min-w-16 items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $ticket->ticket_type_badge_class }}">
+                            {{ $ticket->ticket_type_label }}
+                        </span>
                         <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                             {{ $ticket->status_label }}
                         </span>
@@ -129,6 +132,7 @@
                             data-assigned-to='@json($ticket->assigned_user_ids)'
                             data-status="{{ $ticket->status }}"
                             data-priority="{{ $ticket->priority }}"
+                            data-ticket-type="{{ $ticket->ticket_type }}"
                             data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
                             data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
                             data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
@@ -157,13 +161,14 @@
                             </label>
                         </th>
                     @endif
-                    <th class="{{ $canDeleteTickets ? 'w-[36%]' : 'w-[40%]' }} px-6 py-4">Details</th>
+                    <th class="{{ $canDeleteTickets ? 'w-[32%]' : 'w-[36%]' }} px-6 py-4">Details</th>
                     <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
                     <th class="w-[10%] px-6 py-4 text-center">Severity</th>
+                    <th class="w-[10%] px-6 py-4 text-center">Type</th>
                     @if($isHistoryTab)
-                        <th class="w-[16%] px-6 py-4 text-center">Completed At</th>
+                        <th class="w-[14%] px-6 py-4 text-center">Completed At</th>
                     @else
-                        <th class="w-[16%] px-6 py-4 text-center">Activity Status</th>
+                        <th class="w-[14%] px-6 py-4 text-center">Activity Status</th>
                     @endif
                     <th class="w-[8%] px-6 py-4 text-center">Status</th>
                     <th class="w-[10%] px-6 py-4 text-center">Action</th>
@@ -234,6 +239,12 @@
                             </span>
                         </td>
 
+                        <td class="px-6 py-5 text-center align-top">
+                            <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->ticket_type_badge_class }}">
+                                {{ $ticket->ticket_type_label }}
+                            </span>
+                        </td>
+
                         @if($isHistoryTab)
                             <td class="px-6 py-5 text-center align-top text-sm text-slate-700">
                                 {{ $completedAt ? $completedAt->format('M j, Y \a\t g:i A') : '-' }}
@@ -284,6 +295,7 @@
                                     data-assigned-to='@json($ticket->assigned_user_ids)'
                                     data-status="{{ $ticket->status }}"
                                     data-priority="{{ $ticket->priority }}"
+                                    data-ticket-type="{{ $ticket->ticket_type }}"
                                     data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
                                     data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
                                     data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
@@ -295,7 +307,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $canDeleteTickets ? '7' : '6' }}" class="px-6 py-14 text-center">
+                        <td colspan="{{ $canDeleteTickets ? '8' : '7' }}" class="px-6 py-14 text-center">
                             <p class="text-base font-semibold text-slate-700">No tickets found</p>
                             <p class="mt-1 text-sm text-slate-500">Try adjusting your filters to broaden results.</p>
                         </td>

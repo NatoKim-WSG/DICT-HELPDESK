@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  * @property int|null $assigned_to
  * @property int|null $category_id
  * @property string $ticket_number
+ * @property string $ticket_type
  * @property string $subject
  * @property string|null $priority
  * @property string $status
@@ -46,6 +47,15 @@ class Ticket extends Model
     use HasFactory;
 
     public const PRIORITIES = ['severity_1', 'severity_2', 'severity_3'];
+
+    public const TYPE_INTERNAL = 'internal';
+
+    public const TYPE_EXTERNAL = 'external';
+
+    public const TYPES = [
+        self::TYPE_INTERNAL,
+        self::TYPE_EXTERNAL,
+    ];
 
     public const PRIORITY_ALIASES = [
         'severity_1' => 'severity_1',
@@ -85,6 +95,7 @@ class Ticket extends Model
         'assigned_at',
         'is_imported',
         'category_id',
+        'ticket_type',
         'resolved_at',
         'closed_at',
         'closed_by',
@@ -272,6 +283,20 @@ class Ticket extends Model
         $this->attributes['priority'] = self::normalizePriorityValue($value);
     }
 
+    public static function normalizeTicketTypeValue(mixed $value): string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return in_array($normalized, self::TYPES, true)
+            ? $normalized
+            : self::TYPE_EXTERNAL;
+    }
+
+    public function setTicketTypeAttribute(mixed $value): void
+    {
+        $this->attributes['ticket_type'] = self::normalizeTicketTypeValue($value);
+    }
+
     public function hasAssignedUser(int $userId): bool
     {
         if ($this->relationLoaded('assignedUsers')) {
@@ -370,6 +395,20 @@ class Ticket extends Model
             'severity_3' => 'Severity 3',
             default => 'Pending review',
         };
+    }
+
+    public function getTicketTypeBadgeClassAttribute(): string
+    {
+        return match ($this->ticket_type) {
+            self::TYPE_INTERNAL => 'bg-slate-100 text-slate-700',
+            self::TYPE_EXTERNAL => 'bg-cyan-100 text-cyan-700',
+            default => 'bg-slate-100 text-slate-700',
+        };
+    }
+
+    public function getTicketTypeLabelAttribute(): string
+    {
+        return ucfirst(self::normalizeTicketTypeValue($this->ticket_type));
     }
 
     public function getStatusColorAttribute()

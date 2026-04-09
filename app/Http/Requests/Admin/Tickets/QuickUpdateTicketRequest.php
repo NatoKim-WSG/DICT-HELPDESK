@@ -25,6 +25,11 @@ class QuickUpdateTicketRequest extends FormRequest
             'assigned_to.*' => [$this->assignableAgentRule()],
             'status' => ['required', Rule::in(Ticket::STATUSES)],
             'priority' => ['nullable', Rule::in(Ticket::PRIORITIES)],
+            'ticket_type' => [
+                Rule::prohibitedIf(! $this->user()?->canManageTicketType()),
+                'nullable',
+                Rule::in(Ticket::TYPES),
+            ],
             'close_reason' => [
                 Rule::requiredIf(fn () => $this->string('status')->toString() === 'closed'),
                 'nullable',
@@ -41,6 +46,12 @@ class QuickUpdateTicketRequest extends FormRequest
         if ($this->has('priority')) {
             $this->merge([
                 'priority' => Ticket::normalizePriorityValue($this->input('priority')),
+            ]);
+        }
+
+        if ($this->has('ticket_type')) {
+            $this->merge([
+                'ticket_type' => Ticket::normalizeTicketTypeValue($this->input('ticket_type')),
             ]);
         }
     }

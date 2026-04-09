@@ -29,6 +29,10 @@ const pageModules = [
         loader: () => import('./pages/admin-dashboard-page'),
     },
     {
+        selector: '[data-admin-ticket-create-page]',
+        loader: () => import('./pages/admin-ticket-create-page'),
+    },
+    {
         selector: '[data-admin-reports-page]',
         loader: () => import('./pages/admin-reports-page'),
     },

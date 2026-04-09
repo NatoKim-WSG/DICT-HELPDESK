@@ -95,6 +95,12 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         ->name('reports.monthly.pdf');
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
+    Route::get('/tickets/create', [AdminTicketController::class, 'create'])
+        ->middleware('role:super_user')
+        ->name('tickets.create');
+    Route::post('/tickets', [AdminTicketController::class, 'store'])
+        ->middleware(['throttle:20,1', 'role:super_user'])
+        ->name('tickets.store');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/replies', [AdminTicketController::class, 'replies'])->name('tickets.replies.feed');
     Route::post('/tickets/{ticket}/acknowledge', [AdminTicketController::class, 'acknowledge'])
@@ -115,6 +121,9 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
     Route::post('/tickets/{ticket}/severity', [AdminTicketController::class, 'updateSeverity'])
         ->middleware('throttle:60,1')
         ->name('tickets.severity');
+    Route::post('/tickets/{ticket}/type', [AdminTicketController::class, 'updateType'])
+        ->middleware(['throttle:60,1', 'role:super_user'])
+        ->name('tickets.type');
     Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
         ->middleware(['throttle:20,1', 'role:admin,shadow'])
         ->name('tickets.destroy');

@@ -173,6 +173,9 @@ class TicketWorkflowService
         $nextPriority = $request->filled('priority')
             ? Ticket::normalizePriorityValue($request->string('priority')->toString())
             : null;
+        $nextTicketType = $request->filled('ticket_type')
+            ? Ticket::normalizeTicketTypeValue($request->string('ticket_type')->toString())
+            : $ticket->ticket_type;
         $previousAssignedIds = $ticket->assigned_user_ids;
         $requestedAssignedIds = $this->normalizedAssigneeIdsFromRequest($request);
         $newAssignedIds = $this->determineReviewerAssigneeIds($nextStatus, $requestedAssignedIds);
@@ -181,13 +184,16 @@ class TicketWorkflowService
             'assigned_to' => $newAssignedTo,
             'status' => $nextStatus,
             'priority' => $nextPriority,
+            'ticket_type' => $nextTicketType,
         ];
         $previousPriority = $ticket->priority;
+        $previousTicketType = $ticket->ticket_type;
 
         if (
             $previousAssignedIds === $newAssignedIds
             && $previousStatus === $nextStatus
             && $previousPriority === $nextPriority
+            && $previousTicketType === $nextTicketType
         ) {
             return false;
         }
@@ -217,6 +223,8 @@ class TicketWorkflowService
                     'new_status' => $nextStatus,
                     'previous_priority' => $previousPriority,
                     'new_priority' => $nextPriority,
+                    'previous_ticket_type' => $previousTicketType,
+                    'new_ticket_type' => $nextTicketType,
                 ],
                 'request' => $request,
             ]

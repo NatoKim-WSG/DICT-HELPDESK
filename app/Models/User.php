@@ -196,6 +196,16 @@ class User extends Authenticatable
         return in_array($this->normalizedRole(), self::ADMIN_LEVEL_ROLES, true);
     }
 
+    public function canCreateClientTickets(): bool
+    {
+        return $this->normalizedRole() === self::ROLE_SUPER_USER;
+    }
+
+    public function canManageTicketType(): bool
+    {
+        return $this->normalizedRole() === self::ROLE_SUPER_USER;
+    }
+
     public function canCreateAdmins()
     {
         return $this->normalizedRole() === self::ROLE_SHADOW;
