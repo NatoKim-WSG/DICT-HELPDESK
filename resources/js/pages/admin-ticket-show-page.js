@@ -2,6 +2,11 @@ import { bootPage } from './shared/boot-page';
 import { createReplyComposer } from './shared/reply-composer';
 import { createTicketSeenSync } from './shared/ticket-seen-sync';
 import {
+    canSubmitReply,
+    formatAttachmentCountLabel,
+    nextMessageCountLabel,
+} from './shared/ticket-thread-helpers';
+import {
     appendThreadSeparatorIfNeeded,
     parseIsoMs,
     resolveLatestThreadActivityIso,
@@ -103,14 +108,11 @@ const initAdminTicketShowPage = () => {
 
     const updateAttachmentCount = function () {
         if (!attachmentInput || !attachmentCount) return;
-        if (attachmentInput.disabled) {
-            attachmentCount.textContent = 'Attachments disabled while editing';
-            return;
-        }
         const totalFiles = attachmentInput.files ? attachmentInput.files.length : 0;
-        attachmentCount.textContent = totalFiles > 0
-            ? (totalFiles + (totalFiles === 1 ? ' file selected' : ' files selected'))
-            : 'No files selected';
+        attachmentCount.textContent = formatAttachmentCountLabel({
+            disabled: attachmentInput.disabled,
+            fileCount: totalFiles,
+        });
     };
 
     if (attachmentInput) {
@@ -283,10 +285,9 @@ const initAdminTicketShowPage = () => {
         queueSeenSync(payload.created_at_iso || '');
 
         if (messageCountNode) {
-            const countMatch = messageCountNode.textContent.trim().match(/^\d+/);
-            if (countMatch) {
-                const next = Number(countMatch[0]) + 1;
-                messageCountNode.textContent = String(next) + ' messages';
+            const nextLabel = nextMessageCountLabel(messageCountNode.textContent);
+            if (nextLabel) {
+                messageCountNode.textContent = nextLabel;
             }
         }
     };
@@ -421,12 +422,13 @@ const initAdminTicketShowPage = () => {
         replyForm.addEventListener('submit', async function (event) {
             event.preventDefault();
             const messageBody = messageInput ? messageInput.value.trim() : '';
-            const hasMessage = messageBody.length > 0;
-            const hasAttachments = !!(attachmentInput && attachmentInput.files && attachmentInput.files.length > 0);
+            const attachmentCountValue = attachmentInput && attachmentInput.files ? attachmentInput.files.length : 0;
 
-            if (isEditingReply()) {
-                if (!hasMessage) return;
-            } else if (!hasMessage && !hasAttachments) {
+            if (!canSubmitReply({
+                isEditing: isEditingReply(),
+                message: messageBody,
+                attachmentCount: attachmentCountValue,
+            })) {
                 return;
             }
 

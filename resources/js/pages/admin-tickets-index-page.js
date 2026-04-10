@@ -1,6 +1,11 @@
 import { bootPage } from './shared/boot-page';
-
-const DEFAULT_STATUS_VIEW = 'all';
+import {
+    buildAdminTicketFilterUrl,
+    DEFAULT_STATUS_VIEW,
+    normalizeAdminTicketResultsUrl,
+    parseAssignedIds,
+    resetAdminTicketFilterFieldValue,
+} from './shared/admin-ticket-filters';
 
 const initAdminTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-admin-tickets-index-page]');
@@ -80,27 +85,6 @@ const initAdminTicketsIndexPage = () => {
         return `${url.pathname}${url.search}`;
     };
 
-    const parseAssignedIds = function (rawValue) {
-        if (!rawValue) {
-            return [];
-        }
-
-        try {
-            const parsed = JSON.parse(rawValue);
-            if (Array.isArray(parsed)) {
-                return parsed.map(function (value) {
-                    return String(value);
-                });
-            }
-        } catch (error) {
-        }
-
-        return String(rawValue)
-            .split(',')
-            .map(function (value) { return value.trim(); })
-            .filter(function (value) { return value !== ''; });
-    };
-
     const setMultiSelectValues = function (select, values) {
         if (!(select instanceof HTMLSelectElement)) return;
         const selectedValues = new Set(values);
@@ -108,14 +92,6 @@ const initAdminTicketsIndexPage = () => {
             option.selected = selectedValues.has(option.value);
         });
         select.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
-    const normalizeResultsUrl = function (url) {
-        const normalized = new URL(url, window.location.origin);
-        normalized.searchParams.delete('partial');
-        normalized.searchParams.delete('heartbeat');
-
-        return normalized;
     };
 
     const updateReturnPathInputs = function (path) {
@@ -163,23 +139,6 @@ const initAdminTicketsIndexPage = () => {
         bulkDeleteConfirmSubmit.disabled = !bulkDeleteConfirmCheckbox.checked;
     };
 
-    const resetValueForField = function (fieldName, params) {
-        const paramValue = params.get(fieldName);
-        if (paramValue !== null) {
-            return paramValue;
-        }
-
-        if (fieldName === 'tab') {
-            return 'tickets';
-        }
-
-        if (['search', 'month', 'created_from', 'created_to', 'report_scope'].includes(fieldName)) {
-            return '';
-        }
-
-        return 'all';
-    };
-
     const syncFilterFormFromUrl = function (url) {
         if (!filterForm) return;
 
@@ -195,7 +154,7 @@ const initAdminTicketsIndexPage = () => {
                 return;
             }
 
-            const nextValue = resetValueForField(field.name, params);
+            const nextValue = resetAdminTicketFilterFieldValue(field.name, params);
             const valueChanged = field.value !== nextValue;
             field.value = nextValue;
 
@@ -221,36 +180,20 @@ const initAdminTicketsIndexPage = () => {
     };
 
     const buildFilterUrl = function () {
-        const targetUrl = new URL(routeBase, window.location.origin);
         const selectedMonth = filterForm?.querySelector('select[name="month"]')?.value?.trim() || '';
-        const formData = filterForm ? new FormData(filterForm) : new FormData();
+        const formEntries = filterForm ? Array.from(new FormData(filterForm).entries()) : [];
 
-        for (const [key, rawValue] of formData.entries()) {
-            const value = String(rawValue).trim();
-            if (value === '') {
-                continue;
-            }
-
-            if (key !== 'tab' && value === 'all') {
-                continue;
-            }
-
-            if (selectedMonth !== '' && ['created_from', 'created_to', 'report_scope'].includes(key)) {
-                continue;
-            }
-
-            targetUrl.searchParams.append(key, value);
-        }
-
-        if (statusView && statusView.value !== DEFAULT_STATUS_VIEW) {
-            targetUrl.searchParams.set('status', statusView.value);
-        }
-
-        return targetUrl;
+        return buildAdminTicketFilterUrl({
+            routeBase,
+            formEntries,
+            selectedMonth,
+            statusValue: statusView ? statusView.value : DEFAULT_STATUS_VIEW,
+            origin: window.location.origin,
+        });
     };
 
     const loadTicketResults = async function (url, { history = 'replace' } = {}) {
-        const normalizedUrl = normalizeResultsUrl(url);
+        const normalizedUrl = normalizeAdminTicketResultsUrl(url, window.location.origin);
         const requestUrl = new URL(normalizedUrl.toString());
         requestUrl.searchParams.set('partial', '1');
 
@@ -417,7 +360,7 @@ const initAdminTicketsIndexPage = () => {
     const pollTicketListSnapshot = async function () {
         if (!snapshotToken || document.hidden || hasOpenModal() || isResultsLoading) return;
 
-        const heartbeatUrl = normalizeResultsUrl(window.location.href);
+        const heartbeatUrl = normalizeAdminTicketResultsUrl(window.location.href, window.location.origin);
         heartbeatUrl.searchParams.set('heartbeat', '1');
 
         try {
@@ -648,12 +591,12 @@ const initAdminTicketsIndexPage = () => {
     }
 
     window.addEventListener('popstate', function () {
-        syncFilterFormFromUrl(normalizeResultsUrl(window.location.href));
+        syncFilterFormFromUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin));
         void loadTicketResults(window.location.href, { history: 'none' });
     });
 
-    updateReturnPathInputs(relativePathForUrl(normalizeResultsUrl(window.location.href)));
-    syncFilterFormFromUrl(normalizeResultsUrl(window.location.href));
+    updateReturnPathInputs(relativePathForUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin)));
+    syncFilterFormFromUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin));
     syncEditCloseReasonVisibility();
     syncRevertSubmitState();
     syncBulkDeleteConfirmState();

@@ -16,7 +16,7 @@ class TicketMutationService
         /** @var \Illuminate\Database\Eloquent\Collection<int, TicketReply> $ticketReplies */
         $ticketReplies = $ticket->replies()->with('attachments')->get();
         $ticketReplies->each(function (TicketReply $reply): void {
-            $reply->attachments()->get()->each->delete();
+            $reply->attachments->each->delete();
             $reply->delete();
         });
 
@@ -24,13 +24,13 @@ class TicketMutationService
     }
 
     /**
-     * @param  Collection<int, Ticket>  $tickets
+     * @param  iterable<int, Ticket>  $tickets
      */
-    public function deleteManyTicketsWithRelations(Collection $tickets): void
+    public function deleteManyTicketsWithRelations(iterable $tickets): void
     {
-        $tickets->each(function (Ticket $ticket): void {
+        foreach ($tickets as $ticket) {
             $this->deleteTicketWithRelations($ticket);
-        });
+        }
     }
 
     /**

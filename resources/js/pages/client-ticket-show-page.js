@@ -2,6 +2,13 @@ import { bootPage } from './shared/boot-page';
 import { createReplyComposer } from './shared/reply-composer';
 import { createTicketSeenSync } from './shared/ticket-seen-sync';
 import {
+    canSubmitReply,
+    EDIT_DELETE_WINDOW_MS,
+    formatAttachmentCountLabel,
+    isWithinReplyEditWindow,
+    nextMessageCountLabel,
+} from './shared/ticket-thread-helpers';
+import {
     createThreadTimeSeparator,
     parseIsoMs,
     resolveLatestThreadActivityIso,
@@ -83,7 +90,6 @@ const initClientTicketShowPage = () => {
     const updateUrlTemplate = replyForm ? replyForm.dataset.updateUrlTemplate : '';
     const deleteUrlTemplate = replyForm ? replyForm.dataset.deleteUrlTemplate : '';
     const TIMESTAMP_BREAK_MINUTES = 15;
-    const EDIT_DELETE_WINDOW_MS = 3 * 60 * 60 * 1000;
     const knownReplyIds = new Set();
     let isPollingReplies = false;
     let editingReplyId = '';
@@ -124,14 +130,11 @@ const initClientTicketShowPage = () => {
 
     const updateAttachmentCount = function () {
         if (!attachmentsInput || !attachmentCount) return;
-        if (attachmentsInput.disabled) {
-            attachmentCount.textContent = 'Attachments disabled while editing';
-            return;
-        }
         const fileCount = attachmentsInput.files ? attachmentsInput.files.length : 0;
-        attachmentCount.textContent = fileCount === 0
-            ? 'No files selected'
-            : fileCount + (fileCount === 1 ? ' file selected' : ' files selected');
+        attachmentCount.textContent = formatAttachmentCountLabel({
+            disabled: attachmentsInput.disabled,
+            fileCount,
+        });
     };
 
     setSubmitButtonLabel(false);
@@ -271,12 +274,7 @@ const initClientTicketShowPage = () => {
     const setEditingTarget = composer.setEditingTarget;
 
     const isWithinEditDeleteWindow = function (isoDate) {
-        const createdAt = new Date(isoDate);
-        if (Number.isNaN(createdAt.getTime())) {
-            return false;
-        }
-
-        return (Date.now() - createdAt.getTime()) <= EDIT_DELETE_WINDOW_MS;
+        return isWithinReplyEditWindow(isoDate, Date.now(), EDIT_DELETE_WINDOW_MS);
     };
 
     const renderTimeSeparators = function () {
@@ -498,10 +496,9 @@ const initClientTicketShowPage = () => {
 
     const incrementMessageCount = function () {
         if (!messageCount) return;
-        const value = parseInt((messageCount.textContent || '').replace(/\D/g, ''), 10);
-        if (!Number.isNaN(value)) {
-            const next = value + 1;
-            messageCount.textContent = next + (next === 1 ? ' message' : ' messages');
+        const nextLabel = nextMessageCountLabel(messageCount.textContent || '');
+        if (nextLabel) {
+            messageCount.textContent = nextLabel;
         }
     };
 
@@ -565,13 +562,12 @@ const initClientTicketShowPage = () => {
             event.preventDefault();
             closeMenus();
             const messageBody = messageInput ? messageInput.value.trim() : '';
-            const hasMessage = messageBody.length > 0;
-            const hasAttachments = !!(attachmentsInput && attachmentsInput.files && attachmentsInput.files.length > 0);
-            if (isEditingReply()) {
-                if (!hasMessage) {
-                    return;
-                }
-            } else if (!hasMessage && !hasAttachments) {
+            const attachmentCountValue = attachmentsInput && attachmentsInput.files ? attachmentsInput.files.length : 0;
+            if (!canSubmitReply({
+                isEditing: isEditingReply(),
+                message: messageBody,
+                attachmentCount: attachmentCountValue,
+            })) {
                 return;
             }
 

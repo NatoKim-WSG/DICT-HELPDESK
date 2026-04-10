@@ -27,11 +27,7 @@ class TicketIndexService
             $selectedStatus = 'all';
         }
 
-        $allowedStatuses = $activeTab === 'history'
-            ? array_merge(['all'], Ticket::CLOSED_STATUSES)
-            : ($activeTab === 'all'
-                ? array_merge(['all'], Ticket::OPEN_STATUSES, Ticket::CLOSED_STATUSES)
-                : array_merge(['all'], Ticket::OPEN_STATUSES));
+        $allowedStatuses = $this->allowedStatusesForTab($activeTab);
 
         return in_array($selectedStatus, $allowedStatuses, true)
             ? $selectedStatus
@@ -120,89 +116,14 @@ class TicketIndexService
         string $selectedStatus,
         ?array $createdDateRange = null,
     ): void {
-        $query
-            ->when($selectedStatus !== 'all', function (Builder $builder) use ($selectedStatus) {
-                $builder->where('status', $selectedStatus);
-            })
-            ->when($request->filled('priority') && $request->priority !== 'all', function (Builder $builder) use ($request) {
-                $priority = $request->string('priority')->toString();
-
-                if ($priority === 'unassigned') {
-                    $builder->whereNull('priority');
-
-                    return;
-                }
-
-                $normalizedPriority = Ticket::normalizePriorityValue($priority);
-                if ($normalizedPriority === null) {
-                    return;
-                }
-
-                $builder->where('priority', $normalizedPriority);
-            })
-            ->when($request->filled('category') && $request->category !== 'all', function (Builder $builder) use ($request) {
-                $builder->where('category_id', $request->integer('category'));
-            })
-            ->when($request->filled('category_bucket') && $request->category_bucket !== 'all', function (Builder $builder) use ($request) {
-                $bucket = $this->normalizeCategoryBucketFilter($request->string('category_bucket')->toString());
-                if ($bucket === null) {
-                    return;
-                }
-
-                $this->applyCategoryBucketFilter($builder, $bucket);
-            });
-
-        if ($request->filled('province') && $request->province !== 'all') {
-            $this->applyCaseInsensitiveExactMatch($query, 'province', (string) $request->province);
-        }
-
-        if ($request->filled('municipality') && $request->municipality !== 'all') {
-            $this->applyCaseInsensitiveExactMatch($query, 'municipality', (string) $request->municipality);
-        }
-
-        if ($request->filled('account_id') && $request->account_id !== 'all') {
-            $query->where('user_id', $request->integer('account_id'));
-        }
-
-        if ($request->filled('related_user_id') && $request->related_user_id !== 'all') {
-            $relatedUserId = $request->integer('related_user_id');
-
-            $query->where(function (Builder $builder) use ($relatedUserId) {
-                $builder->where('user_id', $relatedUserId)
-                    ->orWhere(function (Builder $assignmentQuery) use ($relatedUserId) {
-                        Ticket::applyAssignedToConstraint($assignmentQuery, $relatedUserId);
-                    });
-            });
-        }
-
-        if ($request->filled('assigned_to') && $request->assigned_to !== 'all') {
-            if ((string) $request->assigned_to === '0') {
-                $query->whereDoesntHave('assignedUsers');
-            } else {
-                Ticket::applyAssignedToConstraint($query, $request->integer('assigned_to'));
-            }
-        }
-
-        $query->when($request->filled('search'), function (Builder $builder) use ($request) {
-            $search = mb_strtolower($request->string('search')->toString());
-            $pattern = '%'.$search.'%';
-
-            $builder->where(function (Builder $searchQuery) use ($pattern) {
-                $searchQuery->whereRaw('LOWER(subject) LIKE ?', [$pattern])
-                    ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern])
-                    ->orWhereHas('user', function (Builder $userQuery) use ($pattern) {
-                        $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
-                            ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
-                    });
-            });
-        });
-
-        if ($createdDateRange !== null) {
-            $query->whereBetween('created_at', [
-                $createdDateRange['start'],
-                $createdDateRange['end'],
-            ]);
-        }
+        $this->applyStatusFilter($query, $selectedStatus);
+        $this->applyPriorityFilter($query, $request);
+        $this->applyCategoryFilters($query, $request);
+        $this->applyLocationFilters($query, $request);
+        $this->applyAccountFilters($query, $request);
+        $this->applyAssignmentFilter($query, $request);
+        $this->applySearchFilter($query, $request);
+        $this->applyCreatedDateRangeFilter($query, $createdDateRange);
     }
 
     public function buildTicketListSnapshotToken(Builder $query): string
@@ -292,6 +213,141 @@ class TicketIndexService
         });
     }
 
+    private function allowedStatusesForTab(string $activeTab): array
+    {
+        return $activeTab === 'history'
+            ? array_merge(['all'], Ticket::CLOSED_STATUSES)
+            : ($activeTab === 'all'
+                ? array_merge(['all'], Ticket::OPEN_STATUSES, Ticket::CLOSED_STATUSES)
+                : array_merge(['all'], Ticket::OPEN_STATUSES));
+    }
+
+    private function applyStatusFilter(Builder $query, string $selectedStatus): void
+    {
+        if ($selectedStatus === 'all') {
+            return;
+        }
+
+        $query->where('status', $selectedStatus);
+    }
+
+    private function applyPriorityFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('priority') || $request->priority === 'all') {
+            return;
+        }
+
+        $priority = $request->string('priority')->toString();
+
+        if ($priority === 'unassigned') {
+            $query->whereNull('priority');
+
+            return;
+        }
+
+        $normalizedPriority = Ticket::normalizePriorityValue($priority);
+        if ($normalizedPriority === null) {
+            return;
+        }
+
+        $query->where('priority', $normalizedPriority);
+    }
+
+    private function applyCategoryFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('category') && $request->category !== 'all') {
+            $query->where('category_id', $request->integer('category'));
+        }
+
+        if (! $request->filled('category_bucket') || $request->category_bucket === 'all') {
+            return;
+        }
+
+        $bucket = $this->normalizeCategoryBucketFilter($request->string('category_bucket')->toString());
+        if ($bucket === null) {
+            return;
+        }
+
+        $this->applyCategoryBucketFilter($query, $bucket);
+    }
+
+    private function applyLocationFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('province') && $request->province !== 'all') {
+            $this->applyCaseInsensitiveExactMatch($query, 'province', (string) $request->province);
+        }
+
+        if ($request->filled('municipality') && $request->municipality !== 'all') {
+            $this->applyCaseInsensitiveExactMatch($query, 'municipality', (string) $request->municipality);
+        }
+    }
+
+    private function applyAccountFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('account_id') && $request->account_id !== 'all') {
+            $query->where('user_id', $request->integer('account_id'));
+        }
+
+        if (! $request->filled('related_user_id') || $request->related_user_id === 'all') {
+            return;
+        }
+
+        $relatedUserId = $request->integer('related_user_id');
+
+        $query->where(function (Builder $builder) use ($relatedUserId) {
+            $builder->where('user_id', $relatedUserId)
+                ->orWhere(function (Builder $assignmentQuery) use ($relatedUserId) {
+                    Ticket::applyAssignedToConstraint($assignmentQuery, $relatedUserId);
+                });
+        });
+    }
+
+    private function applyAssignmentFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('assigned_to') || $request->assigned_to === 'all') {
+            return;
+        }
+
+        if ((string) $request->assigned_to === '0') {
+            $query->whereDoesntHave('assignedUsers');
+
+            return;
+        }
+
+        Ticket::applyAssignedToConstraint($query, $request->integer('assigned_to'));
+    }
+
+    private function applySearchFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('search')) {
+            return;
+        }
+
+        $search = mb_strtolower($request->string('search')->toString());
+        $pattern = '%'.$search.'%';
+
+        $query->where(function (Builder $searchQuery) use ($pattern) {
+            $searchQuery->whereRaw('LOWER(subject) LIKE ?', [$pattern])
+                ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern])
+                ->orWhereHas('user', function (Builder $userQuery) use ($pattern) {
+                    $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
+                        ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
+                });
+        });
+    }
+
+    private function applyCreatedDateRangeFilter(Builder $query, ?array $createdDateRange): void
+    {
+        if ($createdDateRange === null) {
+            return;
+        }
+
+        $query->whereBetween('created_at', [
+            $createdDateRange['start'],
+            $createdDateRange['end'],
+        ]);
+    }
+
     private function parseCreatedDate(mixed $rawDate): ?Carbon
     {
         if (! is_string($rawDate)) {
@@ -376,51 +432,27 @@ class TicketIndexService
 
     private function applyCategoryBucketFilter(Builder $query, string $bucket): void
     {
-        $hardwarePattern = '%hardware%';
-        $softwarePattern = '%software%';
-        $applicationPattern = '%application%';
-        $networkPattern = '%network%';
-        $connectPattern = '%connect%';
-        $accessPattern = '%access%';
-        $permissionPattern = '%permission%';
-        $accountPattern = '%account%';
-        $securityPattern = '%security%';
+        $patterns = $this->categoryBucketLikePatterns();
 
         $query->where(function (Builder $builder) use (
             $bucket,
-            $hardwarePattern,
-            $softwarePattern,
-            $applicationPattern,
-            $networkPattern,
-            $connectPattern,
-            $accessPattern,
-            $permissionPattern,
-            $accountPattern,
-            $securityPattern
+            $patterns
         ) {
             if ($bucket === 'other') {
                 $builder->whereNull('category_id')
                     ->orWhereHas('category', function (Builder $categoryQuery) use (
-                        $hardwarePattern,
-                        $softwarePattern,
-                        $applicationPattern,
-                        $networkPattern,
-                        $connectPattern,
-                        $accessPattern,
-                        $permissionPattern,
-                        $accountPattern,
-                        $securityPattern
+                        $patterns
                     ) {
                         $categoryQuery
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$hardwarePattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$softwarePattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$applicationPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$networkPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$connectPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accessPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$permissionPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$accountPattern])
-                            ->whereRaw('LOWER(name) NOT LIKE ?', [$securityPattern]);
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['hardware']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['software']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['application']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['network']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['connect']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['access']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['permission']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['account']])
+                            ->whereRaw('LOWER(name) NOT LIKE ?', [$patterns['security']]);
                     });
 
                 return;
@@ -428,35 +460,42 @@ class TicketIndexService
 
             $builder->whereHas('category', function (Builder $categoryQuery) use (
                 $bucket,
-                $hardwarePattern,
-                $softwarePattern,
-                $applicationPattern,
-                $networkPattern,
-                $connectPattern,
-                $accessPattern,
-                $permissionPattern,
-                $accountPattern,
-                $securityPattern
+                $patterns
             ) {
                 match ($bucket) {
-                    'hardware' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$hardwarePattern]),
-                    'software' => $categoryQuery->where(function (Builder $query) use ($softwarePattern, $applicationPattern) {
-                        $query->whereRaw('LOWER(name) LIKE ?', [$softwarePattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$applicationPattern]);
+                    'hardware' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$patterns['hardware']]),
+                    'software' => $categoryQuery->where(function (Builder $query) use ($patterns) {
+                        $query->whereRaw('LOWER(name) LIKE ?', [$patterns['software']])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$patterns['application']]);
                     }),
-                    'network' => $categoryQuery->where(function (Builder $query) use ($networkPattern, $connectPattern) {
-                        $query->whereRaw('LOWER(name) LIKE ?', [$networkPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$connectPattern]);
+                    'network' => $categoryQuery->where(function (Builder $query) use ($patterns) {
+                        $query->whereRaw('LOWER(name) LIKE ?', [$patterns['network']])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$patterns['connect']]);
                     }),
-                    'access_permissions' => $categoryQuery->where(function (Builder $query) use ($accessPattern, $permissionPattern, $accountPattern) {
-                        $query->whereRaw('LOWER(name) LIKE ?', [$accessPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$permissionPattern])
-                            ->orWhereRaw('LOWER(name) LIKE ?', [$accountPattern]);
+                    'access_permissions' => $categoryQuery->where(function (Builder $query) use ($patterns) {
+                        $query->whereRaw('LOWER(name) LIKE ?', [$patterns['access']])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$patterns['permission']])
+                            ->orWhereRaw('LOWER(name) LIKE ?', [$patterns['account']]);
                     }),
-                    'security' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$securityPattern]),
+                    'security' => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$patterns['security']]),
                     default => null,
                 };
             });
         });
+    }
+
+    private function categoryBucketLikePatterns(): array
+    {
+        return [
+            'hardware' => '%hardware%',
+            'software' => '%software%',
+            'application' => '%application%',
+            'network' => '%network%',
+            'connect' => '%connect%',
+            'access' => '%access%',
+            'permission' => '%permission%',
+            'account' => '%account%',
+            'security' => '%security%',
+        ];
     }
 }

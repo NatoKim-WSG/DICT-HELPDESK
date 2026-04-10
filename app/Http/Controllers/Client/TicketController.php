@@ -15,6 +15,7 @@ use App\Models\TicketReply;
 use App\Models\TicketUserState;
 use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
+use App\Support\LeadingUppercaseNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -120,9 +121,9 @@ class TicketController extends Controller
             'name' => $request->name,
             'contact_number' => $request->contact_number,
             'email' => $request->email,
-            'province' => $this->normalizeLeadingUppercase($request->string('province')->toString()),
-            'municipality' => $this->normalizeLeadingUppercase($request->string('municipality')->toString()),
-            'subject' => $this->normalizeLeadingUppercase($request->string('subject')->toString()),
+            'province' => LeadingUppercaseNormalizer::normalize($request->string('province')->toString()),
+            'municipality' => LeadingUppercaseNormalizer::normalize($request->string('municipality')->toString()),
+            'subject' => LeadingUppercaseNormalizer::normalize($request->string('subject')->toString()),
             'description' => $request->description,
             'category_id' => $request->category_id,
             'ticket_type' => Ticket::TYPE_EXTERNAL,
@@ -389,16 +390,6 @@ class TicketController extends Controller
             'open_tickets' => (clone $ticketQuery)->open()->count(),
             'total_tickets' => (clone $ticketQuery)->count(),
         ]));
-    }
-
-    private function normalizeLeadingUppercase(string $value): string
-    {
-        $trimmed = trim($value);
-        if ($trimmed === '') {
-            return $trimmed;
-        }
-
-        return mb_strtoupper(mb_substr($trimmed, 0, 1)).mb_substr($trimmed, 1);
     }
 
     private function recordSatisfactionLog(Ticket $ticket, int $rating, string $comment, Request $request): void

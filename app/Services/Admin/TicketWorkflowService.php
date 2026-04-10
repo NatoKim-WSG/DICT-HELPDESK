@@ -15,6 +15,11 @@ class TicketWorkflowService
 {
     private const CLOSED_REVERT_WINDOW_DAYS = 7;
 
+    /**
+     * @var array<int, string|null>
+     */
+    private array $assigneeDisplayNameCache = [];
+
     public function __construct(
         private TicketAcknowledgmentService $ticketAcknowledgments,
         private TicketEmailAlertService $ticketEmailAlerts,
@@ -97,26 +102,12 @@ class TicketWorkflowService
                 'category' => 'ticket',
                 'target_type' => Ticket::class,
                 'target_id' => $ticket->id,
-                'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_assigned_to' => $this->primaryAssigneeId($previousAssignedIds),
-                    'assigned_to' => $newAssignedTo,
-                    'previous_assigned_user_ids' => $previousAssignedIds,
-                    'assigned_user_ids' => $newAssignedIds,
-                ],
+                'metadata' => $this->assignmentLogMetadata($ticket, $previousAssignedIds, $newAssignedIds),
                 'request' => $request,
             ]
         );
 
-        $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-
-        $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-        if ($newlyAssignedIds !== []) {
-            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                $ticket->fresh(['assignedUser', 'assignedUsers']),
-                $newlyAssignedIds
-            );
-        }
+        $this->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds, notifyNewAssignees: true);
 
         return true;
     }
@@ -214,11 +205,7 @@ class TicketWorkflowService
                 'target_type' => Ticket::class,
                 'target_id' => $ticket->id,
                 'metadata' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'previous_assigned_to' => $this->primaryAssigneeId($previousAssignedIds),
-                    'assigned_to' => $newAssignedTo,
-                    'previous_assigned_user_ids' => $previousAssignedIds,
-                    'assigned_user_ids' => $newAssignedIds,
+                    ...$this->assignmentLogMetadata($ticket, $previousAssignedIds, $newAssignedIds),
                     'previous_status' => $previousStatus,
                     'new_status' => $nextStatus,
                     'previous_priority' => $previousPriority,
@@ -230,13 +217,7 @@ class TicketWorkflowService
             ]
         );
 
-        $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-        if ($newlyAssignedIds !== []) {
-            $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                $ticket->fresh(['assignedUser', 'assignedUsers']),
-                $newlyAssignedIds
-            );
-        }
+        $this->notifyNewlyAssignedUsers($ticket, $previousAssignedIds, $newAssignedIds);
 
         return true;
     }
@@ -256,17 +237,8 @@ class TicketWorkflowService
                 'assigned_to' => $newAssignedTo,
                 ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
             ]);
-            $ticket->assignedUsers()->sync($newAssignedIds);
             $this->trackTicketAcknowledgment($ticket);
-            $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
-
-            $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
-            if ($newlyAssignedIds !== []) {
-                $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
-                    $ticket->fresh(['assignedUser', 'assignedUsers']),
-                    $newlyAssignedIds
-                );
-            }
+            $this->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds, notifyNewAssignees: true);
         });
 
         $this->systemLogs->record(
@@ -314,8 +286,7 @@ class TicketWorkflowService
             $this->trackTicketAcknowledgment($ticket);
 
             if ($previousAssignedIds !== $newAssignedIds) {
-                $ticket->assignedUsers()->sync($newAssignedIds);
-                $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
+                $this->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds);
             }
 
             if ($newStatus === 'closed') {
@@ -439,11 +410,58 @@ class TicketWorkflowService
         ];
     }
 
+    private function assignmentLogMetadata(Ticket $ticket, array $previousAssignedIds, array $newAssignedIds): array
+    {
+        return [
+            'ticket_number' => $ticket->ticket_number,
+            'previous_assigned_to' => $this->primaryAssigneeId($previousAssignedIds),
+            'assigned_to' => $this->primaryAssigneeId($newAssignedIds),
+            'previous_assigned_user_ids' => $previousAssignedIds,
+            'assigned_user_ids' => $newAssignedIds,
+        ];
+    }
+
+    private function syncAssignmentState(
+        Ticket $ticket,
+        array $previousAssignedIds,
+        array $newAssignedIds,
+        bool $notifyNewAssignees = false
+    ): void {
+        if ($previousAssignedIds === $newAssignedIds) {
+            return;
+        }
+
+        $ticket->assignedUsers()->sync($newAssignedIds);
+        $this->recordAssignmentHandoff($ticket, $previousAssignedIds, $newAssignedIds);
+
+        if ($notifyNewAssignees) {
+            $this->notifyNewlyAssignedUsers($ticket, $previousAssignedIds, $newAssignedIds);
+        }
+    }
+
+    private function notifyNewlyAssignedUsers(Ticket $ticket, array $previousAssignedIds, array $newAssignedIds): void
+    {
+        $newlyAssignedIds = array_values(array_diff($newAssignedIds, $previousAssignedIds));
+        if ($newlyAssignedIds === []) {
+            return;
+        }
+
+        $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
+            $ticket->fresh(['assignedUser', 'assignedUsers']),
+            $newlyAssignedIds
+        );
+    }
+
     private function recordAssignmentHandoff(Ticket $ticket, array $previousAssignedIds, array $newAssignedIds): void
     {
         if ($previousAssignedIds === $newAssignedIds) {
             return;
         }
+
+        $this->primeAssigneeDisplayNames(array_values(array_unique([
+            ...$previousAssignedIds,
+            ...$newAssignedIds,
+        ])));
 
         $actorName = optional(auth()->user())->name ?? 'System';
         $previousAssigneeName = $this->assigneeDisplayNames($previousAssignedIds);
@@ -474,18 +492,11 @@ class TicketWorkflowService
             return null;
         }
 
-        static $displayNameCache = [];
+        $this->primeAssigneeDisplayNames($userIds);
         $displayNames = [];
 
         foreach ($userIds as $userId) {
-            if (! array_key_exists($userId, $displayNameCache)) {
-                $user = User::find($userId);
-                $displayNameCache[$userId] = $user && ! $user->isShadow()
-                    ? $user->publicDisplayName()
-                    : null;
-            }
-
-            $displayName = $displayNameCache[$userId];
+            $displayName = $this->assigneeDisplayNameCache[$userId] ?? null;
             if ($displayName) {
                 $displayNames[] = $displayName;
             }
@@ -494,6 +505,31 @@ class TicketWorkflowService
         $displayNames = array_values(array_unique($displayNames));
 
         return $displayNames !== [] ? implode(', ', $displayNames) : null;
+    }
+
+    private function primeAssigneeDisplayNames(array $userIds): void
+    {
+        $missingUserIds = array_values(array_filter(
+            $userIds,
+            fn (int $userId): bool => ! array_key_exists($userId, $this->assigneeDisplayNameCache)
+        ));
+
+        if ($missingUserIds === []) {
+            return;
+        }
+
+        $usersById = User::query()
+            ->whereIn('id', $missingUserIds)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($missingUserIds as $userId) {
+            /** @var User|null $user */
+            $user = $usersById->get($userId);
+            $this->assigneeDisplayNameCache[$userId] = $user && ! $user->isShadow()
+                ? $user->publicDisplayName()
+                : null;
+        }
     }
 
     private function primaryAssigneeId(array $assigneeIds): ?int

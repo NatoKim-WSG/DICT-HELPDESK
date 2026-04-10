@@ -348,25 +348,7 @@ class UserManagementController extends Controller
                 'user_id' => $replacementUser->id,
             ]);
 
-            Ticket::query()
-                ->where(function ($query) use ($user) {
-                    Ticket::applyAssignedToConstraint($query, (int) $user->id);
-                })
-                ->with('assignedUsers')
-                ->get()
-                ->each(function (Ticket $ticket) use ($user): void {
-                    $remainingAssignedIds = $ticket->assignedUsers
-                        ->reject(fn (User $assignedUser) => (int) $assignedUser->id === (int) $user->id)
-                        ->pluck('id')
-                        ->map(fn ($assignedUserId) => (int) $assignedUserId)
-                        ->values()
-                        ->all();
-
-                    $ticket->assignedUsers()->sync($remainingAssignedIds);
-                    $ticket->forceFill([
-                        'assigned_to' => $remainingAssignedIds[0] ?? null,
-                    ])->saveQuietly();
-                });
+            $this->removeDeletedUserTicketAssignments($user);
 
             $user->delete();
         });
@@ -472,6 +454,81 @@ class UserManagementController extends Controller
                 'is_active' => false,
             ]
         );
+    }
+
+    private function removeDeletedUserTicketAssignments(User $user): void
+    {
+        $primaryAssignedTicketIds = $this->primaryAssignedTicketIdsForUser($user);
+
+        DB::table('ticket_assignments')
+            ->where('user_id', $user->id)
+            ->delete();
+
+        $this->syncPrimaryTicketAssignmentsAfterUserDeletion((int) $user->id, $primaryAssignedTicketIds);
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function primaryAssignedTicketIdsForUser(User $user): array
+    {
+        return Ticket::query()
+            ->where('assigned_to', $user->id)
+            ->pluck('id')
+            ->map(fn ($ticketId): int => (int) $ticketId)
+            ->all();
+    }
+
+    /**
+     * @param  array<int>  $ticketIds
+     */
+    private function syncPrimaryTicketAssignmentsAfterUserDeletion(int $deletedUserId, array $ticketIds): void
+    {
+        if ($ticketIds === []) {
+            return;
+        }
+
+        $timestamp = now();
+        Ticket::query()
+            ->whereIn('id', $ticketIds)
+            ->where('assigned_to', $deletedUserId)
+            ->update([
+                'assigned_to' => null,
+                'updated_at' => $timestamp,
+            ]);
+
+        $replacementAssigneeMap = $this->nextPrimaryAssigneeIdsForTickets($ticketIds);
+        if ($replacementAssigneeMap === []) {
+            return;
+        }
+
+        $caseStatement = collect($replacementAssigneeMap)
+            ->map(fn (int $assigneeId, int $ticketId): string => "WHEN {$ticketId} THEN {$assigneeId}")
+            ->implode(' ');
+
+        Ticket::query()
+            ->whereIn('id', array_keys($replacementAssigneeMap))
+            ->update([
+                'assigned_to' => DB::raw("CASE id {$caseStatement} END"),
+                'updated_at' => $timestamp,
+            ]);
+    }
+
+    /**
+     * @param  array<int>  $ticketIds
+     * @return array<int, int>
+     */
+    private function nextPrimaryAssigneeIdsForTickets(array $ticketIds): array
+    {
+        return DB::table('ticket_assignments')
+            ->whereIn('ticket_id', $ticketIds)
+            ->selectRaw('ticket_id, MIN(user_id) as next_assigned_to')
+            ->groupBy('ticket_id')
+            ->pluck('next_assigned_to', 'ticket_id')
+            ->mapWithKeys(fn ($assigneeId, $ticketId): array => [
+                (int) $ticketId => (int) $assigneeId,
+            ])
+            ->all();
     }
 
     private function redirectAfterManagedUserUpdate(User $user, bool $stayOnEdit, string $message, string $returnTo, bool $hasReturnTo)
