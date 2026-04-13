@@ -90,8 +90,8 @@
 
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:col-span-2">
                         <div>
-                            <label for="contact_number" class="form-label">Contact Number <span class="text-red-600">*</span></label>
-                            <input type="text" name="contact_number" id="contact_number" required
+                            <label for="contact_number" class="form-label">Contact Number</label>
+                            <input type="text" name="contact_number" id="contact_number"
                                    class="form-input @error('contact_number') border-red-500 @enderror"
                                    value="{{ old('contact_number') }}"
                                    placeholder="e.g. 09123456789">
@@ -101,8 +101,8 @@
                         </div>
 
                         <div>
-                            <label for="email" class="form-label">Email <span class="text-red-600">*</span></label>
-                            <input type="email" name="email" id="email" required
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" name="email" id="email"
                                    class="form-input @error('email') border-red-500 @enderror"
                                    value="{{ old('email') }}"
                                    placeholder="client@example.com">

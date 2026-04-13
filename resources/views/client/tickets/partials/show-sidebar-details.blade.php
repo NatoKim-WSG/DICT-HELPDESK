@@ -51,14 +51,6 @@
                 <dd class="text-sm text-gray-900">{{ $ticket->category->name }}</dd>
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500">Severity</dt>
-                <dd class="text-sm text-gray-900">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $ticket->priority_color }}">
-                        {{ $ticket->priority_label }}
-                    </span>
-                </dd>
-            </div>
-            <div>
                 <dt class="text-sm font-medium text-gray-500">Status</dt>
                 <dd class="text-sm text-gray-900">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $ticket->status_color }}">

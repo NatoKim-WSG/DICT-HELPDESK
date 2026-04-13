@@ -10,11 +10,11 @@
     $canDeleteTickets = auth()->user()->isSuperAdmin();
     $canCreateTickets = auth()->user()->canCreateClientTickets();
     $canManageTicketType = auth()->user()->canManageTicketType();
+    $showAttentionTab = !auth()->user()->isTechnician();
     $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
     $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
     $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
-    $tabAttentionUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
     $selectedMonth = old('month', request('month', data_get($createdDateRange, 'month', '')));
 @endphp
@@ -42,7 +42,9 @@
                 <div class="flex items-center gap-7">
                     <a href="{{ $tabAllUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'all' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">All</a>
                     <a href="{{ $tabTicketsUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'tickets' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Tickets</a>
-                    <a href="{{ $tabAttentionUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Needs Attention</a>
+                    @if($showAttentionTab)
+                        <a href="{{ route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'attention'])) }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'attention' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">Needs Attention</a>
+                    @endif
                     <a href="{{ $tabHistoryUrl }}" class="border-b-[3px] pb-3 text-sm font-semibold {{ $tab === 'history' ? 'border-[#ff2f88] text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600' }}">History</a>
                 </div>
 

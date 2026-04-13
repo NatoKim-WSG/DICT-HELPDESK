@@ -6,7 +6,6 @@
 @php
     $activeTab = $activeTab ?? 'tickets';
     $selectedStatus = $selectedStatus ?? 'all';
-    $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
     $isHistoryTab = $activeTab === 'history';
     $tabQuery = request()->except(['tab', 'page']);
     $ticketsTabUrl = route('client.tickets.index', array_merge($tabQuery, ['tab' => 'tickets']));
@@ -45,7 +44,7 @@
                 <p class="mt-1 text-sm text-slate-500">{{ $panelDescription }}</p>
             </div>
 
-            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-4" data-submit-feedback data-search-history-form data-search-history-key="client-ticket-filters">
+            <form method="GET" class="grid grid-cols-1 gap-3 py-4 md:grid-cols-3" data-submit-feedback data-search-history-form data-search-history-key="client-ticket-filters">
                 <input type="hidden" name="tab" value="{{ $activeTab }}">
 
                 <div class="relative md:col-span-2">
@@ -79,18 +78,7 @@
                     </select>
                 </div>
 
-                <div>
-                    <label for="priority" class="sr-only">Severity</label>
-                    <select id="priority" name="priority" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
-                        <option value="">All severities</option>
-                        <option value="unassigned" {{ request('priority') === 'unassigned' ? 'selected' : '' }}>Pending review</option>
-                        <option value="severity_1" {{ $selectedPriority === 'severity_1' ? 'selected' : '' }}>Severity 1</option>
-                        <option value="severity_2" {{ $selectedPriority === 'severity_2' ? 'selected' : '' }}>Severity 2</option>
-                        <option value="severity_3" {{ $selectedPriority === 'severity_3' ? 'selected' : '' }}>Severity 3</option>
-                    </select>
-                </div>
-
-                <div class="flex items-center gap-2 md:col-span-4">
+                <div class="flex items-center gap-2 md:col-span-3">
                     <button type="submit" class="inline-flex h-10 items-center rounded-xl bg-[#033b3d] px-3 text-sm font-semibold text-white transition hover:brightness-95" data-loading-text="Filtering...">Filter</button>
                     <a href="{{ $clearUrl }}" class="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Clear</a>
                 </div>
@@ -119,9 +107,6 @@
                         </div>
                     </div>
                     <div class="mt-3 flex items-center gap-2">
-                        <span class="inline-flex min-w-16 items-center justify-center rounded-md px-2.5 py-1 text-[11px] font-semibold {{ $ticket->priority_badge_class }}">
-                            {{ $ticket->priority_label }}
-                        </span>
                         <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
                             {{ $ticket->status_label }}
                         </span>
@@ -139,11 +124,10 @@
             <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
                 <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
-                        <th class="w-[40%] px-6 py-4">Details</th>
-                        <th class="w-[18%] px-6 py-4">Assigned Technical</th>
-                        <th class="w-[12%] px-6 py-4 text-center">Severity</th>
-                        <th class="w-[20%] px-6 py-4 text-center">Activity Status</th>
-                        <th class="w-[10%] px-6 py-4 text-center">Status</th>
+                        <th class="w-[44%] px-6 py-4">Details</th>
+                        <th class="w-[20%] px-6 py-4">Assigned Technical</th>
+                        <th class="w-[22%] px-6 py-4 text-center">Activity Status</th>
+                        <th class="w-[14%] px-6 py-4 text-center">Status</th>
                     </tr>
                 </thead>
 
@@ -171,12 +155,6 @@
                             </td>
 
                             <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
-                                    {{ $ticket->priority_label }}
-                                </span>
-                            </td>
-
-                            <td class="px-6 py-5 text-center align-top">
                                 <span class="inline-flex items-center gap-2 text-sm text-slate-600">
                                     <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
                                     {{ $ticket->activity_label }}
@@ -191,7 +169,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-14 text-center">
+                            <td colspan="4" class="px-6 py-14 text-center">
                                 <p class="text-base font-semibold text-slate-700">{{ $emptyTitle }}</p>
                                 <p class="mt-1 text-sm text-slate-500">{{ $emptyDescription }}</p>
                             </td>

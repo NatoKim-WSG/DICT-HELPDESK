@@ -17,9 +17,6 @@
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->status_color }}">
                     {{ ucfirst(str_replace('_', ' ', $ticket->status)) }}
                 </span>
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $ticket->priority_color }}">
-                    {{ $ticket->priority_label }}
-                </span>
             </div>
         </div>
     </div>

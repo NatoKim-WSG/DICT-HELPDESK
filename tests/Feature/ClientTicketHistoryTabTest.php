@@ -118,6 +118,7 @@ class ClientTicketHistoryTabTest extends TestCase
         $ticketsResponse->assertDontSee('Tickets closed ticket');
         $ticketsResponse->assertDontSee('value="resolved"', false);
         $ticketsResponse->assertDontSee('value="closed"', false);
+        $ticketsResponse->assertDontSee('name="priority"', false);
 
         $invalidStatusResponse = $this->actingAs($client)->get(route('client.tickets.index', [
             'tab' => 'tickets',
@@ -129,6 +130,7 @@ class ClientTicketHistoryTabTest extends TestCase
         $invalidStatusResponse->assertSee('Tickets in progress ticket');
         $invalidStatusResponse->assertDontSee('Tickets resolved ticket');
         $invalidStatusResponse->assertDontSee('Tickets closed ticket');
+        $invalidStatusResponse->assertDontSee('name="priority"', false);
     }
 
     private function createClientAndCategory(): array

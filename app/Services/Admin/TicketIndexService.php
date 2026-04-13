@@ -14,11 +14,17 @@ use Illuminate\Support\Facades\Cache;
 
 class TicketIndexService
 {
-    public function resolveActiveTab(string $requestedTab): string
+    public function resolveActiveTab(string $requestedTab, ?User $user = null): string
     {
-        return in_array($requestedTab, ['all', 'tickets', 'attention', 'history'], true)
+        $activeTab = in_array($requestedTab, ['all', 'tickets', 'attention', 'history'], true)
             ? $requestedTab
             : 'tickets';
+
+        if ($activeTab === 'attention' && $user?->isTechnician()) {
+            return 'tickets';
+        }
+
+        return $activeTab;
     }
 
     public function resolveSelectedStatus(string $requestedStatus, string $activeTab): string

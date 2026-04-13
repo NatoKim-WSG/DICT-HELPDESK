@@ -69,22 +69,6 @@ class TicketController extends Controller
 
                 $builder->where('status', $selectedStatus);
             })
-            ->when($request->filled('priority') && $request->priority !== 'all', function ($builder) use ($request) {
-                $priority = $request->string('priority')->toString();
-
-                if ($priority === 'unassigned') {
-                    $builder->whereNull('priority');
-
-                    return;
-                }
-
-                $normalizedPriority = Ticket::normalizePriorityValue($priority);
-                if ($normalizedPriority === null) {
-                    return;
-                }
-
-                $builder->where('priority', $normalizedPriority);
-            })
             ->when($request->filled('search'), function ($builder) use ($request) {
                 $search = mb_strtolower($request->string('search')->toString());
                 $pattern = '%'.$search.'%';

@@ -29,7 +29,7 @@ class TicketController extends Controller
     public function index(Request $request)
     {
         $currentUser = auth()->user();
-        $activeTab = $this->ticketIndex->resolveActiveTab($request->string('tab')->toString());
+        $activeTab = $this->ticketIndex->resolveActiveTab($request->string('tab')->toString(), $currentUser);
         $selectedStatus = $this->ticketIndex->resolveSelectedStatus($request->string('status')->toString(), $activeTab);
         $createdDateRange = $this->ticketIndex->resolveCreatedDateRange($request);
         $currentPage = max(1, $request->integer('page', 1));
@@ -129,8 +129,12 @@ class TicketController extends Controller
     {
         $ticket = Ticket::create([
             'name' => $request->string('name')->toString(),
-            'contact_number' => $request->string('contact_number')->toString(),
-            'email' => $request->string('email')->toString(),
+            'contact_number' => $request->filled('contact_number')
+                ? $request->string('contact_number')->toString()
+                : null,
+            'email' => $request->filled('email')
+                ? $request->string('email')->toString()
+                : null,
             'province' => LeadingUppercaseNormalizer::normalize($request->string('province')->toString()),
             'municipality' => LeadingUppercaseNormalizer::normalize($request->string('municipality')->toString()),
             'subject' => LeadingUppercaseNormalizer::normalize($request->string('subject')->toString()),

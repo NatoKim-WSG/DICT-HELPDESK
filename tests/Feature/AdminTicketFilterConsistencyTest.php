@@ -501,6 +501,36 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $this->assertNotSame($initialToken, (string) $heartbeatResponse->json('token'));
     }
 
+    public function test_technician_does_not_see_needs_attention_tab_even_when_requested(): void
+    {
+        $technician = $this->createAssignedSupportUser('Scoped Technician', 'scoped-technician@example.com');
+        $category = $this->createCategory();
+        $client = $this->createClient('Technician Client', 'technician-client@example.com');
+
+        $ticket = Ticket::create([
+            'name' => 'Technician Requester',
+            'contact_number' => '09110000161',
+            'email' => 'technician-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Assigned open ticket',
+            'description' => 'Visible to the assigned technician.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'assigned_to' => $technician->id,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($technician)->get(route('admin.tickets.index', [
+            'tab' => 'attention',
+        ]));
+
+        $response->assertOk();
+        $response->assertDontSee('Needs Attention');
+        $response->assertSee(route('admin.tickets.show', $ticket), false);
+    }
+
     private function createSupportUser(): User
     {
         return User::create([

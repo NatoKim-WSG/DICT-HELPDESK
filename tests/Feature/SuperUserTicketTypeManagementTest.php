@@ -77,6 +77,32 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $this->assertSame($client->id, (int) $ticket->user_id);
     }
 
+    public function test_super_user_can_create_ticket_without_contact_number_and_email(): void
+    {
+        $superUser = $this->createUser('Super Optional', 'super-optional@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Optional Client', 'optional-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $response = $this->actingAs($superUser)->post(route('admin.tickets.store'), [
+            'user_id' => $client->id,
+            'name' => 'Optional Client',
+            'contact_number' => '',
+            'email' => '',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Optional contact details',
+            'description' => 'Ticket created without contact and email fields.',
+            'category_id' => $category->id,
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+        ]);
+
+        $ticket = Ticket::query()->latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('admin.tickets.show', $ticket));
+        $this->assertNull($ticket->contact_number);
+        $this->assertNull($ticket->email);
+    }
+
     public function test_admin_cannot_access_super_user_ticket_create_flow(): void
     {
         $admin = $this->createUser('Admin Viewer', 'admin-viewer@example.com', User::ROLE_ADMIN);

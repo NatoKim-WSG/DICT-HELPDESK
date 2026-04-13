@@ -78,12 +78,6 @@
                             @enderror
                         </div>
                     </div>
-                    <div class="xl:col-span-2">
-                        <p class="ticket-contact-note inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            Contact details are visible only to the {{ config('helpdesk.support_team_name') }} for emergency communication purposes.
-                        </p>
-                    </div>
-
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:col-span-2">
                         <div>
                             <label for="province" class="form-label">Province <span class="text-red-600">*</span></label>
@@ -136,12 +130,6 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-                    </div>
-
-                    <div class="xl:col-span-2">
-                        <p class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            Severity is assigned by the support staff after the ticket is reviewed.
-                        </p>
                     </div>
 
                     <div class="xl:col-span-2">
