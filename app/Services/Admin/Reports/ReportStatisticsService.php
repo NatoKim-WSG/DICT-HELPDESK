@@ -4,12 +4,15 @@ namespace App\Services\Admin\Reports;
 
 use App\Models\Ticket;
 use App\Services\Admin\ReportBreakdownService;
+use App\Services\Admin\Reports\Concerns\BuildsReportQueryCacheKey;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class ReportStatisticsService
 {
+    use BuildsReportQueryCacheKey;
+
     private array $resolvedTicketCountCache = [];
 
     private array $closedTicketCountCache = [];
@@ -119,11 +122,7 @@ class ReportStatisticsService
             ->groupBy('priority')
             ->pluck('count', 'priority');
 
-        return array_merge([
-            'pending_review' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0),
-        ], collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
-            $priority => (int) ($priorityCounts[$priority] ?? 0),
-        ])->all());
+        return $this->formatPriorityBreakdownFromCounts($priorityCounts);
     }
 
     public function buildCategoryBreakdownForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): Collection
@@ -148,11 +147,9 @@ class ReportStatisticsService
 
     public function buildCategoryBreakdownForAllTime(Builder $scopedTickets): Collection
     {
-        return $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets)
-            ->map(fn (object $row): array => [
-                'category_name' => (string) ($row->category_name ?? ''),
-                'count' => (int) ($row->count ?? 0),
-            ]);
+        return $this->formatCategoryBreakdownFromCounts(
+            $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets)
+        );
     }
 
     public function buildCategoryBucketsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
@@ -162,19 +159,9 @@ class ReportStatisticsService
 
     public function buildCategoryBucketsForAllTime(Builder $scopedTickets): array
     {
-        $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
-        $bucketCounts = array_fill_keys($bucketOrder, 0);
-
-        $categoryCounts = $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets);
-        foreach ($categoryCounts as $row) {
-            $bucket = $this->reportBreakdowns->normalizeCategoryBucket((string) $row->category_name);
-            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
-        }
-
-        return collect($bucketCounts)->map(fn (int $count, string $name) => [
-            'name' => $name,
-            'count' => $count,
-        ])->values()->all();
+        return $this->buildCategoryBucketsFromCounts(
+            $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets)
+        );
     }
 
     public function buildPriorityBucketsForPeriod(Builder $scopedTickets, Carbon $start, Carbon $end): array
@@ -189,11 +176,50 @@ class ReportStatisticsService
             ->groupBy('priority')
             ->pluck('count', 'priority');
 
+        return $this->buildPriorityBucketsFromCounts($counts);
+    }
+
+    public function formatPriorityBreakdownFromCounts(Collection $priorityCounts): array
+    {
+        return array_merge([
+            'pending_review' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0),
+        ], collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
+            $priority => (int) ($priorityCounts[$priority] ?? 0),
+        ])->all());
+    }
+
+    public function formatCategoryBreakdownFromCounts(Collection $categoryCounts): Collection
+    {
+        return $categoryCounts
+            ->map(fn (object $row): array => [
+                'category_name' => (string) ($row->category_name ?? ''),
+                'count' => (int) ($row->count ?? 0),
+            ]);
+    }
+
+    public function buildCategoryBucketsFromCounts(Collection $categoryCounts): array
+    {
+        $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
+        $bucketCounts = array_fill_keys($bucketOrder, 0);
+
+        foreach ($categoryCounts as $row) {
+            $bucket = $this->reportBreakdowns->normalizeCategoryBucket((string) $row->category_name);
+            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
+        }
+
+        return collect($bucketCounts)->map(fn (int $count, string $name) => [
+            'name' => $name,
+            'count' => $count,
+        ])->values()->all();
+    }
+
+    public function buildPriorityBucketsFromCounts(Collection $priorityCounts): array
+    {
         return [
-            ['name' => 'Pending Review', 'count' => (int) ($counts[''] ?? $counts[null] ?? 0)],
-            ['name' => 'Severity 1', 'count' => (int) ($counts['severity_1'] ?? 0)],
-            ['name' => 'Severity 2', 'count' => (int) ($counts['severity_2'] ?? 0)],
-            ['name' => 'Severity 3', 'count' => (int) ($counts['severity_3'] ?? 0)],
+            ['name' => 'Pending Review', 'count' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0)],
+            ['name' => 'Severity 1', 'count' => (int) ($priorityCounts['severity_1'] ?? 0)],
+            ['name' => 'Severity 2', 'count' => (int) ($priorityCounts['severity_2'] ?? 0)],
+            ['name' => 'Severity 3', 'count' => (int) ($priorityCounts['severity_3'] ?? 0)],
         ];
     }
 
@@ -418,10 +444,5 @@ class ReportStatisticsService
             'urgent_total' => (int) ($summaryRow['urgent_total'] ?? 0),
             'top_categories' => $incidentByCategory,
         ];
-    }
-
-    private function queryScopeSignature(Builder $scopedTickets): string
-    {
-        return sha1($scopedTickets->toSql().'|'.json_encode($scopedTickets->getBindings()));
     }
 }

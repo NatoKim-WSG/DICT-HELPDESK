@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -142,6 +143,80 @@ class TicketRepliesFeedVisibilityTest extends TestCase
         $replies = $response->json('replies');
         $this->assertCount(2, $replies);
         $this->assertTrue(collect($replies)->contains(fn (array $reply) => $reply['message'] === 'Shadow private support note'));
+    }
+
+    public function test_replies_feed_uses_trimmed_reply_payload_contract(): void
+    {
+        [$client, $superUser, $ticket] = $this->seedTicketWithUsers();
+
+        $parentReply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $superUser->id,
+            'message' => 'Original support message',
+            'is_internal' => false,
+        ]);
+
+        TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $client->id,
+            'message' => 'Client follow-up',
+            'reply_to_id' => $parentReply->id,
+            'is_internal' => false,
+        ]);
+
+        $response = $this->actingAs($client)->getJson(route('client.tickets.replies.feed', $ticket));
+        $response->assertOk();
+
+        $reply = collect($response->json('replies'))
+            ->first(fn (array $item) => $item['message'] === 'Client follow-up');
+
+        $this->assertIsArray($reply);
+        $this->assertSame('Original support message', $reply['reply_to_text']);
+        $this->assertArrayNotHasKey('reply_to_message', $reply);
+        $this->assertArrayNotHasKey('reply_to_excerpt', $reply);
+        $this->assertArrayNotHasKey('created_at_human', $reply);
+        $this->assertArrayNotHasKey('created_at_label', $reply);
+    }
+
+    public function test_replies_feed_can_return_only_recent_changes_with_cursor(): void
+    {
+        [$client, $superUser, $ticket] = $this->seedTicketWithUsers();
+
+        $olderReply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $superUser->id,
+            'message' => 'Older support reply',
+            'is_internal' => false,
+        ]);
+        $olderReply->forceFill([
+            'created_at' => Carbon::parse('2026-04-13 08:00:00', 'UTC'),
+            'updated_at' => Carbon::parse('2026-04-13 08:00:00', 'UTC'),
+        ])->saveQuietly();
+
+        $newerReply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $client->id,
+            'message' => 'Newest reply',
+            'is_internal' => false,
+        ]);
+        $newerReply->forceFill([
+            'created_at' => Carbon::parse('2026-04-13 08:05:00', 'UTC'),
+            'updated_at' => Carbon::parse('2026-04-13 08:05:00', 'UTC'),
+        ])->saveQuietly();
+
+        $olderCursor = $olderReply->fresh()->updated_at->copy()->utc();
+        $newerCursor = $newerReply->fresh()->updated_at->copy()->utc();
+
+        $response = $this->actingAs($client)->getJson(route('client.tickets.replies.feed', [
+            'ticket' => $ticket,
+            'updated_after' => $olderCursor->copy()->addMinutes(4)->toIso8601String(),
+        ]));
+        $response->assertOk();
+
+        $response->assertJsonPath('cursor', $newerCursor->toIso8601String());
+        $replies = $response->json('replies');
+        $this->assertCount(1, $replies);
+        $this->assertSame('Newest reply', $replies[0]['message']);
     }
 
     private function seedTicketWithUsers(): array

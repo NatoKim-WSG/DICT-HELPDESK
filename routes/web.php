@@ -4,7 +4,9 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ManagedUserCredentialController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\SystemLogController;
+use App\Http\Controllers\Admin\TicketActionController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
+use App\Http\Controllers\Admin\TicketReplyController as AdminTicketReplyController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
@@ -101,38 +103,38 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         ->middleware(['throttle:20,1', 'role:super_user'])
         ->name('tickets.store');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
-    Route::get('/tickets/{ticket}/replies', [AdminTicketController::class, 'replies'])->name('tickets.replies.feed');
-    Route::post('/tickets/{ticket}/acknowledge', [AdminTicketController::class, 'acknowledge'])
+    Route::get('/tickets/{ticket}/replies', [AdminTicketReplyController::class, 'replies'])->name('tickets.replies.feed');
+    Route::post('/tickets/{ticket}/acknowledge', [TicketActionController::class, 'acknowledge'])
         ->middleware('throttle:60,1')
         ->name('tickets.acknowledge');
-    Route::post('/tickets/bulk-action', [AdminTicketController::class, 'bulkAction'])
+    Route::post('/tickets/bulk-action', [TicketActionController::class, 'bulkAction'])
         ->middleware('throttle:20,1')
         ->name('tickets.bulk-action');
-    Route::post('/tickets/{ticket}/quick-update', [AdminTicketController::class, 'quickUpdate'])
+    Route::post('/tickets/{ticket}/quick-update', [TicketActionController::class, 'quickUpdate'])
         ->middleware('throttle:60,1')
         ->name('tickets.quick-update');
-    Route::post('/tickets/{ticket}/assign', [AdminTicketController::class, 'assign'])
+    Route::post('/tickets/{ticket}/assign', [TicketActionController::class, 'assign'])
         ->middleware('throttle:60,1')
         ->name('tickets.assign');
-    Route::post('/tickets/{ticket}/status', [AdminTicketController::class, 'updateStatus'])
+    Route::post('/tickets/{ticket}/status', [TicketActionController::class, 'updateStatus'])
         ->middleware('throttle:60,1')
         ->name('tickets.status');
-    Route::post('/tickets/{ticket}/severity', [AdminTicketController::class, 'updateSeverity'])
+    Route::post('/tickets/{ticket}/severity', [TicketActionController::class, 'updateSeverity'])
         ->middleware('throttle:60,1')
         ->name('tickets.severity');
-    Route::post('/tickets/{ticket}/type', [AdminTicketController::class, 'updateType'])
+    Route::post('/tickets/{ticket}/type', [TicketActionController::class, 'updateType'])
         ->middleware(['throttle:60,1', 'role:super_user'])
         ->name('tickets.type');
-    Route::delete('/tickets/{ticket}', [AdminTicketController::class, 'destroy'])
+    Route::delete('/tickets/{ticket}', [TicketActionController::class, 'destroy'])
         ->middleware(['throttle:20,1', 'role:admin,shadow'])
         ->name('tickets.destroy');
-    Route::post('/tickets/{ticket}/reply', [AdminTicketController::class, 'reply'])
+    Route::post('/tickets/{ticket}/reply', [AdminTicketReplyController::class, 'reply'])
         ->middleware('throttle:60,1')
         ->name('tickets.reply');
-    Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'updateReply'])
+    Route::patch('/tickets/{ticket}/replies/{reply}', [AdminTicketReplyController::class, 'updateReply'])
         ->middleware('throttle:60,1')
         ->name('tickets.replies.update');
-    Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketController::class, 'deleteReply'])
+    Route::delete('/tickets/{ticket}/replies/{reply}', [AdminTicketReplyController::class, 'deleteReply'])
         ->middleware('throttle:60,1')
         ->name('tickets.replies.delete');
     Route::post('/notifications/dismiss', [NotificationController::class, 'adminDismiss'])

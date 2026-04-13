@@ -2,9 +2,15 @@ import { bootPage } from './shared/boot-page';
 import { createReplyComposer } from './shared/reply-composer';
 import { createTicketSeenSync } from './shared/ticket-seen-sync';
 import {
+    applyReplyStateToRow,
+    buildReplyFeedUrl,
+    buildReplyEndpoint,
     canSubmitReply,
     formatAttachmentCountLabel,
-    nextMessageCountLabel,
+    incrementMessageCount,
+    REPLY_POLL_INTERVAL_MS,
+    replyReferenceText,
+    syncThreadReplies,
 } from './shared/ticket-thread-helpers';
 import {
     appendThreadSeparatorIfNeeded,
@@ -43,21 +49,16 @@ const initAdminTicketShowPage = () => {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const defaultClientLogo = replyForm ? (replyForm.dataset.clientLogo || '') : '';
     const supportLogo = replyForm ? (replyForm.dataset.supportLogo || '') : '';
-    const knownReplyIds = new Set();
+    let repliesCursor = (thread ? thread.dataset.repliesCursor : '') || (replyForm ? replyForm.dataset.repliesCursor : '') || '';
     let isPollingReplies = false;
     let editingReplyId = '';
     let autoResize = function () {};
     let pendingDeleteRow = null;
+    let pollRepliesTimeoutId = 0;
 
     const isEditingReply = function () {
         return editingReplyId !== '';
     };
-
-    if (thread) {
-        thread.querySelectorAll('.js-chat-row[data-reply-id]').forEach(function (row) {
-            if (row.dataset.replyId) knownReplyIds.add(String(row.dataset.replyId));
-        });
-    }
 
     if (thread) {
         thread.scrollTop = thread.scrollHeight;
@@ -164,7 +165,7 @@ const initAdminTicketShowPage = () => {
         if (!row) return;
 
         try {
-            const response = await fetch(deleteUrlTemplate.replace('__REPLY__', row.dataset.replyId), {
+            const response = await fetch(buildReplyEndpoint(deleteUrlTemplate, row.dataset.replyId), {
                 method: 'DELETE',
                 headers: {
                     'Accept': 'application/json',
@@ -226,10 +227,6 @@ const initAdminTicketShowPage = () => {
         row.dataset.replyId = payload.id;
         row.dataset.canManage = canManage ? '1' : '0';
         row.dataset.isInternal = payload.is_internal ? '1' : '0';
-        if (payload.id !== undefined && payload.id !== null) {
-            knownReplyIds.add(String(payload.id));
-        }
-
         const avatarLogo = payload.avatar_logo || (fromSupport ? supportLogo : defaultClientLogo);
         const isDeleted = Boolean(payload.deleted);
         const isEdited = Boolean(payload.edited);
@@ -237,12 +234,12 @@ const initAdminTicketShowPage = () => {
         const internalBadge = payload.is_internal
             ? '<div class="mb-1 flex items-center gap-2"><span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">Internal</span></div>'
             : '';
-        const replyRefText = payload.reply_to_message || payload.reply_to_excerpt || '';
+        const replyRefText = replyReferenceText(payload);
         const replyReference = replyRefText
             ? '<div class="js-reply-reference mb-2"><p class="mb-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500"><svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/></svg>' + (fromSupport ? 'Support replied' : 'Client replied') + '</p><div class="js-reply-reference-text rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">' + escapeHtml(replyRefText) + '</div></div>'
             : '';
         const attachmentsHtml = !isDeleted && Array.isArray(payload.attachments) && payload.attachments.length
-            ? '<div class="mt-4 flex flex-wrap gap-2">' + payload.attachments.map(function (attachment) {
+            ? '<div class="js-attachments-wrap mt-4 flex flex-wrap gap-2">' + payload.attachments.map(function (attachment) {
                 const canPreview = Boolean(attachment.can_preview && attachment.preview_url);
                 if (attachment.is_image) {
                     const imagePreviewAttributes = canPreview
@@ -283,65 +280,23 @@ const initAdminTicketShowPage = () => {
         thread.appendChild(row);
         thread.scrollTop = thread.scrollHeight;
         queueSeenSync(payload.created_at_iso || '');
-
-        if (messageCountNode) {
-            const nextLabel = nextMessageCountLabel(messageCountNode.textContent);
-            if (nextLabel) {
-                messageCountNode.textContent = nextLabel;
-            }
-        }
+        incrementMessageCount(messageCountNode);
     };
 
     const applyReplyState = function (row, reply) {
-        const bubble = row ? row.querySelector('.js-chat-bubble') : null;
-        if (!bubble || !reply) return;
+        applyReplyStateToRow({
+            row,
+            reply,
+            onDeleted: function (currentRow) {
+                currentRow.querySelectorAll('.js-edit-msg, .js-delete-msg').forEach(function (btn) {
+                    btn.remove();
+                });
 
-        bubble.dataset.message = reply.message || '';
-        bubble.dataset.deleted = reply.deleted ? '1' : '0';
-        bubble.dataset.edited = reply.edited ? '1' : '0';
-        bubble.classList.toggle('chat-bubble-deleted', !!reply.deleted);
-        const showEditedBadge = !!reply.edited && !reply.deleted;
-
-        const messageText = row.querySelector('.js-message-text');
-        if (messageText) {
-            messageText.textContent = reply.message || '';
-            messageText.classList.toggle('italic', !!reply.deleted);
-            messageText.classList.toggle('text-slate-500', !!reply.deleted);
-            messageText.classList.toggle('text-slate-800', !reply.deleted);
-        }
-
-        const editedBadge = row.querySelector('.js-edited-badge');
-        if (editedBadge) editedBadge.classList.toggle('hidden', !showEditedBadge);
-
-        const deletedBadge = row.querySelector('.js-deleted-badge');
-        if (deletedBadge) deletedBadge.classList.toggle('hidden', !reply.deleted);
-
-        const stateRow = row.querySelector('.js-state-row');
-        if (stateRow) stateRow.classList.toggle('hidden', !(showEditedBadge || reply.deleted));
-
-        const reference = row.querySelector('.js-reply-reference');
-        if (reference) {
-            const referenceText = reference.querySelector('.js-reply-reference-text');
-            if (referenceText) {
-                referenceText.textContent = reply.reply_to_message || reply.reply_to_excerpt || '';
-            }
-            reference.classList.toggle('hidden', !(reply.reply_to_message || reply.reply_to_excerpt));
-        }
-
-        const attachmentsWrap = row.querySelector('.js-attachments-wrap');
-        if (attachmentsWrap && reply.deleted) {
-            attachmentsWrap.remove();
-        }
-
-        if (reply.deleted) {
-            row.querySelectorAll('.js-edit-msg, .js-delete-msg').forEach(function (btn) {
-                btn.remove();
-            });
-
-            if (editingReplyId && String(row.dataset.replyId) === String(editingReplyId)) {
-                clearEditingTarget({ resetInput: true });
-            }
-        }
+                if (editingReplyId && String(currentRow.dataset.replyId) === String(editingReplyId)) {
+                    clearEditingTarget({ resetInput: true });
+                }
+            },
+        });
     };
 
     if (clearReplyTargetButton) {
@@ -446,7 +401,7 @@ const initAdminTicketShowPage = () => {
                         throw new Error('Message not found for editing.');
                     }
 
-                    const editResponse = await fetch(updateUrlTemplate.replace('__REPLY__', editingReplyId), {
+                    const editResponse = await fetch(buildReplyEndpoint(updateUrlTemplate, editingReplyId), {
                         method: 'PATCH',
                         headers: {
                             'Accept': 'application/json',
@@ -513,10 +468,10 @@ const initAdminTicketShowPage = () => {
     }
 
     const pollReplies = function () {
-        if (!thread || !repliesUrl || isPollingReplies) return;
+        if (!thread || !repliesUrl || isPollingReplies || document.visibilityState !== 'visible') return;
         isPollingReplies = true;
 
-        fetch(repliesUrl, {
+        fetch(buildReplyFeedUrl(repliesUrl, repliesCursor), {
             headers: {
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
@@ -528,18 +483,13 @@ const initAdminTicketShowPage = () => {
                 return response.json();
             })
             .then(function (data) {
+                repliesCursor = typeof data.cursor === 'string' && data.cursor !== '' ? data.cursor : repliesCursor;
                 const replies = Array.isArray(data && data.replies) ? data.replies : [];
-                replies.forEach(function (reply) {
-                    const replyId = String(reply.id || '');
-                    if (!replyId) return;
-
-                    const existingRow = thread.querySelector('.js-chat-row[data-reply-id="' + replyId + '"]');
-                    if (existingRow) {
-                        applyReplyState(existingRow, reply);
-                        return;
-                    }
-
-                    appendReply(reply);
+                syncThreadReplies({
+                    thread,
+                    replies,
+                    appendReply,
+                    applyReplyState,
                 });
                 queueSeenSync();
             })
@@ -547,24 +497,45 @@ const initAdminTicketShowPage = () => {
             })
             .finally(function () {
                 isPollingReplies = false;
+                scheduleReplyPolling();
             });
     };
 
-    if (repliesUrl) {
-        window.setInterval(pollReplies, 5000);
-    }
+    const stopReplyPolling = function () {
+        if (pollRepliesTimeoutId) {
+            window.clearTimeout(pollRepliesTimeoutId);
+            pollRepliesTimeoutId = 0;
+        }
+    };
+
+    const scheduleReplyPolling = function () {
+        stopReplyPolling();
+        if (!repliesUrl || document.visibilityState !== 'visible') return;
+
+        pollRepliesTimeoutId = window.setTimeout(function () {
+            pollReplies();
+        }, REPLY_POLL_INTERVAL_MS);
+    };
 
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
             queueSeenSync();
+            pollReplies();
+            return;
         }
+
+        stopReplyPolling();
     });
 
     window.addEventListener('focus', function () {
         queueSeenSync();
+        if (document.visibilityState === 'visible') {
+            pollReplies();
+        }
     });
 
     queueSeenSync();
+    scheduleReplyPolling();
 
     const attachmentPreview = window.ModalKit
         ? window.ModalKit.bindAttachmentPreview({

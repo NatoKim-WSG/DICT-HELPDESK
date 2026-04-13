@@ -17,7 +17,6 @@ use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use App\Support\LeadingUppercaseNormalizer;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -167,24 +166,16 @@ class TicketController extends Controller
         TicketUserState::markSeenAndDismiss($ticket, (int) auth()->id(), $ticket->updated_at ?? now());
 
         $this->loadTicketWithVisibleReplies($ticket, includeInternal: false);
+        $replyFeedCursor = $this->replyFeedCursorForReplies($ticket->replies);
 
-        return view('client.tickets.show', compact('ticket'));
+        return view('client.tickets.show', compact('ticket', 'replyFeedCursor'));
     }
 
     public function replies(Ticket $ticket): JsonResponse
     {
         $this->assertTicketOwner($ticket);
 
-        /** @var Collection<int, TicketReply> $ticketReplies */
-        $ticketReplies = $this->visibleRepliesRelationForTicket($ticket, includeInternal: false);
-
-        $replies = $ticketReplies
-            ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
-            ->values();
-
-        return response()->json([
-            'replies' => $replies,
-        ]);
+        return $this->replyFeedResponseForTicket(request(), $ticket, includeInternal: false);
     }
 
     public function reply(StoreTicketReplyRequest $request, Ticket $ticket)

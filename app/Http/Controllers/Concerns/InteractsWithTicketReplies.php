@@ -6,11 +6,14 @@ use App\Models\Attachment;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Throwable;
 
 trait InteractsWithTicketReplies
 {
@@ -47,18 +50,13 @@ trait InteractsWithTicketReplies
             'message' => $reply->message,
             'is_internal' => (bool) $reply->is_internal,
             'created_at_iso' => optional($createdAt)->toIso8601String(),
-            'created_at_human' => optional($createdAt)->diffForHumans(),
-            'created_at_label' => $createdAt && $createdAt->greaterThan(now()->subDay())
-                ? $createdAt->format('g:i A')
-                : optional($createdAt)->format('M j, Y'),
             'from_support' => $fromSupport,
             'avatar_logo' => $this->departmentLogoForUser($reply->user, $fromSupport),
             'can_manage' => (bool) ($reply->user_id === auth()->id()),
             'edited' => (bool) $reply->edited_at,
             'deleted' => (bool) $reply->deleted_at,
             'reply_to_id' => $reply->reply_to_id,
-            'reply_to_message' => $replyTo ? Str::limit($replyTo->message, 120) : null,
-            'reply_to_excerpt' => $replyTo ? Str::limit($replyTo->message, 120) : null,
+            'reply_to_text' => $replyTo ? Str::limit($replyTo->message, 120) : null,
             'attachments' => $reply->attachments->map(function (Attachment $attachment) {
                 $previewUrl = $attachment->preview_url;
 
@@ -108,14 +106,7 @@ trait InteractsWithTicketReplies
 
     protected function visibleRepliesRelationForTicket(Ticket $ticket, bool $includeInternal = true): Collection
     {
-        return $this->visibleRepliesQueryForTicket($ticket, $includeInternal)
-            ->with([
-                'user',
-                'attachments',
-                'replyTo' => fn ($query) => $query
-                    ->visibleToViewer($this->currentReplyViewer())
-                    ->with('user'),
-            ])
+        return $this->replyFeedQueryForTicket($ticket, $includeInternal)
             ->orderBy('created_at')
             ->get();
     }
@@ -124,5 +115,88 @@ trait InteractsWithTicketReplies
     {
         $ticket->load(['user', 'category', 'assignedUser', 'assignedUsers', 'closedBy', 'attachments']);
         $ticket->setRelation('replies', $this->visibleRepliesRelationForTicket($ticket, $includeInternal));
+    }
+
+    protected function replyFeedResponseForTicket(Request $request, Ticket $ticket, bool $includeInternal = true): JsonResponse
+    {
+        $replyFeedCursor = $this->normalizedReplyFeedCursor($request);
+        $replyFeedQuery = $this->replyFeedQueryForTicket($ticket, $includeInternal);
+        $latestVisibleReplyUpdatedAt = (clone $this->visibleRepliesQueryForTicket($ticket, $includeInternal))->max('updated_at');
+        $latestReplyCursor = $latestVisibleReplyUpdatedAt
+            ? $this->normalizedReplyFeedCursorValue(Carbon::parse((string) $latestVisibleReplyUpdatedAt))
+            : ($replyFeedCursor ? $this->normalizedReplyFeedCursorValue($replyFeedCursor) : '');
+
+        if ($replyFeedCursor) {
+            if ($latestVisibleReplyUpdatedAt) {
+                $latestVisibleReplyUpdatedAt = Carbon::parse((string) $latestVisibleReplyUpdatedAt);
+            }
+
+            if (! $latestVisibleReplyUpdatedAt || $latestVisibleReplyUpdatedAt->gte($replyFeedCursor)) {
+                $replyFeedQuery->where('updated_at', '>=', $replyFeedCursor->copy()->subSecond());
+            } else {
+                return response()->json([
+                    'replies' => [],
+                    'cursor' => $latestReplyCursor,
+                ]);
+            }
+        }
+
+        /** @var Collection<int, TicketReply> $replyModels */
+        $replyModels = $replyFeedQuery
+            ->orderBy('created_at')
+            ->get();
+
+        $replies = $replyModels
+            ->map(fn (TicketReply $reply) => $this->formatReplyForChat($reply))
+            ->values();
+
+        return response()->json([
+            'replies' => $replies,
+            'cursor' => $latestReplyCursor,
+        ]);
+    }
+
+    protected function replyFeedCursorForReplies(Collection $replies): string
+    {
+        /** @var TicketReply|null $latestReply */
+        $latestReply = $replies
+            ->filter(fn ($reply) => $reply instanceof TicketReply && $reply->updated_at)
+            ->sortBy(fn (TicketReply $reply) => $reply->updated_at?->getTimestamp() ?? 0)
+            ->last();
+
+        return $latestReply?->updated_at
+            ? $this->normalizedReplyFeedCursorValue($latestReply->updated_at)
+            : '';
+    }
+
+    protected function replyFeedQueryForTicket(Ticket $ticket, bool $includeInternal = true): HasMany|Builder
+    {
+        return $this->visibleRepliesQueryForTicket($ticket, $includeInternal)
+            ->with([
+                'user',
+                'attachments',
+                'replyTo' => fn ($query) => $query
+                    ->visibleToViewer($this->currentReplyViewer())
+                    ->with('user'),
+            ]);
+    }
+
+    private function normalizedReplyFeedCursor(Request $request): ?Carbon
+    {
+        $updatedAfter = trim($request->string('updated_after')->toString());
+        if ($updatedAfter === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($updatedAfter)->setTimezone((string) config('app.timezone'));
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function normalizedReplyFeedCursorValue(Carbon $timestamp): string
+    {
+        return $timestamp->copy()->utc()->toIso8601String();
     }
 }

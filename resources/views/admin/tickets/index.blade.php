@@ -22,6 +22,7 @@
     data-admin-tickets-index-page
     data-route-base="{{ route('admin.tickets.index', absolute: false) }}"
     data-snapshot-token="{{ $liveSnapshotToken ?? '' }}"
+    data-page-snapshot-token="{{ $pageSnapshotToken ?? '' }}"
     data-assign-route-template="{{ route('admin.tickets.assign', ['ticket' => '__TICKET__'], absolute: false) }}"
     data-status-route-template="{{ route('admin.tickets.status', ['ticket' => '__TICKET__'], absolute: false) }}"
     data-quick-update-route-template="{{ route('admin.tickets.quick-update', ['ticket' => '__TICKET__'], absolute: false) }}"

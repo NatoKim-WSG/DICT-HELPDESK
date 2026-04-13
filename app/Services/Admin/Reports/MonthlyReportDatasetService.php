@@ -3,6 +3,7 @@
 namespace App\Services\Admin\Reports;
 
 use App\Models\Ticket;
+use App\Services\Admin\Reports\Concerns\BuildsReportQueryCacheKey;
 use Carbon\Carbon;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class MonthlyReportDatasetService
 {
+    use BuildsReportQueryCacheKey;
+
     private array $openTicketCountCache = [];
 
     public function build(Builder $scopedTickets): array
@@ -132,11 +135,6 @@ class MonthlyReportDatasetService
         $this->openTicketCountCache[$cacheKey] = (int) $count;
 
         return (int) $count;
-    }
-
-    private function queryScopeSignature(Builder $scopedTickets): string
-    {
-        return sha1($scopedTickets->toSql().'|'.json_encode($scopedTickets->getBindings()));
     }
 
     private function monthKeyExpression(string $column, Builder $query): string

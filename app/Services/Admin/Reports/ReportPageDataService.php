@@ -5,6 +5,7 @@ namespace App\Services\Admin\Reports;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Admin\ReportBreakdownService;
+use App\Services\Admin\Reports\Concerns\BuildsReportQueryCacheKey;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Support\Collection;
 
 class ReportPageDataService
 {
+    use BuildsReportQueryCacheKey;
+
     private array $monthlyDatasetCache = [];
 
     private array $ticketCountCache = [];
@@ -78,16 +81,8 @@ class ReportPageDataService
         }
 
         $kpiSummary = $this->reportStatistics->buildKpiSummary(clone $kpiScopedTickets);
-        $totalTickets = (int) $kpiSummary['total_tickets'];
-        $resolvedTicketsCount = (int) $kpiSummary['closed_tickets'];
-        $stats = [
-            'total_tickets' => $totalTickets,
-            'open_tickets' => (int) $kpiSummary['open_tickets'],
-            'closed_tickets' => $resolvedTicketsCount,
-            'unassigned_open_tickets' => (int) $kpiSummary['unassigned_open_tickets'],
-            'severity_one_open_tickets' => (int) $kpiSummary['severity_one_open_tickets'],
-            'resolution_rate' => $totalTickets > 0 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1) : 0,
-        ];
+        $totalTickets = (int) ($kpiSummary['total_tickets'] ?? 0);
+        $stats = $this->buildStats($kpiSummary);
 
         $periodStatusSummary = $this->statusBreakdownForScope(
             clone $scopedTickets,
@@ -102,20 +97,15 @@ class ReportPageDataService
         $majorIssueSummary = $selectedMonthIsAllTime
             ? $this->reportStatistics->buildMajorIssueSummaryForAllTime(clone $scopedTickets)
             : $this->reportStatistics->buildMajorIssueSummary(clone $scopedTickets, $selectedPeriodStart, $selectedPeriodEnd);
-        $periodOverview = [
-            'label' => (string) $selectedMonthRange['label'],
-            'start' => $selectedPeriodStart->toDateString(),
-            'end' => $selectedPeriodEnd->toDateString(),
-            'total_tickets' => $totalTicketsThisPeriod,
-            'major_issues_count' => (int) ($majorIssueSummary['major_count'] ?? 0),
-            'total_created' => $totalTicketsThisPeriod,
-            'open' => (int) ($periodStatusSummary['open'] ?? 0),
-            'in_progress' => (int) ($periodStatusSummary['in_progress'] ?? 0),
-            'pending' => (int) ($periodStatusSummary['pending'] ?? 0),
-            'resolved' => (int) ($periodStatusSummary['resolved'] ?? 0),
-            'closed' => (int) ($periodStatusSummary['closed'] ?? 0),
-            'backlog_end' => $backlogThisPeriod,
-        ];
+        $periodOverview = $this->buildPeriodOverview(
+            $selectedMonthRange,
+            $selectedPeriodStart,
+            $selectedPeriodEnd,
+            $totalTicketsThisPeriod,
+            $majorIssueSummary,
+            $periodStatusSummary,
+            $backlogThisPeriod
+        );
 
         $mixBreakdownData = $this->buildMixBreakdownData(
             clone $scopedTickets,
@@ -185,26 +175,16 @@ class ReportPageDataService
         $ticketsByStatus = $this->statusCountsForScope(clone $scopedTickets);
         $ticketsByPriority = $this->priorityCountsForScope(clone $scopedTickets);
         $categoryCounts = $this->categoryCountsForScope(clone $scopedTickets);
-        $ticketsByCategory = $categoryCounts
-            ->map(fn (object $row) => [
-                'name' => (string) $row->category_name,
-                'count' => (int) $row->count,
-                'share' => $totalTickets > 0 ? round(((int) $row->count / $totalTickets) * 100, 1) : 0.0,
-            ])
-            ->values();
-
-        $selectedMonthStatuses = $this->statusBreakdownForScope(
+        $ticketsByCategory = $this->buildTicketsByCategory($categoryCounts, $totalTickets);
+        [
+            'selectedMonthStatuses' => $selectedMonthStatuses,
+            'selectedMonthPriorities' => $selectedMonthPriorities,
+            'selectedMonthCategories' => $selectedMonthCategories,
+        ] = $this->buildSelectedMonthBreakdowns(
             clone $scopedTickets,
             $selectedMonthIsAllTime,
-            $selectedMonthRange['start'],
-            $selectedMonthRange['end']
+            $selectedMonthRange
         );
-        $selectedMonthPriorities = $selectedMonthIsAllTime
-            ? $this->buildPriorityBreakdownForAllTime(clone $scopedTickets)
-            : $this->reportStatistics->buildPriorityBreakdownForPeriod(clone $scopedTickets, $selectedMonthRange['start'], $selectedMonthRange['end']);
-        $selectedMonthCategories = $selectedMonthIsAllTime
-            ? $this->buildCategoryBreakdownForAllTime(clone $scopedTickets)
-            : $this->reportStatistics->buildCategoryBreakdownForPeriod(clone $scopedTickets, $selectedMonthRange['start'], $selectedMonthRange['end']);
 
         $monthOptions = $monthlyReportRows
             ->map(fn (array $row) => ['key' => $row['month_key'], 'label' => $row['month_label']])
@@ -257,6 +237,89 @@ class ReportPageDataService
             'reportVisuals',
             'slaReport'
         );
+    }
+
+    private function buildStats(array $kpiSummary): array
+    {
+        $totalTickets = (int) ($kpiSummary['total_tickets'] ?? 0);
+        $resolvedTicketsCount = (int) ($kpiSummary['closed_tickets'] ?? 0);
+
+        return [
+            'total_tickets' => $totalTickets,
+            'open_tickets' => (int) ($kpiSummary['open_tickets'] ?? 0),
+            'closed_tickets' => $resolvedTicketsCount,
+            'unassigned_open_tickets' => (int) ($kpiSummary['unassigned_open_tickets'] ?? 0),
+            'severity_one_open_tickets' => (int) ($kpiSummary['severity_one_open_tickets'] ?? 0),
+            'resolution_rate' => $totalTickets > 0 ? round(($resolvedTicketsCount / $totalTickets) * 100, 1) : 0,
+        ];
+    }
+
+    private function buildPeriodOverview(
+        array $selectedMonthRange,
+        Carbon $selectedPeriodStart,
+        Carbon $selectedPeriodEnd,
+        int $totalTicketsThisPeriod,
+        array $majorIssueSummary,
+        array $periodStatusSummary,
+        int $backlogThisPeriod,
+    ): array {
+        return [
+            'label' => (string) $selectedMonthRange['label'],
+            'start' => $selectedPeriodStart->toDateString(),
+            'end' => $selectedPeriodEnd->toDateString(),
+            'total_tickets' => $totalTicketsThisPeriod,
+            'major_issues_count' => (int) ($majorIssueSummary['major_count'] ?? 0),
+            'total_created' => $totalTicketsThisPeriod,
+            'open' => (int) ($periodStatusSummary['open'] ?? 0),
+            'in_progress' => (int) ($periodStatusSummary['in_progress'] ?? 0),
+            'pending' => (int) ($periodStatusSummary['pending'] ?? 0),
+            'resolved' => (int) ($periodStatusSummary['resolved'] ?? 0),
+            'closed' => (int) ($periodStatusSummary['closed'] ?? 0),
+            'backlog_end' => $backlogThisPeriod,
+        ];
+    }
+
+    /**
+     * @return array{selectedMonthStatuses: array<string, int>, selectedMonthPriorities: array<string, int>, selectedMonthCategories: Collection<int, array<string, int|string>>}
+     */
+    private function buildSelectedMonthBreakdowns(
+        Builder $scopedTickets,
+        bool $selectedMonthIsAllTime,
+        array $selectedMonthRange,
+    ): array {
+        return [
+            'selectedMonthStatuses' => $this->statusBreakdownForScope(
+                clone $scopedTickets,
+                $selectedMonthIsAllTime,
+                $selectedMonthRange['start'],
+                $selectedMonthRange['end']
+            ),
+            'selectedMonthPriorities' => $selectedMonthIsAllTime
+                ? $this->reportStatistics->buildPriorityBreakdownForAllTime(clone $scopedTickets)
+                : $this->reportStatistics->buildPriorityBreakdownForPeriod(
+                    clone $scopedTickets,
+                    $selectedMonthRange['start'],
+                    $selectedMonthRange['end']
+                ),
+            'selectedMonthCategories' => $selectedMonthIsAllTime
+                ? $this->reportStatistics->buildCategoryBreakdownForAllTime(clone $scopedTickets)
+                : $this->reportStatistics->buildCategoryBreakdownForPeriod(
+                    clone $scopedTickets,
+                    $selectedMonthRange['start'],
+                    $selectedMonthRange['end']
+                ),
+        ];
+    }
+
+    private function buildTicketsByCategory(Collection $categoryCounts, int $totalTickets): Collection
+    {
+        return $categoryCounts
+            ->map(fn (object $row) => [
+                'name' => (string) $row->category_name,
+                'count' => (int) $row->count,
+                'share' => $totalTickets > 0 ? round(((int) $row->count / $totalTickets) * 100, 1) : 0.0,
+            ])
+            ->values();
     }
 
     /**
@@ -760,8 +823,8 @@ class ReportPageDataService
                 'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
                 'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
             ],
-            'categoryBreakdownBuckets' => $this->buildCategoryBucketsFromCounts($categoryCounts),
-            'priorityBreakdownBuckets' => $this->buildPriorityBucketsFromCounts($priorityCounts),
+            'categoryBreakdownBuckets' => $this->reportStatistics->buildCategoryBucketsFromCounts($categoryCounts),
+            'priorityBreakdownBuckets' => $this->reportStatistics->buildPriorityBucketsFromCounts($priorityCounts),
         ];
     }
 
@@ -925,64 +988,5 @@ class ReportPageDataService
         }
 
         return $this->categoryCountsCache[$cacheKey] = $this->reportBreakdowns->categoryCountsForScope(clone $scopedTickets);
-    }
-
-    private function buildPriorityBreakdownForAllTime(Builder $scopedTickets): array
-    {
-        return $this->buildPriorityBreakdownFromCounts($this->priorityCountsForScope($scopedTickets));
-    }
-
-    private function buildPriorityBreakdownFromCounts(Collection $priorityCounts): array
-    {
-        return array_merge([
-            'pending_review' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0),
-        ], collect(Ticket::PRIORITIES)->mapWithKeys(fn (string $priority) => [
-            $priority => (int) ($priorityCounts[$priority] ?? 0),
-        ])->all());
-    }
-
-    private function buildPriorityBucketsFromCounts(Collection $priorityCounts): array
-    {
-        return [
-            ['name' => 'Pending Review', 'count' => (int) ($priorityCounts[''] ?? $priorityCounts[null] ?? 0)],
-            ['name' => 'Severity 1', 'count' => (int) ($priorityCounts['severity_1'] ?? 0)],
-            ['name' => 'Severity 2', 'count' => (int) ($priorityCounts['severity_2'] ?? 0)],
-            ['name' => 'Severity 3', 'count' => (int) ($priorityCounts['severity_3'] ?? 0)],
-        ];
-    }
-
-    private function buildCategoryBreakdownForAllTime(Builder $scopedTickets): Collection
-    {
-        return $this->buildCategoryBreakdownFromCounts($this->categoryCountsForScope($scopedTickets));
-    }
-
-    private function buildCategoryBreakdownFromCounts(Collection $categoryCounts): Collection
-    {
-        return $categoryCounts
-            ->map(fn (object $row): array => [
-                'category_name' => (string) ($row->category_name ?? ''),
-                'count' => (int) ($row->count ?? 0),
-            ]);
-    }
-
-    private function buildCategoryBucketsFromCounts(Collection $categoryCounts): array
-    {
-        $bucketOrder = ['Hardware', 'Software', 'Network', 'Access / Permissions', 'Security', 'Other'];
-        $bucketCounts = array_fill_keys($bucketOrder, 0);
-
-        foreach ($categoryCounts as $row) {
-            $bucket = $this->reportBreakdowns->normalizeCategoryBucket((string) $row->category_name);
-            $bucketCounts[$bucket] = ($bucketCounts[$bucket] ?? 0) + (int) $row->count;
-        }
-
-        return collect($bucketCounts)->map(fn (int $count, string $name) => [
-            'name' => $name,
-            'count' => $count,
-        ])->values()->all();
-    }
-
-    private function queryScopeSignature(Builder $scopedTickets): string
-    {
-        return sha1($scopedTickets->toSql().'|'.json_encode($scopedTickets->getBindings()));
     }
 }

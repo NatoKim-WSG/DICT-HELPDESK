@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildReplyEndpoint,
     canSubmitReply,
     formatAttachmentCountLabel,
+    replyReferenceText,
     isWithinReplyEditWindow,
+    syncThreadReplies,
     nextMessageCountLabel,
 } from './ticket-thread-helpers';
 
@@ -49,5 +52,46 @@ describe('nextMessageCountLabel', function () {
 
     it('returns null when the current label has no leading count', function () {
         expect(nextMessageCountLabel('messages')).toBe(null);
+    });
+});
+
+describe('buildReplyEndpoint', function () {
+    it('fills in reply route placeholders safely', function () {
+        expect(buildReplyEndpoint('/replies/__REPLY__', 42)).toBe('/replies/42');
+        expect(buildReplyEndpoint('', 42)).toBe('');
+    });
+});
+
+describe('replyReferenceText', function () {
+    it('returns the normalized reply reference text', function () {
+        expect(replyReferenceText({ reply_to_text: 'Previous message' })).toBe('Previous message');
+        expect(replyReferenceText({ reply_to_text: null })).toBe('');
+    });
+});
+
+describe('syncThreadReplies', function () {
+    it('updates existing rows and appends missing replies once', function () {
+        const existingRow = {};
+        const thread = {
+            querySelector(selector) {
+                return selector.includes('"1"') ? existingRow : null;
+            },
+        };
+        const appended = [];
+        const updated = [];
+
+        syncThreadReplies({
+            thread,
+            replies: [{ id: 1 }, { id: 2 }, { id: null }],
+            appendReply(reply) {
+                appended.push(reply.id);
+            },
+            applyReplyState(row, reply) {
+                updated.push([row, reply.id]);
+            },
+        });
+
+        expect(updated).toEqual([[existingRow, 1]]);
+        expect(appended).toEqual([2]);
     });
 });

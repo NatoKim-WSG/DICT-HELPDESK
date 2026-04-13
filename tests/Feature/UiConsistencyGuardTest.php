@@ -41,12 +41,14 @@ class UiConsistencyGuardTest extends TestCase
     public function test_modal_views_keep_shared_modal_structure_classes(): void
     {
         $modalViewFiles = [
-            'admin/reports/partials/shell.blade.php',
+            'admin/reports/partials/shell/volume-chart-modal.blade.php',
             'admin/tickets/index.blade.php',
             'admin/tickets/partials/show-modals.blade.php',
             'admin/users/index.blade.php',
             'admin/users/show.blade.php',
-            'client/tickets/show.blade.php',
+            'client/tickets/partials/show-resolve-modal.blade.php',
+            'client/tickets/partials/show-attachment-modal.blade.php',
+            'client/tickets/partials/show-delete-reply-modal.blade.php',
             'legal/modal.blade.php',
         ];
 

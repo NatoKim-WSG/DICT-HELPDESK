@@ -7,7 +7,6 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use RuntimeException;
 use SplFileObject;
@@ -16,6 +15,8 @@ class LegacyTicketCsvImporter
 {
     public function __construct(
         private readonly ImportedTicketService $importedTickets,
+        private readonly ImportPathResolver $pathResolver,
+        private readonly ImportEntityLookupCache $lookupCache,
     ) {}
 
     /**
@@ -63,31 +64,6 @@ class LegacyTicketCsvImporter
     ];
 
     /**
-     * @var array<int, User>|null
-     */
-    private ?array $usersById = null;
-
-    /**
-     * @var array<string, User>|null
-     */
-    private ?array $usersByEmail = null;
-
-    /**
-     * @var array<string, User>|null
-     */
-    private ?array $usersByUsername = null;
-
-    /**
-     * @var array<int, Category>|null
-     */
-    private ?array $categoriesById = null;
-
-    /**
-     * @var array<string, Category>|null
-     */
-    private ?array $categoriesByName = null;
-
-    /**
      * @param  array{
      *     default_user?: string|int|null,
      *     default_category?: string|int|null,
@@ -111,7 +87,7 @@ class LegacyTicketCsvImporter
     public function import(string $path, array $options = []): array
     {
         $settings = $this->normalizeOptions($options);
-        $resolvedPath = $this->resolvePath($path);
+        $resolvedPath = $this->pathResolver->resolve($path);
         $rows = $this->readRows($resolvedPath, $settings['delimiter']);
         $preparedRows = [];
 
@@ -277,31 +253,6 @@ class LegacyTicketCsvImporter
             'dry_run' => (bool) ($options['dry_run'] ?? false),
             'update_existing' => (bool) ($options['update_existing'] ?? false),
         ];
-    }
-
-    private function resolvePath(string $path): string
-    {
-        $trimmedPath = trim($path);
-        if ($trimmedPath === '') {
-            throw new InvalidArgumentException('Import path cannot be empty.');
-        }
-
-        $storageCandidate = Storage::disk((string) config('helpdesk.ticket_import_disk', 'local'))
-            ->path(trim((string) config('helpdesk.ticket_import_path', 'imports').'/'.$trimmedPath, '/'));
-
-        $candidates = [
-            $trimmedPath,
-            base_path($trimmedPath),
-            $storageCandidate,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (is_string($candidate) && is_file($candidate)) {
-                return $candidate;
-            }
-        }
-
-        throw new RuntimeException('Import file not found: '.$trimmedPath);
     }
 
     /**
@@ -506,7 +457,7 @@ class LegacyTicketCsvImporter
     {
         $categoryId = $this->nullableString($row['category_id'] ?? null);
         if ($categoryId !== null) {
-            $category = $this->categoriesById()[(int) $categoryId] ?? null;
+            $category = $this->lookupCache->categoryById((int) $categoryId);
             if ($category instanceof Category) {
                 return $category;
             }
@@ -521,13 +472,13 @@ class LegacyTicketCsvImporter
         }
 
         if (ctype_digit($categoryName)) {
-            $category = $this->categoriesById()[(int) $categoryName] ?? null;
+            $category = $this->lookupCache->categoryById((int) $categoryName);
             if ($category instanceof Category) {
                 return $category;
             }
         }
 
-        $category = $this->categoriesByName()[strtolower($categoryName)] ?? null;
+        $category = $this->lookupCache->categoryByName($categoryName);
         if ($category instanceof Category) {
             return $category;
         }
@@ -544,7 +495,7 @@ class LegacyTicketCsvImporter
     ): ?User {
         $idValue = $this->nullableString($id);
         if ($idValue !== null) {
-            $user = $this->usersById()[(int) $idValue] ?? null;
+            $user = $this->lookupCache->userById((int) $idValue);
             if ($user instanceof User) {
                 return $user;
             }
@@ -554,7 +505,7 @@ class LegacyTicketCsvImporter
 
         $emailValue = $this->nullableString($email);
         if ($emailValue !== null) {
-            $user = $this->usersByEmail()[strtolower($emailValue)] ?? null;
+            $user = $this->lookupCache->userByEmail($emailValue);
             if ($user instanceof User) {
                 return $user;
             }
@@ -564,7 +515,7 @@ class LegacyTicketCsvImporter
 
         $usernameValue = $this->nullableString($username);
         if ($usernameValue !== null) {
-            $user = $this->usersByUsername()[strtolower($usernameValue)] ?? null;
+            $user = $this->lookupCache->userByUsername($usernameValue);
             if ($user instanceof User) {
                 return $user;
             }
@@ -578,99 +529,17 @@ class LegacyTicketCsvImporter
     private function resolveUserReference(string $reference, int $line, string $label): User
     {
         if (ctype_digit($reference)) {
-            $user = $this->usersById()[(int) $reference] ?? null;
+            $user = $this->lookupCache->userById((int) $reference);
             if ($user instanceof User) {
                 return $user;
             }
         }
 
-        $normalizedReference = strtolower($reference);
-        $user = $this->usersByEmail()[$normalizedReference] ?? $this->usersByUsername()[$normalizedReference] ?? null;
+        $user = $this->lookupCache->userByEmail($reference) ?? $this->lookupCache->userByUsername($reference);
         if ($user instanceof User) {
             return $user;
         }
 
         throw new RuntimeException(sprintf('Row %d references an unknown %s: %s', $line, $label, $reference));
-    }
-
-    /**
-     * @return array<int, User>
-     */
-    private function usersById(): array
-    {
-        if ($this->usersById === null) {
-            $this->usersById = User::query()->get()->keyBy('id')->all();
-        }
-
-        return $this->usersById;
-    }
-
-    /**
-     * @return array<string, User>
-     */
-    private function usersByEmail(): array
-    {
-        if ($this->usersByEmail === null) {
-            $users = User::query()->whereNotNull('email')->get();
-            $this->usersByEmail = [];
-
-            foreach ($users as $user) {
-                $email = strtolower((string) $user->email);
-                if ($email !== '') {
-                    $this->usersByEmail[$email] = $user;
-                }
-            }
-        }
-
-        return $this->usersByEmail;
-    }
-
-    /**
-     * @return array<string, User>
-     */
-    private function usersByUsername(): array
-    {
-        if ($this->usersByUsername === null) {
-            $users = User::query()->whereNotNull('username')->get();
-            $this->usersByUsername = [];
-
-            foreach ($users as $user) {
-                $username = strtolower((string) $user->username);
-                if ($username !== '') {
-                    $this->usersByUsername[$username] = $user;
-                }
-            }
-        }
-
-        return $this->usersByUsername;
-    }
-
-    /**
-     * @return array<int, Category>
-     */
-    private function categoriesById(): array
-    {
-        if ($this->categoriesById === null) {
-            $this->categoriesById = Category::query()->get()->keyBy('id')->all();
-        }
-
-        return $this->categoriesById;
-    }
-
-    /**
-     * @return array<string, Category>
-     */
-    private function categoriesByName(): array
-    {
-        if ($this->categoriesByName === null) {
-            $categories = Category::query()->get();
-            $this->categoriesByName = [];
-
-            foreach ($categories as $category) {
-                $this->categoriesByName[strtolower((string) $category->name)] = $category;
-            }
-        }
-
-        return $this->categoriesByName;
     }
 }

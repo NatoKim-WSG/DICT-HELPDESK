@@ -434,13 +434,71 @@ class AdminTicketFilterConsistencyTest extends TestCase
         ]));
 
         $response->assertOk();
-        $response->assertJsonStructure(['html', 'token']);
+        $response->assertJsonStructure(['html', 'token', 'page_token']);
 
         $payload = $response->json();
         $this->assertIsArray($payload);
         $this->assertStringContainsString(route('admin.tickets.show', $marchTicket, false), $payload['html']);
         $this->assertStringNotContainsString(route('admin.tickets.show', $februaryTicket, false), $payload['html']);
         $this->assertStringContainsString('data-admin-tickets-results', $payload['html']);
+    }
+
+    public function test_admin_ticket_heartbeat_keeps_same_page_token_for_off_page_changes(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Heartbeat Client', 'heartbeat-client@example.com');
+        $oldestTicket = null;
+
+        for ($index = 1; $index <= 16; $index++) {
+            $ticket = Ticket::create([
+                'name' => "Heartbeat Requester {$index}",
+                'contact_number' => '09110000'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+                'email' => "heartbeat-requester-{$index}@example.com",
+                'province' => 'NCR',
+                'municipality' => 'Pasig',
+                'subject' => "Heartbeat ticket {$index}",
+                'description' => 'Heartbeat ticket description.',
+                'priority' => 'medium',
+                'status' => 'open',
+                'user_id' => $client->id,
+                'category_id' => $category->id,
+            ]);
+            Ticket::query()->whereKey($ticket->id)->update([
+                'created_at' => Carbon::create(2026, 3, 1, 8, 0, 0)->addMinutes($index),
+                'updated_at' => Carbon::create(2026, 3, 1, 8, 0, 0)->addMinutes($index),
+            ]);
+
+            if ($index === 1) {
+                $oldestTicket = $ticket;
+            }
+        }
+
+        $initialResponse = $this->actingAs($supportUser)->getJson(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'partial' => '1',
+        ]));
+        $initialResponse->assertOk();
+
+        $initialToken = (string) $initialResponse->json('token');
+        $initialPageToken = (string) $initialResponse->json('page_token');
+
+        $this->assertNotSame('', $initialToken);
+        $this->assertNotSame('', $initialPageToken);
+
+        Ticket::query()->whereKey($oldestTicket?->id)->update([
+            'subject' => 'Updated off-page heartbeat ticket',
+            'updated_at' => Carbon::create(2026, 3, 2, 8, 0, 0),
+        ]);
+
+        $heartbeatResponse = $this->actingAs($supportUser)->getJson(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'heartbeat' => '1',
+        ]));
+        $heartbeatResponse->assertOk();
+
+        $heartbeatResponse->assertJsonPath('page_token', $initialPageToken);
+        $this->assertNotSame($initialToken, (string) $heartbeatResponse->json('token'));
     }
 
     private function createSupportUser(): User

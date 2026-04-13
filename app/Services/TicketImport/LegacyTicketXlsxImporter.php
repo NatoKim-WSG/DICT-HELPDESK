@@ -8,46 +8,17 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use RuntimeException;
 
 class LegacyTicketXlsxImporter
 {
-    /**
-     * @var array<int, User>|null
-     */
-    private ?array $usersById = null;
-
-    /**
-     * @var array<string, User>|null
-     */
-    private ?array $usersByEmail = null;
-
-    /**
-     * @var array<string, User>|null
-     */
-    private ?array $usersByUsername = null;
-
-    /**
-     * @var array<string, User>|null
-     */
-    private ?array $supportUsersByName = null;
-
-    /**
-     * @var array<int, Category>|null
-     */
-    private ?array $categoriesById = null;
-
-    /**
-     * @var array<string, Category>|null
-     */
-    private ?array $categoriesByName = null;
-
     public function __construct(
         private readonly HelpdeskTrackerXlsxParser $parser,
         private readonly HelpdeskTrackerDescriptionFormatter $formatter,
         private readonly ImportedTicketService $importedTickets,
+        private readonly ImportPathResolver $pathResolver,
+        private readonly ImportEntityLookupCache $lookupCache,
     ) {}
 
     /**
@@ -79,7 +50,7 @@ class LegacyTicketXlsxImporter
         }
 
         $settings = $this->normalizeOptions($options);
-        $resolvedPaths = array_map(fn (string $path) => $this->resolvePath($path), $paths);
+        $resolvedPaths = array_map(fn (string $path) => $this->pathResolver->resolve($path), $paths);
         $preparedRows = [];
 
         foreach ($resolvedPaths as $resolvedPath) {
@@ -359,31 +330,6 @@ class LegacyTicketXlsxImporter
         ];
     }
 
-    private function resolvePath(string $path): string
-    {
-        $trimmedPath = trim($path);
-        if ($trimmedPath === '') {
-            throw new InvalidArgumentException('Import path cannot be empty.');
-        }
-
-        $storageCandidate = Storage::disk((string) config('helpdesk.ticket_import_disk', 'local'))
-            ->path(trim((string) config('helpdesk.ticket_import_path', 'imports').'/'.$trimmedPath, '/'));
-
-        $candidates = [
-            $trimmedPath,
-            base_path($trimmedPath),
-            $storageCandidate,
-        ];
-
-        foreach ($candidates as $candidate) {
-            if (is_string($candidate) && is_file($candidate)) {
-                return $candidate;
-            }
-        }
-
-        throw new RuntimeException('Import file not found: '.$trimmedPath);
-    }
-
     private function resolveUserReference(?string $reference, int $row, string $context): User
     {
         if ($reference === null) {
@@ -391,14 +337,13 @@ class LegacyTicketXlsxImporter
         }
 
         if (ctype_digit($reference)) {
-            $user = $this->usersById()[(int) $reference] ?? null;
+            $user = $this->lookupCache->userById((int) $reference);
             if ($user instanceof User) {
                 return $user;
             }
         }
 
-        $normalizedReference = strtolower($reference);
-        $user = $this->usersByEmail()[$normalizedReference] ?? $this->usersByUsername()[$normalizedReference] ?? null;
+        $user = $this->lookupCache->userByEmail($reference) ?? $this->lookupCache->userByUsername($reference);
         if ($user instanceof User) {
             return $user;
         }
@@ -413,13 +358,13 @@ class LegacyTicketXlsxImporter
         }
 
         if (ctype_digit($reference)) {
-            $category = $this->categoriesById()[(int) $reference] ?? null;
+            $category = $this->lookupCache->categoryById((int) $reference);
             if ($category instanceof Category) {
                 return $category;
             }
         }
 
-        $category = $this->categoriesByName()[strtolower($reference)] ?? null;
+        $category = $this->lookupCache->categoryByName($reference);
         if ($category instanceof Category) {
             return $category;
         }
@@ -434,119 +379,7 @@ class LegacyTicketXlsxImporter
             return null;
         }
 
-        return $this->supportUsersByName()[$displayName] ?? null;
-    }
-
-    /**
-     * @return array<int, User>
-     */
-    private function usersById(): array
-    {
-        if ($this->usersById !== null) {
-            return $this->usersById;
-        }
-
-        $this->usersById = User::query()->get()->mapWithKeys(
-            static fn (User $user): array => [$user->id => $user]
-        )->all();
-
-        return $this->usersById;
-    }
-
-    /**
-     * @return array<string, User>
-     */
-    private function usersByEmail(): array
-    {
-        if ($this->usersByEmail !== null) {
-            return $this->usersByEmail;
-        }
-
-        $this->usersByEmail = User::query()->get()->reduce(function (array $carry, User $user): array {
-            if ($user->email) {
-                $carry[strtolower($user->email)] = $user;
-            }
-
-            return $carry;
-        }, []);
-
-        return $this->usersByEmail;
-    }
-
-    /**
-     * @return array<string, User>
-     */
-    private function usersByUsername(): array
-    {
-        if ($this->usersByUsername !== null) {
-            return $this->usersByUsername;
-        }
-
-        $this->usersByUsername = User::query()->get()->reduce(function (array $carry, User $user): array {
-            if ($user->username) {
-                $carry[strtolower($user->username)] = $user;
-            }
-
-            return $carry;
-        }, []);
-
-        return $this->usersByUsername;
-    }
-
-    /**
-     * @return array<string, User>
-     */
-    private function supportUsersByName(): array
-    {
-        if ($this->supportUsersByName !== null) {
-            return $this->supportUsersByName;
-        }
-
-        $groupedUsers = User::query()
-            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->get()
-            ->groupBy(fn (User $user): ?string => $this->normalizeLookupKey($user->name));
-
-        $this->supportUsersByName = $groupedUsers
-            ->filter(static fn (Collection $users, ?string $key): bool => $key !== null && $users->count() === 1)
-            ->map(fn (Collection $users): User => $users->first())
-            ->all();
-
-        return $this->supportUsersByName;
-    }
-
-    /**
-     * @return array<int, Category>
-     */
-    private function categoriesById(): array
-    {
-        if ($this->categoriesById !== null) {
-            return $this->categoriesById;
-        }
-
-        $this->categoriesById = Category::query()->get()->mapWithKeys(
-            static fn (Category $category): array => [$category->id => $category]
-        )->all();
-
-        return $this->categoriesById;
-    }
-
-    /**
-     * @return array<string, Category>
-     */
-    private function categoriesByName(): array
-    {
-        if ($this->categoriesByName !== null) {
-            return $this->categoriesByName;
-        }
-
-        $this->categoriesByName = Category::query()->get()->reduce(function (array $carry, Category $category): array {
-            $carry[strtolower($category->name)] = $category;
-
-            return $carry;
-        }, []);
-
-        return $this->categoriesByName;
+        return $this->lookupCache->supportUserByDisplayName($displayName);
     }
 
     private function nullableString(mixed $value): ?string

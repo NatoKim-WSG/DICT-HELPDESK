@@ -7,6 +7,8 @@ import {
     resetAdminTicketFilterFieldValue,
 } from './shared/admin-ticket-filters';
 
+const TICKET_LIST_POLL_INTERVAL_MS = 10000;
+
 const initAdminTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-admin-tickets-index-page]');
     if (!pageRoot) return;
@@ -64,7 +66,9 @@ const initAdminTicketsIndexPage = () => {
     const bulkDeleteConfirmModalController = window.ModalKit && bulkDeleteConfirmModal ? window.ModalKit.bind(bulkDeleteConfirmModal) : null;
 
     let snapshotToken = pageRoot.dataset.snapshotToken || '';
+    let pageSnapshotToken = pageRoot.dataset.pageSnapshotToken || '';
     let filterSubmitTimeout = null;
+    let pollTimeoutId = null;
     let activeRequestId = 0;
     let activeRequestController = null;
     let isResultsLoading = false;
@@ -98,6 +102,25 @@ const initAdminTicketsIndexPage = () => {
         document.querySelectorAll('input[name="return_to"]').forEach(function (input) {
             input.value = path;
         });
+    };
+
+    const clearTicketListPolling = function () {
+        if (pollTimeoutId) {
+            window.clearTimeout(pollTimeoutId);
+            pollTimeoutId = null;
+        }
+    };
+
+    const scheduleTicketListPolling = function (delay = TICKET_LIST_POLL_INTERVAL_MS) {
+        clearTicketListPolling();
+
+        if (!snapshotToken) {
+            return;
+        }
+
+        pollTimeoutId = window.setTimeout(function () {
+            void pollTicketListSnapshot();
+        }, delay);
     };
 
     const syncBulkSelection = function () {
@@ -232,7 +255,9 @@ const initAdminTicketsIndexPage = () => {
 
             resultsContainer.outerHTML = payload.html;
             snapshotToken = payload.token || '';
+            pageSnapshotToken = payload.page_token || '';
             pageRoot.dataset.snapshotToken = snapshotToken;
+            pageRoot.dataset.pageSnapshotToken = pageSnapshotToken;
 
             if (history === 'push') {
                 window.history.pushState({ adminTickets: true }, '', relativePathForUrl(normalizedUrl));
@@ -254,6 +279,8 @@ const initAdminTicketsIndexPage = () => {
                 activeRequestController = null;
                 isResultsLoading = false;
                 applyLoadingState();
+
+                scheduleTicketListPolling();
             }
         }
     };
@@ -358,7 +385,14 @@ const initAdminTicketsIndexPage = () => {
     };
 
     const pollTicketListSnapshot = async function () {
-        if (!snapshotToken || document.hidden || hasOpenModal() || isResultsLoading) return;
+        if (!snapshotToken) {
+            return;
+        }
+
+        if (document.hidden || hasOpenModal() || isResultsLoading) {
+            scheduleTicketListPolling();
+            return;
+        }
 
         const heartbeatUrl = normalizeAdminTicketResultsUrl(window.location.href, window.location.origin);
         heartbeatUrl.searchParams.set('heartbeat', '1');
@@ -376,13 +410,20 @@ const initAdminTicketsIndexPage = () => {
             const payload = await response.json();
             if (!payload || !payload.token) return;
 
-            if (payload.token !== snapshotToken) {
+            const nextSnapshotToken = payload.token || '';
+            const nextPageSnapshotToken = payload.page_token || '';
+            if (nextSnapshotToken !== snapshotToken && nextPageSnapshotToken !== pageSnapshotToken) {
                 await loadTicketResults(window.location.href, { history: 'none' });
                 return;
             }
 
-            snapshotToken = payload.token;
+            snapshotToken = nextSnapshotToken;
+            pageSnapshotToken = nextPageSnapshotToken;
+            pageRoot.dataset.snapshotToken = snapshotToken;
+            pageRoot.dataset.pageSnapshotToken = pageSnapshotToken;
         } catch (error) {
+        } finally {
+            scheduleTicketListPolling();
         }
     };
 
@@ -595,6 +636,21 @@ const initAdminTicketsIndexPage = () => {
         void loadTicketResults(window.location.href, { history: 'none' });
     });
 
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            clearTicketListPolling();
+            return;
+        }
+
+        scheduleTicketListPolling(0);
+    });
+
+    window.addEventListener('focus', function () {
+        if (!document.hidden) {
+            scheduleTicketListPolling(0);
+        }
+    });
+
     updateReturnPathInputs(relativePathForUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin)));
     syncFilterFormFromUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin));
     syncEditCloseReasonVisibility();
@@ -602,9 +658,7 @@ const initAdminTicketsIndexPage = () => {
     syncBulkDeleteConfirmState();
     syncBulkSelection();
 
-    if (snapshotToken) {
-        window.setInterval(pollTicketListSnapshot, 10000);
-    }
+    scheduleTicketListPolling();
 };
 
 bootPage(initAdminTicketsIndexPage);
