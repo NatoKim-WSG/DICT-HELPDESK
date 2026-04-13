@@ -4,14 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Admin\ManagedUserAccessService;
 use App\Services\Admin\ManagedUserCredentialService;
-use App\Services\Admin\UserDirectoryService;
 
 class ManagedUserCredentialController extends Controller
 {
     public function __construct(
+        private ManagedUserAccessService $managedUserAccess,
         private ManagedUserCredentialService $managedCredentials,
-        private UserDirectoryService $userDirectory,
     ) {}
 
     public function resetManagedUserPassword(User $user)
@@ -51,9 +51,10 @@ class ManagedUserCredentialController extends Controller
 
     private function guardManagedCredentialAccess(User $currentUser, User $targetUser, string $ability)
     {
-        if ($targetUser->isSystemReplacementAccount()) {
+        $baseAccessError = $this->managedUserAccess->credentialAccessBoundaryError($currentUser, $targetUser);
+        if ($baseAccessError !== null) {
             return redirect()->route('admin.users.index')
-                ->with('error', 'System archive users cannot be modified.');
+                ->with('error', $baseAccessError);
         }
 
         if ($targetUser->isShadow()) {
@@ -64,11 +65,6 @@ class ManagedUserCredentialController extends Controller
         if ($targetUser->id === $currentUser->id) {
             return redirect()->route('admin.users.show', $targetUser)
                 ->with('error', 'Use Account Settings to update your own password.');
-        }
-
-        if ($this->userDirectory->cannotManageTarget($currentUser, $targetUser)) {
-            return redirect()->route('admin.users.index')
-                ->with('error', 'You do not have permission to modify this user.');
         }
 
         $this->authorize($ability, $targetUser);

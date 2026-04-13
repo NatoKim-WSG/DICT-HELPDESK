@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ManagedUserAccountController;
 use App\Http\Controllers\Admin\ManagedUserCredentialController;
+use App\Http\Controllers\Admin\ManagedUserProfileController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TicketActionController;
@@ -168,15 +170,15 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         Route::post('/users', [UserManagementController::class, 'store'])
             ->middleware('throttle:20,1')
             ->name('users.store');
-        Route::get('/users/{user}', [UserManagementController::class, 'show'])->name('users.show');
-        Route::get('/users/{user}/edit', [UserManagementController::class, 'edit'])->name('users.edit');
-        Route::put('/users/{user}', [UserManagementController::class, 'update'])
+        Route::get('/users/{user}', [ManagedUserProfileController::class, 'show'])->name('users.show');
+        Route::get('/users/{user}/edit', [ManagedUserProfileController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{user}', [ManagedUserProfileController::class, 'update'])
             ->middleware('throttle:20,1')
             ->name('users.update');
-        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])
+        Route::delete('/users/{user}', [ManagedUserAccountController::class, 'destroy'])
             ->middleware('throttle:10,1')
             ->name('users.destroy');
-        Route::post('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])
+        Route::post('/users/{user}/toggle-status', [ManagedUserAccountController::class, 'toggleStatus'])
             ->middleware('throttle:30,1')
             ->name('users.toggle-status');
         Route::post('/users/{user}/password/reset-default', [ManagedUserCredentialController::class, 'resetManagedUserPassword'])
