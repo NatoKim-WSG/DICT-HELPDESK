@@ -1,6 +1,6 @@
 param(
-    [string]$Host = "redmine.siphosted.com",
-    [string]$User = "admin",
+    [string]$RemoteHost = "redmine.siphosted.com",
+    [string]$RemoteUser = "admin",
     [string]$Branch = "main",
     [switch]$SkipPush
 )
@@ -18,4 +18,4 @@ cd '$RemotePath'
 bash './scripts/deploy-helpdesk-remote.sh' '$Branch'
 "@
 
-ssh "$User@$Host" $remoteCommand
+ssh "$RemoteUser@$RemoteHost" $remoteCommand
