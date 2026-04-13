@@ -11,13 +11,10 @@
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
     $supportCompanyLogo = \App\Models\User::supportLogoUrl();
     $actor = auth()->user();
-    $requiresDelayedClose = $actor && in_array($actor->normalizedRole(), [
+    $showCloseAction = $actor && in_array($actor->normalizedRole(), [
         \App\Models\User::ROLE_TECHNICAL,
         \App\Models\User::ROLE_SUPER_USER,
-    ], true);
-    $closeAvailableAt = $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay() : null;
-    $canCloseNow = ! $requiresDelayedClose || ($closeAvailableAt && now()->gte($closeAvailableAt));
-    $showDelayedCloseAction = $requiresDelayedClose && $ticket->status !== 'closed';
+    ], true) && $ticket->status !== 'closed';
     $closedRevertWindowDays = 7;
     $revertDeadline = $ticket->closed_at ? $ticket->closed_at->copy()->addDays($closedRevertWindowDays) : null;
     $canRevertTicket = $ticket->status === 'resolved'

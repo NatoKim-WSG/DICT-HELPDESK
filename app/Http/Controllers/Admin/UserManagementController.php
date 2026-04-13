@@ -11,7 +11,6 @@ use App\Models\TicketReply;
 use App\Models\User;
 use App\Services\Admin\UserDirectoryService;
 use App\Services\SystemLogService;
-use App\Support\DefaultPasswordResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -63,14 +62,6 @@ class UserManagementController extends Controller
         $role = $request->string('role')->toString();
         $department = $this->userDirectory->departmentForRole($role, $request->string('department')->toString());
         $persistedRole = $this->userDirectory->normalizeRoleForPersistence($role);
-        $isClientRole = $persistedRole === User::ROLE_CLIENT;
-        if ($request->filled('password')) {
-            $resolvedPassword = (string) $request->password;
-        } else {
-            $resolvedPassword = $isClientRole
-                ? DefaultPasswordResolver::clientFixed()
-                : DefaultPasswordResolver::staff();
-        }
 
         $createdUser = User::create([
             'username' => $request->string('username')->toString() ?: null,
@@ -82,10 +73,10 @@ class UserManagementController extends Controller
                 ? (trim($request->string('client_notes')->toString()) ?: null)
                 : null,
             'role' => $persistedRole,
-            'password' => Hash::make($resolvedPassword),
+            'password' => Hash::make((string) $request->password),
             'is_active' => true,
             'is_profile_locked' => false,
-            'must_change_password' => ! $request->filled('password') && ! $isClientRole,
+            'must_change_password' => false,
         ]);
         $this->systemLogs->record(
             'user.created',

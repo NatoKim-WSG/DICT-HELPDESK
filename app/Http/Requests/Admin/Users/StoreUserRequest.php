@@ -24,7 +24,7 @@ class StoreUserRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9._-]+$/', 'unique:users,username'],
             'name' => ['required', 'string', 'max:255'],
             'email' => [
-                'required',
+                'nullable',
                 'email',
                 'unique:users,email',
                 'max:255',
@@ -34,13 +34,13 @@ class StoreUserRequest extends FormRequest
                     }
                 },
             ],
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => ['nullable', 'string', 'max:20'],
             'department' => ['required', Rule::in(User::allowedDepartments())],
             'role' => ['required', Rule::in($availableRoles)],
             'client_notes' => $canManageClientNotes
                 ? ['nullable', 'string', 'max:2000']
                 : ['prohibited'],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -56,8 +56,8 @@ class StoreUserRequest extends FormRequest
         $this->merge([
             'username' => $username !== '' ? $username : null,
             'name' => $rawName,
-            'email' => trim((string) $this->input('email')),
-            'phone' => trim((string) $this->input('phone')),
+            'email' => ($email = trim((string) $this->input('email'))) !== '' ? $email : null,
+            'phone' => ($phone = trim((string) $this->input('phone'))) !== '' ? $phone : null,
         ]);
     }
 }

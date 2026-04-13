@@ -83,7 +83,39 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         $this->assertSame('open', $ticket->status);
     }
 
-    public function test_technical_user_cannot_close_ticket_before_24_hour_resolution_window(): void
+    public function test_ticket_show_sidebar_places_severity_before_close_ticket_and_removes_24_hour_copy(): void
+    {
+        [, $ticket] = $this->seedAdminAndTicket();
+
+        $technical = User::create([
+            'name' => 'Sidebar Technical',
+            'email' => 'sidebar-technical@example.com',
+            'phone' => '09130000079',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $ticket->update([
+            'assigned_to' => $technical->id,
+        ]);
+
+        $response = $this->actingAs($technical)->get(route('admin.tickets.show', $ticket));
+
+        $response->assertOk();
+        $response->assertDontSee('Close Ticket (24h Rule)');
+
+        $html = $response->getContent();
+        $severityPosition = strpos($html, '<label for="severity" class="form-label">Severity</label>');
+        $closePosition = strpos($html, '<label for="timed_close_reason" class="form-label">Close Ticket</label>');
+
+        $this->assertIsInt($severityPosition);
+        $this->assertIsInt($closePosition);
+        $this->assertLessThan($closePosition, $severityPosition);
+    }
+
+    public function test_technical_user_can_close_ticket_immediately_after_resolution(): void
     {
         [, $ticket] = $this->seedAdminAndTicket();
 
@@ -107,15 +139,15 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
             ->from(route('admin.tickets.show', $ticket))
             ->post(route('admin.tickets.status', $ticket), [
                 'status' => 'closed',
-                'close_reason' => 'Attempting close too early.',
+                'close_reason' => 'Closing immediately after resolution.',
             ]);
 
         $response->assertRedirect(route('admin.tickets.show', $ticket));
-        $response->assertSessionHas('error');
+        $response->assertSessionMissing('error');
 
         $ticket->refresh();
-        $this->assertSame('resolved', $ticket->status);
-        $this->assertNull($ticket->closed_at);
+        $this->assertSame('closed', $ticket->status);
+        $this->assertNotNull($ticket->closed_at);
     }
 
     public function test_admin_can_close_ticket_before_24_hour_resolution_window(): void
@@ -142,7 +174,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
         $this->assertNotNull($ticket->closed_at);
     }
 
-    public function test_super_user_can_close_ticket_after_24_hours_from_resolution(): void
+    public function test_super_user_can_close_ticket_without_waiting_for_24_hours(): void
     {
         [, $ticket] = $this->seedAdminAndTicket();
 
@@ -158,7 +190,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
 
         $ticket->update([
             'status' => 'resolved',
-            'resolved_at' => now()->subHours(25),
+            'resolved_at' => now()->subMinutes(10),
             'assigned_to' => null,
         ]);
 
@@ -166,7 +198,7 @@ class AdminTicketCloseReasonRequirementTest extends TestCase
             ->from(route('admin.tickets.show', $ticket))
             ->post(route('admin.tickets.status', $ticket), [
                 'status' => 'closed',
-                'close_reason' => '24-hour window completed.',
+                'close_reason' => 'Immediate close after verification.',
             ]);
 
         $response->assertRedirect(route('admin.tickets.show', $ticket));

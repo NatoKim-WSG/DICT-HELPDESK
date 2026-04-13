@@ -36,24 +36,6 @@ class TicketWorkflowService
             ->all();
     }
 
-    public function closeStatusGateErrorForCurrentActor(Ticket $ticket): ?string
-    {
-        if (! $this->requiresCloseDelayForCurrentActor()) {
-            return null;
-        }
-
-        if (! $ticket->resolved_at) {
-            return "Ticket {$ticket->ticket_number} must be resolved first. Super users and technical users can close tickets only after 24 hours from resolution.";
-        }
-
-        $closeAvailableAt = $ticket->resolved_at->copy()->addDay();
-        if (now()->lt($closeAvailableAt)) {
-            return "Ticket {$ticket->ticket_number} can be closed on ".$closeAvailableAt->format('M j, Y \\a\\t g:i A').'.';
-        }
-
-        return null;
-    }
-
     public function trackTicketHandlingAction(Ticket $ticket): void
     {
         $this->trackTicketAcknowledgment($ticket);
@@ -331,16 +313,6 @@ class TicketWorkflowService
                 'request' => $request,
             ]
         );
-    }
-
-    private function requiresCloseDelayForCurrentActor(): bool
-    {
-        $actor = auth()->user();
-        if (! $actor) {
-            return false;
-        }
-
-        return in_array($actor->normalizedRole(), [User::ROLE_TECHNICAL, User::ROLE_SUPER_USER], true);
     }
 
     private function trackTicketAcknowledgment(Ticket $ticket): void

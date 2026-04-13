@@ -330,7 +330,6 @@ const initAdminTicketsIndexPage = () => {
         if (editTicketTypeSelect) editTicketTypeSelect.value = button.dataset.ticketType || 'external';
 
         if (editStatusSelect) {
-            const closeAllowed = button.dataset.canCloseNow === '1';
             const canRevert = button.dataset.canRevert === '1';
             const isClosedTicket = (button.dataset.status || '') === 'closed';
             const closedOption = editStatusSelect.querySelector('option[value="closed"]');
@@ -343,29 +342,21 @@ const initAdminTicketsIndexPage = () => {
             });
 
             if (closedOption) {
-                closedOption.disabled = !closeAllowed;
-                closedOption.textContent = closeAllowed ? 'Closed' : 'Closed (after 24h)';
+                closedOption.disabled = false;
+                closedOption.textContent = 'Closed';
             }
 
             if (isClosedTicket && !canRevert) {
                 editStatusSelect.value = 'closed';
             }
 
-            if (!closeAllowed && editStatusSelect.value === 'closed') {
-                editStatusSelect.value = button.dataset.status || 'resolved';
-            }
-
             if (editCloseHint) {
                 if (isClosedTicket && !canRevert) {
                     editCloseHint.classList.remove('hidden');
                     editCloseHint.textContent = 'Closed tickets cannot be reverted after 7 days.';
-                } else if (closeAllowed) {
+                } else {
                     editCloseHint.classList.add('hidden');
                     editCloseHint.textContent = '';
-                } else {
-                    const closeAvailableAt = button.dataset.closeAvailableAt || 'the 24-hour window after resolution';
-                    editCloseHint.classList.remove('hidden');
-                    editCloseHint.textContent = 'Close is available on ' + closeAvailableAt + '.';
                 }
             }
         }

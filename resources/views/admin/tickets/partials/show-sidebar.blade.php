@@ -170,9 +170,7 @@
                         <option value="in_progress" {{ old('status', $ticket->status) === 'in_progress' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>In Progress</option>
                         <option value="pending" {{ old('status', $ticket->status) === 'pending' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>Pending</option>
                         <option value="resolved" {{ old('status', $ticket->status) === 'resolved' ? 'selected' : '' }} {{ $ticket->status === 'closed' && ! $canRevertTicket ? 'disabled' : '' }}>Resolved</option>
-                        <option value="closed" {{ old('status', $ticket->status) === 'closed' ? 'selected' : '' }} {{ $requiresDelayedClose && ! $canCloseNow ? 'disabled' : '' }}>
-                            Closed{{ $requiresDelayedClose && ! $canCloseNow ? ' (after 24h)' : '' }}
-                        </option>
+                        <option value="closed" {{ old('status', $ticket->status) === 'closed' ? 'selected' : '' }}>Closed</option>
                     </select>
                     <div id="status-close-reason-wrap" class="mt-2 hidden">
                         <label for="status_close_reason" class="form-label">Close Reason <span class="text-rose-500">*</span></label>
@@ -187,11 +185,6 @@
                             <p class="mt-1 text-sm text-rose-600">{{ $message }}</p>
                         @enderror
                     </div>
-                    @if($requiresDelayedClose && ! $canCloseNow)
-                        <p class="mt-2 text-xs text-amber-700">
-                            Close is available on {{ $closeAvailableAt ? $closeAvailableAt->format('M j, Y \a\t g:i A') : 'the 24-hour window after resolution' }}.
-                        </p>
-                    @endif
                     @if($ticket->status === 'closed' && ! $canRevertTicket)
                         <p class="mt-2 text-xs text-rose-700">
                             Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days.
@@ -200,33 +193,6 @@
                     <button type="submit" class="mt-2 btn-secondary w-full">Update Status</button>
                 </div>
             </form>
-
-            @if($showDelayedCloseAction)
-                <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
-                    @csrf
-                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
-                    <input type="hidden" name="status" value="closed">
-                    <div>
-                        <label for="timed_close_reason" class="form-label">Close Ticket (24h Rule)</label>
-                        <textarea
-                            id="timed_close_reason"
-                            name="close_reason"
-                            rows="3"
-                            class="form-input"
-                            placeholder="Provide a reason for closing this ticket..."
-                            required
-                        >{{ old('status') === 'closed' ? old('close_reason') : '' }}</textarea>
-                        @if($canCloseNow)
-                            <button type="submit" class="mt-2 btn-danger w-full">Close Ticket</button>
-                        @else
-                            <button type="submit" class="mt-2 btn-danger w-full opacity-60 cursor-not-allowed" disabled>Close Ticket</button>
-                            <p class="mt-2 text-xs text-slate-500">
-                                You can close this ticket on {{ $closeAvailableAt ? $closeAvailableAt->format('M j, Y \a\t g:i A') : 'the next allowed schedule' }}.
-                            </p>
-                        @endif
-                    </div>
-                </form>
-            @endif
 
             <form action="{{ route('admin.tickets.severity', $ticket) }}" method="POST">
                 @csrf
@@ -244,6 +210,26 @@
                     <button type="submit" class="mt-2 btn-secondary w-full">Update Severity</button>
                 </div>
             </form>
+
+            @if($showCloseAction)
+                <form action="{{ route('admin.tickets.status', $ticket) }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                    <input type="hidden" name="status" value="closed">
+                    <div>
+                        <label for="timed_close_reason" class="form-label">Close Ticket</label>
+                        <textarea
+                            id="timed_close_reason"
+                            name="close_reason"
+                            rows="3"
+                            class="form-input"
+                            placeholder="Provide a reason for closing this ticket..."
+                            required
+                        >{{ old('status') === 'closed' ? old('close_reason') : '' }}</textarea>
+                        <button type="submit" class="mt-2 btn-danger w-full">Close Ticket</button>
+                    </div>
+                </form>
+            @endif
 
             @if(auth()->user()->canManageTicketType())
                 <form action="{{ route('admin.tickets.type', $ticket) }}" method="POST">

@@ -55,10 +55,10 @@
                     <!-- Email -->
                     <div class="sm:col-span-1">
                         <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email Address <span class="text-red-500">*</span>
+                            Email Address
                         </label>
                         <div class="mt-1">
-                            <input type="email" name="email" id="email" value="{{ old('email') }}" required
+                            <input type="email" name="email" id="email" value="{{ old('email') }}"
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('email') border-red-300 @enderror">
                         </div>
                         @error('email')
@@ -69,10 +69,10 @@
                     <!-- Phone -->
                     <div class="sm:col-span-1">
                         <label for="phone" class="block text-sm font-medium text-gray-700">
-                            Phone Number <span class="text-red-500">*</span>
+                            Phone Number
                         </label>
                         <div class="mt-1">
-                            <input type="text" name="phone" id="phone" value="{{ old('phone') }}" required
+                            <input type="text" name="phone" id="phone" value="{{ old('phone') }}"
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('phone') border-red-300 @enderror">
                         </div>
                         @error('phone')
@@ -136,13 +136,12 @@
                     <!-- Password -->
                     <div class="sm:col-span-1">
                         <label for="password" class="block text-sm font-medium text-gray-700">
-                            Password
+                            Password <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input type="password" name="password" id="password"
+                            <input type="password" name="password" id="password" required
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('password') border-red-300 @enderror">
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">Leave blank to use the default account password.</p>
                         @error('password')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -151,10 +150,10 @@
                     <!-- Password Confirmation -->
                     <div class="sm:col-span-1">
                         <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                            Confirm Password
+                            Confirm Password <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input type="password" name="password_confirmation" id="password_confirmation"
+                            <input type="password" name="password_confirmation" id="password_confirmation" required
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
                         </div>
                     </div>

@@ -50,7 +50,7 @@ class TicketSeeder extends Seeder
                 'description' => 'I\'m not receiving any emails since yesterday morning. I can send emails but nothing is coming in.',
                 'priority' => 'medium',
                 'status' => 'in_progress',
-                'category' => 'Email & Communication',
+                'category' => 'Other',
             ],
             [
                 'subject' => 'Password reset request',
@@ -78,21 +78,21 @@ class TicketSeeder extends Seeder
                 'description' => 'The office printer stopped working after the latest Windows update. It shows as offline even though it\'s connected.',
                 'priority' => 'medium',
                 'status' => 'in_progress',
-                'category' => 'Printer & Scanning',
+                'category' => 'Other',
             ],
             [
                 'subject' => 'Security software alert',
                 'description' => 'I received a security alert saying there might be malware on my computer. I ran a scan but want IT to double-check.',
                 'priority' => 'urgent',
                 'status' => 'open',
-                'category' => 'Security',
+                'category' => 'Other',
             ],
             [
                 'subject' => 'Mobile app training request',
                 'description' => 'I would like training on how to use the company mobile app effectively. I\'m having trouble navigating some features.',
                 'priority' => 'low',
                 'status' => 'closed',
-                'category' => 'Training & Documentation',
+                'category' => 'Other',
             ],
         ];
 

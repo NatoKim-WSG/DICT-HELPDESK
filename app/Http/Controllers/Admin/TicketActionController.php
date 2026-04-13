@@ -91,13 +91,6 @@ class TicketActionController extends Controller
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
-        if ($nextStatus === 'closed' && (string) $ticket->status !== 'closed') {
-            $closeGateError = $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($ticket);
-            if ($closeGateError !== null) {
-                return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
-            }
-        }
-
         $this->ticketWorkflow->updateTicketStatus($request, $ticket);
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
@@ -175,13 +168,6 @@ class TicketActionController extends Controller
         $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
         if ($reopenGateError !== null) {
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
-        }
-
-        if ($nextStatus === 'closed' && (string) $ticket->status !== 'closed') {
-            $closeGateError = $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($ticket);
-            if ($closeGateError !== null) {
-                return $this->redirectBackOrReturnTo($request)->with('error', $closeGateError);
-            }
         }
 
         if (! $this->ticketWorkflow->quickUpdateTicket($request, $ticket)) {
@@ -369,9 +355,7 @@ class TicketActionController extends Controller
 
         foreach ($tickets as $candidateTicket) {
             /** @var Ticket $candidateTicket */
-            $gateError = $newStatus === 'closed'
-                ? $this->ticketWorkflow->closeStatusGateErrorForCurrentActor($candidateTicket)
-                : $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
+            $gateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
 
             if ($gateError !== null) {
                 return $this->redirectBackOrReturnTo($request)->with('error', $gateError);

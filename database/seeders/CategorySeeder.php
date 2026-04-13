@@ -29,39 +29,9 @@ class CategorySeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Email & Communication',
-                'description' => 'Email setup, calendar, and communication tools',
-                'color' => '#F59E0B',
-                'is_active' => true,
-            ],
-            [
                 'name' => 'Account & Access',
                 'description' => 'Login issues, password resets, and account permissions',
                 'color' => '#8B5CF6',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Printer & Scanning',
-                'description' => 'Printer setup, printing issues, and scanning problems',
-                'color' => '#EC4899',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Mobile Device',
-                'description' => 'Smartphone, tablet, and mobile app support',
-                'color' => '#06B6D4',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Training & Documentation',
-                'description' => 'Training requests and documentation needs',
-                'color' => '#84CC16',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Security',
-                'description' => 'Security concerns, virus removal, and data protection',
-                'color' => '#DC2626',
                 'is_active' => true,
             ],
             [

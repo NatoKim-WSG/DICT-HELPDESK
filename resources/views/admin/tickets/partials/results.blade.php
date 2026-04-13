@@ -3,7 +3,6 @@
     $isHistoryTab = $tab === 'history';
     $closedRevertWindowDays = 7;
     $canDeleteTickets = auth()->user()->isSuperAdmin();
-    $requiresDelayedClose = in_array(auth()->user()->normalizedRole(), [\App\Models\User::ROLE_TECHNICAL, \App\Models\User::ROLE_SUPER_USER], true);
     $paginationQuery = request()->except(['page', 'partial']);
 @endphp
 
@@ -134,8 +133,6 @@
                             data-priority="{{ $ticket->priority }}"
                             data-ticket-type="{{ $ticket->ticket_type }}"
                             data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                            data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
-                            data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                         >
                             Edit
                         </button>
@@ -297,8 +294,6 @@
                                     data-priority="{{ $ticket->priority }}"
                                     data-ticket-type="{{ $ticket->ticket_type }}"
                                     data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                                    data-can-close-now="{{ (!$requiresDelayedClose || ($ticket->resolved_at && now()->gte($ticket->resolved_at->copy()->addDay()))) ? '1' : '0' }}"
-                                    data-close-available-at="{{ $ticket->resolved_at ? $ticket->resolved_at->copy()->addDay()->format('M j, Y \\a\\t g:i A') : '' }}"
                                 >
                                     Edit
                                 </button>

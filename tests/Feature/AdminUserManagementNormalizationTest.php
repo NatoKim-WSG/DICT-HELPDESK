@@ -105,6 +105,87 @@ class AdminUserManagementNormalizationTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_can_create_user_without_email_and_phone(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Optional Fields Admin',
+            'email' => 'optional-fields-admin@example.com',
+            'phone' => '09100000031',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
+            'username' => 'no.contact.user',
+            'name' => 'No Contact User',
+            'email' => '',
+            'phone' => '',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('admin.users.index'));
+
+        $createdUser = User::query()->where('username', 'no.contact.user')->firstOrFail();
+        $this->assertNull($createdUser->email);
+        $this->assertNull($createdUser->phone);
+    }
+
+    public function test_super_admin_create_user_requires_password_fields(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Password Required Admin',
+            'email' => 'password-required-admin@example.com',
+            'phone' => '09100000032',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->post(route('admin.users.store'), [
+            'username' => 'missing.password.user',
+            'name' => 'Missing Password User',
+            'email' => '',
+            'phone' => '',
+            'department' => 'DAR',
+            'role' => User::ROLE_CLIENT,
+            'password' => '',
+            'password_confirmation' => '',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $this->assertDatabaseMissing('users', [
+            'username' => 'missing.password.user',
+        ]);
+    }
+
+    public function test_create_user_form_shows_optional_contact_fields_and_required_password_fields(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Create Form Admin',
+            'email' => 'create-form-admin@example.com',
+            'phone' => '09100000033',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.users.create'));
+
+        $response->assertOk();
+        $response->assertDontSee('Email Address <span class="text-red-500">*</span>', false);
+        $response->assertDontSee('Phone Number <span class="text-red-500">*</span>', false);
+        $response->assertSee('Password <span class="text-red-500">*</span>', false);
+        $response->assertSee('Confirm Password <span class="text-red-500">*</span>', false);
+        $response->assertDontSee('Leave blank to use the default account password.');
+    }
+
     public function test_super_admin_cannot_create_user_with_reserved_system_email(): void
     {
         $superAdmin = User::create([
