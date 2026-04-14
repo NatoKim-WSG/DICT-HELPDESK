@@ -7,7 +7,6 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -17,8 +16,10 @@ class LegacyTicketXlsxImporter
         private readonly HelpdeskTrackerXlsxParser $parser,
         private readonly HelpdeskTrackerDescriptionFormatter $formatter,
         private readonly ImportedTicketService $importedTickets,
+        private readonly TicketImportPersistenceService $persistence,
         private readonly ImportPathResolver $pathResolver,
         private readonly ImportEntityLookupCache $lookupCache,
+        private readonly TicketImportReferenceResolver $references,
     ) {}
 
     /**
@@ -74,70 +75,14 @@ class LegacyTicketXlsxImporter
             return $summary;
         }
 
-        $existingTicketsByKey = $settings['update_existing']
-            ? $this->loadExistingTicketsByMatchKey($preparedRows)
-            : [];
-
-        DB::transaction(function () use ($preparedRows, $settings, &$summary, &$existingTicketsByKey): void {
-            foreach ($preparedRows as $preparedRow) {
-                $ticketNumber = $preparedRow['ticket_number'];
-
-                if ($ticketNumber !== null) {
-                    $existingTicket = Ticket::query()->where('ticket_number', $ticketNumber)->first();
-
-                    if ($existingTicket instanceof Ticket) {
-                        if (! $settings['update_existing']) {
-                            $summary['skipped']++;
-
-                            continue;
-                        }
-
-                        $existingTicket->timestamps = false;
-                        $existingTicket->forceFill($preparedRow['attributes']);
-                        $existingTicket->save();
-                        $this->importedTickets->syncImportedReviewState($existingTicket);
-                        $summary['updated']++;
-
-                        continue;
-                    }
-                }
-
-                if (! $settings['update_existing']) {
-                    $ticket = new Ticket;
-                    $ticket->timestamps = false;
-                    $ticket->forceFill($preparedRow['attributes']);
-                    $ticket->save();
-                    $this->importedTickets->syncImportedReviewState($ticket);
-                    $summary['imported']++;
-
-                    continue;
-                }
-
-                $matchKey = $this->buildMatchKey($preparedRow['match_subject'], $preparedRow['match_created_at']);
-                /** @var Collection<int, Ticket> $matches */
-                $matches = $existingTicketsByKey[$matchKey] ?? collect();
-                /** @var Ticket|null $existingTicket */
-                $existingTicket = $matches->shift();
-                $existingTicketsByKey[$matchKey] = $matches;
-
-                if ($existingTicket instanceof Ticket) {
-                    $existingTicket->timestamps = false;
-                    $existingTicket->forceFill($preparedRow['attributes']);
-                    $existingTicket->save();
-                    $this->importedTickets->syncImportedReviewState($existingTicket);
-                    $summary['updated']++;
-
-                    continue;
-                }
-
-                $ticket = new Ticket;
-                $ticket->timestamps = false;
-                $ticket->forceFill($preparedRow['attributes']);
-                $ticket->save();
-                $this->importedTickets->syncImportedReviewState($ticket);
-                $summary['imported']++;
-            }
-        });
+        $summary = array_merge(
+            $summary,
+            $this->persistence->persist(
+                $preparedRows,
+                $settings['update_existing'],
+                fn (array $rows): array => $this->loadExistingTicketsByMatchKey($rows)
+            )
+        );
 
         return $summary;
     }
@@ -208,6 +153,7 @@ class LegacyTicketXlsxImporter
 
         return [
             'ticket_number' => $ticketNumber,
+            'match_key' => $this->buildMatchKey($subject, $createdAt),
             'match_subject' => $subject,
             'match_created_at' => $createdAt,
             'attributes' => $this->importedTickets->applyImportMetadata([
@@ -332,49 +278,17 @@ class LegacyTicketXlsxImporter
 
     private function resolveUserReference(?string $reference, int $row, string $context): User
     {
-        if ($reference === null) {
-            throw new RuntimeException(sprintf('Spreadsheet row %d could not resolve a %s user.', $row, $context));
-        }
-
-        if (ctype_digit($reference)) {
-            $user = $this->lookupCache->userById((int) $reference);
-            if ($user instanceof User) {
-                return $user;
-            }
-        }
-
-        $user = $this->lookupCache->userByEmail($reference) ?? $this->lookupCache->userByUsername($reference);
-        if ($user instanceof User) {
-            return $user;
-        }
-
-        throw new RuntimeException(sprintf('Spreadsheet row %d could not resolve %s "%s".', $row, $context, $reference));
+        return $this->references->resolveUserReference($reference, $row, $context, 'Spreadsheet row');
     }
 
     private function resolveCategoryReference(?string $reference, int $row): Category
     {
-        if ($reference === null) {
-            throw new RuntimeException(sprintf('Spreadsheet row %d could not resolve a category.', $row));
-        }
-
-        if (ctype_digit($reference)) {
-            $category = $this->lookupCache->categoryById((int) $reference);
-            if ($category instanceof Category) {
-                return $category;
-            }
-        }
-
-        $category = $this->lookupCache->categoryByName($reference);
-        if ($category instanceof Category) {
-            return $category;
-        }
-
-        throw new RuntimeException(sprintf('Spreadsheet row %d could not resolve category "%s".', $row, $reference));
+        return $this->references->resolveCategoryReference($reference, $row, 'Spreadsheet row');
     }
 
     private function resolveOptionalSupportUserByDisplayName(?string $displayName): ?User
     {
-        $displayName = $this->normalizeLookupKey($displayName);
+        $displayName = $this->references->normalizeLookupKey($displayName);
         if ($displayName === null) {
             return null;
         }
@@ -387,16 +301,6 @@ class LegacyTicketXlsxImporter
         $normalized = trim((string) $value);
 
         return $normalized === '' ? null : $normalized;
-    }
-
-    private function normalizeLookupKey(mixed $value): ?string
-    {
-        $value = $this->nullableString($value);
-        if ($value === null) {
-            return null;
-        }
-
-        return strtolower(trim((string) preg_replace('/\s+/u', ' ', $value)));
     }
 
     /**

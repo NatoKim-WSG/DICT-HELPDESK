@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 use SplFileObject;
@@ -15,8 +14,10 @@ class LegacyTicketCsvImporter
 {
     public function __construct(
         private readonly ImportedTicketService $importedTickets,
+        private readonly TicketImportPersistenceService $persistence,
         private readonly ImportPathResolver $pathResolver,
         private readonly ImportEntityLookupCache $lookupCache,
+        private readonly TicketImportReferenceResolver $references,
     ) {}
 
     /**
@@ -109,37 +110,7 @@ class LegacyTicketCsvImporter
             return $summary;
         }
 
-        DB::transaction(function () use ($preparedRows, $settings, &$summary): void {
-            foreach ($preparedRows as $preparedRow) {
-                $ticketNumber = $preparedRow['ticket_number'];
-
-                if ($ticketNumber !== null) {
-                    $existingTicket = Ticket::query()->where('ticket_number', $ticketNumber)->first();
-                    if ($existingTicket instanceof Ticket) {
-                        if (! $settings['update_existing']) {
-                            $summary['skipped']++;
-
-                            continue;
-                        }
-
-                        $existingTicket->timestamps = false;
-                        $existingTicket->forceFill($preparedRow['attributes']);
-                        $existingTicket->save();
-                        $this->importedTickets->syncImportedReviewState($existingTicket);
-                        $summary['updated']++;
-
-                        continue;
-                    }
-                }
-
-                $ticket = new Ticket;
-                $ticket->timestamps = false;
-                $ticket->forceFill($preparedRow['attributes']);
-                $ticket->save();
-                $this->importedTickets->syncImportedReviewState($ticket);
-                $summary['imported']++;
-            }
-        });
+        $summary = array_merge($summary, $this->persistence->persist($preparedRows, $settings['update_existing']));
 
         return $summary;
     }
@@ -493,53 +464,11 @@ class LegacyTicketCsvImporter
         mixed $username,
         string $label
     ): ?User {
-        $idValue = $this->nullableString($id);
-        if ($idValue !== null) {
-            $user = $this->lookupCache->userById((int) $idValue);
-            if ($user instanceof User) {
-                return $user;
-            }
-
-            throw new RuntimeException(sprintf('Row %d references an unknown %s user_id: %s', $line, $label, $idValue));
-        }
-
-        $emailValue = $this->nullableString($email);
-        if ($emailValue !== null) {
-            $user = $this->lookupCache->userByEmail($emailValue);
-            if ($user instanceof User) {
-                return $user;
-            }
-
-            throw new RuntimeException(sprintf('Row %d references an unknown %s user_email: %s', $line, $label, $emailValue));
-        }
-
-        $usernameValue = $this->nullableString($username);
-        if ($usernameValue !== null) {
-            $user = $this->lookupCache->userByUsername($usernameValue);
-            if ($user instanceof User) {
-                return $user;
-            }
-
-            throw new RuntimeException(sprintf('Row %d references an unknown %s user_username: %s', $line, $label, $usernameValue));
-        }
-
-        return null;
+        return $this->references->resolveOptionalUser($line, $id, $email, $username, $label);
     }
 
     private function resolveUserReference(string $reference, int $line, string $label): User
     {
-        if (ctype_digit($reference)) {
-            $user = $this->lookupCache->userById((int) $reference);
-            if ($user instanceof User) {
-                return $user;
-            }
-        }
-
-        $user = $this->lookupCache->userByEmail($reference) ?? $this->lookupCache->userByUsername($reference);
-        if ($user instanceof User) {
-            return $user;
-        }
-
-        throw new RuntimeException(sprintf('Row %d references an unknown %s: %s', $line, $label, $reference));
+        return $this->references->resolveUserReference($reference, $line, $label);
     }
 }

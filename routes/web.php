@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ManagedUserProfileController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TicketActionController;
+use App\Http\Controllers\Admin\TicketBulkActionController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\TicketReplyController as AdminTicketReplyController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -109,7 +110,7 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
     Route::post('/tickets/{ticket}/acknowledge', [TicketActionController::class, 'acknowledge'])
         ->middleware('throttle:60,1')
         ->name('tickets.acknowledge');
-    Route::post('/tickets/bulk-action', [TicketActionController::class, 'bulkAction'])
+    Route::post('/tickets/bulk-action', TicketBulkActionController::class)
         ->middleware('throttle:20,1')
         ->name('tickets.bulk-action');
     Route::post('/tickets/{ticket}/quick-update', [TicketActionController::class, 'quickUpdate'])
