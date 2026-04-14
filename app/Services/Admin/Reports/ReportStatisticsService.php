@@ -13,10 +13,6 @@ class ReportStatisticsService
 {
     use BuildsReportQueryCacheKey;
 
-    private array $resolvedTicketCountCache = [];
-
-    private array $closedTicketCountCache = [];
-
     private array $statusBreakdownCache = [];
 
     private array $priorityBreakdownCache = [];
@@ -24,6 +20,8 @@ class ReportStatisticsService
     private array $categoryBreakdownCache = [];
 
     private array $majorIssueSummaryCache = [];
+
+    private array $dailyTicketStatisticsCache = [];
 
     public function __construct(
         private ReportBreakdownService $reportBreakdowns,
@@ -317,15 +315,16 @@ class ReportStatisticsService
     {
         $start = $date->copy()->startOfDay();
         $end = $date->copy()->endOfDay();
+        $statistics = $this->dailyTicketStatisticsForRange(clone $scopedTickets, $start, $end);
 
         return [
             'mode' => 'day',
             'date' => $start->toDateString(),
             'label' => $start->format('M j, Y'),
-            'received' => (clone $scopedTickets)->whereBetween('created_at', [$start, $end])->count(),
-            'in_progress' => (clone $scopedTickets)->whereBetween('created_at', [$start, $end])->where('status', 'in_progress')->count(),
-            'resolved' => $this->countResolvedTicketsWithinRange(clone $scopedTickets, $start, $end),
-            'closed' => $this->countClosedTicketsWithinRange(clone $scopedTickets, $start, $end),
+            'received' => $statistics['received'],
+            'in_progress' => $statistics['in_progress'],
+            'resolved' => $statistics['resolved'],
+            'closed' => $statistics['closed'],
         ];
     }
 
@@ -335,14 +334,16 @@ class ReportStatisticsService
         Carbon $end,
         string $rangeLabel
     ): array {
+        $statistics = $this->dailyTicketStatisticsForRange(clone $scopedTickets, $start, $end);
+
         return [
             'mode' => 'month',
             'date' => null,
             'label' => 'All days in '.$rangeLabel,
-            'received' => (clone $scopedTickets)->whereBetween('created_at', [$start, $end])->count(),
-            'in_progress' => (clone $scopedTickets)->whereBetween('created_at', [$start, $end])->where('status', 'in_progress')->count(),
-            'resolved' => $this->countResolvedTicketsWithinRange(clone $scopedTickets, $start, $end),
-            'closed' => $this->countClosedTicketsWithinRange(clone $scopedTickets, $start, $end),
+            'received' => $statistics['received'],
+            'in_progress' => $statistics['in_progress'],
+            'resolved' => $statistics['resolved'],
+            'closed' => $statistics['closed'],
         ];
     }
 
@@ -370,42 +371,36 @@ class ReportStatisticsService
         return $breakdown;
     }
 
-    private function countResolvedTicketsWithinRange(Builder $scopedTickets, Carbon $start, Carbon $end): int
+    private function dailyTicketStatisticsForRange(Builder $scopedTickets, Carbon $start, Carbon $end): array
     {
         $cacheKey = $this->queryScopeSignature($scopedTickets)
             .'|'.$start->toIso8601String()
             .'|'.$end->toIso8601String();
-        if (array_key_exists($cacheKey, $this->resolvedTicketCountCache)) {
-            return $this->resolvedTicketCountCache[$cacheKey];
+        if (array_key_exists($cacheKey, $this->dailyTicketStatisticsCache)) {
+            return $this->dailyTicketStatisticsCache[$cacheKey];
         }
 
-        $count = (clone $scopedTickets)
+        $closedStatusesSqlList = "'".implode("','", Ticket::CLOSED_STATUSES)."'";
+        $summary = (clone $scopedTickets)
+            ->toBase()
             ->whereBetween('created_at', [$start, $end])
-            ->whereIn('status', Ticket::CLOSED_STATUSES)
-            ->count();
+            ->selectRaw('COUNT(*) as received')
+            ->selectRaw("SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress")
+            ->selectRaw("SUM(CASE WHEN status IN ({$closedStatusesSqlList}) THEN 1 ELSE 0 END) as resolved")
+            ->selectRaw("SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed")
+            ->first();
+        $summaryRow = is_object($summary) ? (array) $summary : [];
 
-        $this->resolvedTicketCountCache[$cacheKey] = (int) $count;
+        $statistics = [
+            'received' => (int) ($summaryRow['received'] ?? 0),
+            'in_progress' => (int) ($summaryRow['in_progress'] ?? 0),
+            'resolved' => (int) ($summaryRow['resolved'] ?? 0),
+            'closed' => (int) ($summaryRow['closed'] ?? 0),
+        ];
 
-        return (int) $count;
-    }
+        $this->dailyTicketStatisticsCache[$cacheKey] = $statistics;
 
-    private function countClosedTicketsWithinRange(Builder $scopedTickets, Carbon $start, Carbon $end): int
-    {
-        $cacheKey = $this->queryScopeSignature($scopedTickets)
-            .'|'.$start->toIso8601String()
-            .'|'.$end->toIso8601String();
-        if (array_key_exists($cacheKey, $this->closedTicketCountCache)) {
-            return $this->closedTicketCountCache[$cacheKey];
-        }
-
-        $count = (clone $scopedTickets)
-            ->whereBetween('created_at', [$start, $end])
-            ->where('status', 'closed')
-            ->count();
-
-        $this->closedTicketCountCache[$cacheKey] = (int) $count;
-
-        return (int) $count;
+        return $statistics;
     }
 
     private function buildMajorIssueAggregate(Builder $incidentScopedTickets): array

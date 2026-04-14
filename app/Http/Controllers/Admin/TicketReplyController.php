@@ -9,7 +9,7 @@ use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketReplyRequest;
 use App\Models\Ticket;
 use App\Models\TicketReply;
-use App\Services\Admin\TicketWorkflowService;
+use App\Services\Admin\TicketStatusWorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +19,7 @@ class TicketReplyController extends Controller
     use InteractsWithTicketReplies;
 
     public function __construct(
-        private TicketWorkflowService $ticketWorkflow,
+        private TicketStatusWorkflowService $ticketStatusWorkflow,
     ) {}
 
     public function replies(Request $request, Ticket $ticket): JsonResponse
@@ -62,7 +62,7 @@ class TicketReplyController extends Controller
         if ($ticket->status === 'open' && ! $isInternal) {
             $ticket->update(['status' => 'in_progress']);
         }
-        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
+        $this->ticketStatusWorkflow->trackTicketHandlingAction($ticket);
 
         if ($request->expectsJson()) {
             $reply->loadMissing(['user', 'attachments', 'replyTo']);

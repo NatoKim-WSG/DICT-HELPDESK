@@ -6,9 +6,10 @@ use App\Http\Controllers\Concerns\HandlesAdminReturnToRedirects;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Tickets\BulkTicketActionRequest;
 use App\Models\Ticket;
+use App\Services\Admin\TicketAssignmentService;
 use App\Services\Admin\TicketIndexService;
 use App\Services\Admin\TicketMutationService;
-use App\Services\Admin\TicketWorkflowService;
+use App\Services\Admin\TicketStatusWorkflowService;
 use App\Services\SystemLogService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -22,7 +23,8 @@ class TicketBulkActionController extends Controller
         private SystemLogService $systemLogs,
         private TicketIndexService $ticketIndex,
         private TicketMutationService $ticketMutations,
-        private TicketWorkflowService $ticketWorkflow,
+        private TicketAssignmentService $ticketAssignments,
+        private TicketStatusWorkflowService $ticketStatusWorkflow,
     ) {}
 
     public function __invoke(BulkTicketActionRequest $request)
@@ -119,12 +121,12 @@ class TicketBulkActionController extends Controller
 
     private function handleBulkAssign(BulkTicketActionRequest $request, EloquentCollection $tickets, Collection $selectedIds)
     {
-        $newAssignedIds = $this->ticketWorkflow->normalizedAssigneeIdsFromRequest($request);
+        $newAssignedIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
         if ($newAssignedIds === []) {
             return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a technical user.');
         }
 
-        $this->ticketWorkflow->bulkAssignTickets($request, $tickets, $selectedIds->all());
+        $this->ticketAssignments->bulkAssignTickets($request, $tickets, $selectedIds->all());
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Selected tickets assigned successfully.');
     }
@@ -143,14 +145,14 @@ class TicketBulkActionController extends Controller
 
         foreach ($tickets as $candidateTicket) {
             /** @var Ticket $candidateTicket */
-            $gateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
+            $gateError = $this->ticketStatusWorkflow->reopenClosedStatusGateErrorForTicket($candidateTicket, $newStatus);
 
             if ($gateError !== null) {
                 return $this->redirectBackOrReturnTo($request)->with('error', $gateError);
             }
         }
 
-        $this->ticketWorkflow->bulkStatusTickets($request, $tickets, $selectedIds->all());
+        $this->ticketStatusWorkflow->bulkStatusTickets($request, $tickets, $selectedIds->all());
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket statuses updated.');
     }
@@ -161,7 +163,7 @@ class TicketBulkActionController extends Controller
             return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a severity.');
         }
 
-        $this->ticketWorkflow->bulkPriorityTickets($request, $tickets, $selectedIds->all());
+        $this->ticketStatusWorkflow->bulkPriorityTickets($request, $tickets, $selectedIds->all());
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Selected ticket severities updated.');
     }

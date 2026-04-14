@@ -11,8 +11,9 @@ use App\Http\Requests\Admin\Tickets\UpdateTicketStatusRequest;
 use App\Http\Requests\Admin\Tickets\UpdateTicketTypeRequest;
 use App\Models\Ticket;
 use App\Models\TicketUserState;
+use App\Services\Admin\TicketAssignmentService;
 use App\Services\Admin\TicketMutationService;
-use App\Services\Admin\TicketWorkflowService;
+use App\Services\Admin\TicketStatusWorkflowService;
 use App\Services\SystemLogService;
 use App\Services\TicketAcknowledgmentService;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ class TicketActionController extends Controller
         private TicketAcknowledgmentService $ticketAcknowledgments,
         private SystemLogService $systemLogs,
         private TicketMutationService $ticketMutations,
-        private TicketWorkflowService $ticketWorkflow,
+        private TicketAssignmentService $ticketAssignments,
+        private TicketStatusWorkflowService $ticketStatusWorkflow,
     ) {}
 
     public function acknowledge(Request $request, Ticket $ticket)
@@ -68,7 +70,7 @@ class TicketActionController extends Controller
     {
         $this->authorizeTicketAccess($ticket);
 
-        if (! $this->ticketWorkflow->assignTicket($request, $ticket)) {
+        if (! $this->ticketAssignments->assignTicket($request, $ticket)) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
@@ -84,12 +86,12 @@ class TicketActionController extends Controller
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
-        $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        $reopenGateError = $this->ticketStatusWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
         if ($reopenGateError !== null) {
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
-        $this->ticketWorkflow->updateTicketStatus($request, $ticket);
+        $this->ticketStatusWorkflow->updateTicketStatus($request, $ticket);
 
         return $this->redirectBackOrReturnTo($request)->with('success', 'Ticket status updated successfully!');
     }
@@ -104,7 +106,7 @@ class TicketActionController extends Controller
 
         $previousSeverity = $ticket->priority;
         $ticket->update(['priority' => $request->severity]);
-        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
+        $this->ticketStatusWorkflow->trackTicketHandlingAction($ticket);
         $this->systemLogs->record(
             'ticket.severity.updated',
             'Updated ticket severity.',
@@ -137,7 +139,7 @@ class TicketActionController extends Controller
         $ticket->update([
             'ticket_type' => $nextType,
         ]);
-        $this->ticketWorkflow->trackTicketHandlingAction($ticket);
+        $this->ticketStatusWorkflow->trackTicketHandlingAction($ticket);
         $this->systemLogs->record(
             'ticket.type.updated',
             'Updated ticket type.',
@@ -163,12 +165,12 @@ class TicketActionController extends Controller
 
         $nextStatus = $request->string('status')->toString();
 
-        $reopenGateError = $this->ticketWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
+        $reopenGateError = $this->ticketStatusWorkflow->reopenClosedStatusGateErrorForTicket($ticket, $nextStatus);
         if ($reopenGateError !== null) {
             return $this->redirectBackOrReturnTo($request)->with('error', $reopenGateError);
         }
 
-        if (! $this->ticketWorkflow->quickUpdateTicket($request, $ticket)) {
+        if (! $this->ticketStatusWorkflow->quickUpdateTicket($request, $ticket)) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
         }
 
