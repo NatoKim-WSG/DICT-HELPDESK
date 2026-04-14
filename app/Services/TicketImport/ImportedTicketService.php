@@ -9,6 +9,10 @@ use Illuminate\Support\Carbon;
 
 class ImportedTicketService
 {
+    private bool $superUserIdResolved = false;
+
+    private ?int $cachedSuperUserId = null;
+
     /**
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
@@ -30,15 +34,27 @@ class ImportedTicketService
             return;
         }
 
-        $superUserId = User::query()
-            ->where('role', User::ROLE_SUPER_USER)
-            ->orderBy('id')
-            ->value('id');
+        $superUserId = $this->firstSuperUserId();
 
         if (! $superUserId) {
             return;
         }
 
         TicketUserState::markAcknowledged($ticket, (int) $superUserId, $assignedAt, true);
+    }
+
+    private function firstSuperUserId(): ?int
+    {
+        if ($this->superUserIdResolved) {
+            return $this->cachedSuperUserId;
+        }
+
+        $this->cachedSuperUserId = User::query()
+            ->where('role', User::ROLE_SUPER_USER)
+            ->orderBy('id')
+            ->value('id');
+        $this->superUserIdResolved = true;
+
+        return $this->cachedSuperUserId;
     }
 }

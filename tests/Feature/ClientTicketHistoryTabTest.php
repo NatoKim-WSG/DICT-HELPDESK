@@ -133,6 +133,39 @@ class ClientTicketHistoryTabTest extends TestCase
         $invalidStatusResponse->assertDontSee('name="priority"', false);
     }
 
+    public function test_client_ticket_heartbeat_returns_token_and_changes_when_visible_scope_changes(): void
+    {
+        [$client, $category] = $this->createClientAndCategory();
+
+        $ticket = Ticket::create($this->ticketPayload($client, $category, [
+            'subject' => 'Heartbeat ticket item',
+            'status' => 'open',
+            'ticket_number' => 'TK-HEARTBEAT1',
+        ]));
+
+        $initialHeartbeatResponse = $this->actingAs($client)->getJson(route('client.tickets.index', [
+            'tab' => 'tickets',
+            'heartbeat' => '1',
+        ]));
+
+        $initialHeartbeatResponse->assertOk();
+        $initialToken = (string) $initialHeartbeatResponse->json('token');
+        $this->assertNotSame('', $initialToken);
+
+        $this->travel(2)->seconds();
+        $ticket->update([
+            'subject' => 'Heartbeat ticket item updated',
+        ]);
+
+        $nextHeartbeatResponse = $this->actingAs($client)->getJson(route('client.tickets.index', [
+            'tab' => 'tickets',
+            'heartbeat' => '1',
+        ]));
+
+        $nextHeartbeatResponse->assertOk();
+        $this->assertNotSame($initialToken, (string) $nextHeartbeatResponse->json('token'));
+    }
+
     private function createClientAndCategory(): array
     {
         config(['legal.require_acceptance' => false]);

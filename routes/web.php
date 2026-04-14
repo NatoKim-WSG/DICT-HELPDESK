@@ -15,6 +15,8 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
+use App\Http\Controllers\Client\TicketConversationController as ClientTicketConversationController;
+use App\Http\Controllers\Client\TicketResolutionController as ClientTicketResolutionController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
@@ -56,21 +58,21 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:client'])->prefix
     Route::post('/tickets', [ClientTicketController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('tickets.store');
-    Route::get('/tickets/{ticket}', [ClientTicketController::class, 'show'])->name('tickets.show');
-    Route::get('/tickets/{ticket}/replies', [ClientTicketController::class, 'replies'])->name('tickets.replies.feed');
-    Route::post('/tickets/{ticket}/reply', [ClientTicketController::class, 'reply'])
+    Route::get('/tickets/{ticket}', [ClientTicketConversationController::class, 'show'])->name('tickets.show');
+    Route::get('/tickets/{ticket}/replies', [ClientTicketConversationController::class, 'replies'])->name('tickets.replies.feed');
+    Route::post('/tickets/{ticket}/reply', [ClientTicketConversationController::class, 'reply'])
         ->middleware('throttle:30,1')
         ->name('tickets.reply');
-    Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'updateReply'])
+    Route::patch('/tickets/{ticket}/replies/{reply}', [ClientTicketConversationController::class, 'updateReply'])
         ->middleware('throttle:30,1')
         ->name('tickets.replies.update');
-    Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketController::class, 'deleteReply'])
+    Route::delete('/tickets/{ticket}/replies/{reply}', [ClientTicketConversationController::class, 'deleteReply'])
         ->middleware('throttle:30,1')
         ->name('tickets.replies.delete');
-    Route::post('/tickets/{ticket}/resolve', [ClientTicketController::class, 'resolve'])
+    Route::post('/tickets/{ticket}/resolve', [ClientTicketResolutionController::class, 'resolve'])
         ->middleware('throttle:15,1')
         ->name('tickets.resolve');
-    Route::post('/tickets/{ticket}/rate', [ClientTicketController::class, 'rate'])
+    Route::post('/tickets/{ticket}/rate', [ClientTicketResolutionController::class, 'rate'])
         ->middleware('throttle:15,1')
         ->name('tickets.rate');
 

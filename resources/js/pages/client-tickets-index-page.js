@@ -1,5 +1,7 @@
 import { bootPage } from './shared/boot-page';
 
+const CLIENT_TICKET_LIST_POLL_INTERVAL_MS = 30000;
+
 const initClientTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-client-tickets-index-page]');
     if (!pageRoot) return;
@@ -10,6 +12,7 @@ const initClientTicketsIndexPage = () => {
     const routeBase = pageRoot.dataset.routeBase || window.location.pathname;
     let snapshotToken = initialSnapshotToken;
     let staleDetected = false;
+    let pollTimeoutId = null;
 
     const showRefreshPrompt = () => {
         if (document.querySelector('.js-live-refresh-prompt')) return;
@@ -27,8 +30,31 @@ const initClientTicketsIndexPage = () => {
         }
     };
 
+    const clearSnapshotPolling = () => {
+        if (pollTimeoutId) {
+            window.clearTimeout(pollTimeoutId);
+            pollTimeoutId = null;
+        }
+    };
+
+    const scheduleSnapshotPolling = (delay = CLIENT_TICKET_LIST_POLL_INTERVAL_MS) => {
+        clearSnapshotPolling();
+
+        if (!snapshotToken || staleDetected) {
+            return;
+        }
+
+        pollTimeoutId = window.setTimeout(() => {
+            void pollTicketListSnapshot();
+        }, delay);
+    };
+
     const pollTicketListSnapshot = async () => {
-        if (document.hidden || staleDetected) return;
+        if (document.hidden || staleDetected) {
+            scheduleSnapshotPolling();
+
+            return;
+        }
 
         const params = new URLSearchParams(window.location.search);
         params.set('heartbeat', '1');
@@ -54,10 +80,28 @@ const initClientTicketsIndexPage = () => {
 
             snapshotToken = payload.token;
         } catch (error) {
+        } finally {
+            scheduleSnapshotPolling();
         }
     };
 
-    window.setInterval(pollTicketListSnapshot, 30000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearSnapshotPolling();
+
+            return;
+        }
+
+        scheduleSnapshotPolling(0);
+    });
+
+    window.addEventListener('focus', () => {
+        if (!document.hidden) {
+            scheduleSnapshotPolling(0);
+        }
+    });
+
+    scheduleSnapshotPolling();
 };
 
 bootPage(initClientTicketsIndexPage);

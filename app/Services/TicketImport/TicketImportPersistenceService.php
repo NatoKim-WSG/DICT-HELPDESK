@@ -24,17 +24,24 @@ class TicketImportPersistenceService
             'updated' => 0,
             'skipped' => 0,
         ];
+        $existingTicketsByNumber = $this->loadExistingTicketsByNumber($preparedRows);
 
         $existingTicketsByKey = $updateExisting && $loadExistingByMatchKey
             ? $loadExistingByMatchKey($preparedRows)
             : [];
 
-        DB::transaction(function () use ($preparedRows, $updateExisting, &$summary, &$existingTicketsByKey): void {
+        DB::transaction(function () use (
+            $preparedRows,
+            $updateExisting,
+            &$summary,
+            $existingTicketsByNumber,
+            &$existingTicketsByKey
+        ): void {
             foreach ($preparedRows as $preparedRow) {
                 $ticketNumber = $preparedRow['ticket_number'];
 
                 if ($ticketNumber !== null) {
-                    $existingTicket = Ticket::query()->where('ticket_number', $ticketNumber)->first();
+                    $existingTicket = $existingTicketsByNumber[$ticketNumber] ?? null;
                     if ($existingTicket instanceof Ticket) {
                         if (! $updateExisting) {
                             $summary['skipped']++;
@@ -71,6 +78,29 @@ class TicketImportPersistenceService
         });
 
         return $summary;
+    }
+
+    /**
+     * @param  list<array{ticket_number: string|null, attributes: array<string, mixed>, match_key?: string}>  $preparedRows
+     * @return array<string, Ticket>
+     */
+    private function loadExistingTicketsByNumber(array $preparedRows): array
+    {
+        $ticketNumbers = collect($preparedRows)
+            ->pluck('ticket_number')
+            ->filter(fn (?string $ticketNumber): bool => $ticketNumber !== null && $ticketNumber !== '')
+            ->unique()
+            ->values();
+
+        if ($ticketNumbers->isEmpty()) {
+            return [];
+        }
+
+        return Ticket::query()
+            ->whereIn('ticket_number', $ticketNumbers->all())
+            ->get()
+            ->keyBy('ticket_number')
+            ->all();
     }
 
     /**

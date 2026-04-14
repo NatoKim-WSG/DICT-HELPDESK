@@ -115,6 +115,33 @@ class SystemPerformanceGuardTest extends TestCase
         );
     }
 
+    public function test_client_ticket_index_stays_within_query_budget(): void
+    {
+        [$adminUser, $technicalUser] = $this->createSupportUsers();
+        $categories = $this->seedCategories();
+        $this->seedTicketDataset($technicalUser, $categories, 18);
+
+        $client = User::query()
+            ->where('role', User::ROLE_CLIENT)
+            ->orderBy('id')
+            ->firstOrFail();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($client)->get(route('client.tickets.index'));
+
+        $response->assertOk();
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(
+            12,
+            $queryCount,
+            "Client ticket index query budget exceeded. Queries executed: {$queryCount}"
+        );
+    }
+
     private function createSupportUsers(): array
     {
         $adminUser = User::create([

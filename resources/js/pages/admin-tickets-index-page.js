@@ -1,13 +1,14 @@
 import { bootPage } from './shared/boot-page';
+import { createAdminTicketResultsController } from './shared/admin-ticket-index-results';
+import { createAdminTicketBulkSelection } from './shared/admin-ticket-index-selection';
+import { parseAssignedIds } from './shared/admin-ticket-filters';
 import {
-    buildAdminTicketFilterUrl,
-    DEFAULT_STATUS_VIEW,
-    normalizeAdminTicketResultsUrl,
-    parseAssignedIds,
-    resetAdminTicketFilterFieldValue,
-} from './shared/admin-ticket-filters';
-
-const TICKET_LIST_POLL_INTERVAL_MS = 10000;
+    hasOpenModal,
+    populateAdminTicketEditModal,
+    setMultiSelectValues,
+    syncCheckboxControlledSubmitState,
+    syncEditCloseReasonVisibility,
+} from './shared/admin-ticket-index-ui';
 
 const initAdminTicketsIndexPage = () => {
     const pageRoot = document.querySelector('[data-admin-tickets-index-page]');
@@ -15,7 +16,6 @@ const initAdminTicketsIndexPage = () => {
 
     const filterForm = pageRoot.querySelector('form[data-search-history-form]');
     const statusView = document.getElementById('admin-status-view');
-    const routeBase = pageRoot.dataset.routeBase || window.location.pathname;
     const assignForm = document.getElementById('assign-ticket-form');
     const assignModal = document.getElementById('assign-ticket-modal');
     const assignTicketText = document.getElementById('assign-modal-ticket');
@@ -45,19 +45,12 @@ const initAdminTicketsIndexPage = () => {
     const bulkDeleteConfirmModal = document.getElementById('bulk-delete-confirm-modal');
     const bulkDeleteConfirmCheckbox = document.getElementById('bulk-delete-confirm-checkbox');
     const bulkDeleteConfirmSubmit = document.getElementById('bulk-delete-confirm-submit');
+    const routeBase = pageRoot.dataset.routeBase || window.location.pathname;
     const assignRouteTemplate = pageRoot.dataset.assignRouteTemplate || '';
     const statusRouteTemplate = pageRoot.dataset.statusRouteTemplate || '';
     const quickUpdateRouteTemplate = pageRoot.dataset.quickUpdateRouteTemplate || '';
     const deleteRouteTemplate = pageRoot.dataset.deleteRouteTemplate || '';
-    const filterFieldSelectors = [
-        'select[name="priority"]',
-        'select[name="category"]',
-        'select[name="province"]',
-        'select[name="municipality"]',
-        'select[name="month"]',
-        'select[name="assigned_to"]',
-        'select[name="account_id"]',
-    ];
+    const modalNodes = [assignModal, revertModal, editModal, deleteModal, bulkDeleteConfirmModal];
 
     const assignModalController = window.ModalKit ? window.ModalKit.bind(assignModal) : null;
     const revertModalController = window.ModalKit && revertModal ? window.ModalKit.bind(revertModal) : null;
@@ -65,395 +58,54 @@ const initAdminTicketsIndexPage = () => {
     const deleteModalController = window.ModalKit && deleteModal ? window.ModalKit.bind(deleteModal) : null;
     const bulkDeleteConfirmModalController = window.ModalKit && bulkDeleteConfirmModal ? window.ModalKit.bind(bulkDeleteConfirmModal) : null;
 
-    let snapshotToken = pageRoot.dataset.snapshotToken || '';
-    let pageSnapshotToken = pageRoot.dataset.pageSnapshotToken || '';
-    let filterSubmitTimeout = null;
-    let pollTimeoutId = null;
-    let activeRequestId = 0;
-    let activeRequestController = null;
-    let isResultsLoading = false;
-    let isSyncingFilters = false;
     let allowBulkDeleteSubmit = false;
 
-    const getResultsContainer = () => pageRoot.querySelector('[data-admin-tickets-results]');
-    const getRowCheckboxes = () => Array.from(pageRoot.querySelectorAll('.js-ticket-checkbox'));
-    const getSelectAllCheckbox = () => pageRoot.querySelector('#select-all-tickets');
-
-    const selectedTicketIds = function () {
-        return getRowCheckboxes()
-            .filter(function (checkbox) { return checkbox.checked; })
-            .map(function (checkbox) { return checkbox.value; });
-    };
-
-    const relativePathForUrl = function (url) {
-        return `${url.pathname}${url.search}`;
-    };
-
-    const setMultiSelectValues = function (select, values) {
-        if (!(select instanceof HTMLSelectElement)) return;
-        const selectedValues = new Set(values);
-        Array.from(select.options).forEach(function (option) {
-            option.selected = selectedValues.has(option.value);
-        });
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
-    const updateReturnPathInputs = function (path) {
-        document.querySelectorAll('input[name="return_to"]').forEach(function (input) {
-            input.value = path;
+    const syncEditStatusState = () => {
+        syncEditCloseReasonVisibility({
+            statusSelect: editStatusSelect,
+            closeReasonWrap: editCloseReasonWrap,
+            closeReasonInput: editCloseReasonInput,
         });
     };
 
-    const clearTicketListPolling = function () {
-        if (pollTimeoutId) {
-            window.clearTimeout(pollTimeoutId);
-            pollTimeoutId = null;
-        }
-    };
-
-    const scheduleTicketListPolling = function (delay = TICKET_LIST_POLL_INTERVAL_MS) {
-        clearTicketListPolling();
-
-        if (!snapshotToken) {
-            return;
-        }
-
-        pollTimeoutId = window.setTimeout(function () {
-            void pollTicketListSnapshot();
-        }, delay);
-    };
-
-    const syncBulkSelection = function () {
-        const selectedCount = selectedTicketIds().length;
-        const selectAllCheckbox = getSelectAllCheckbox();
-        const rowCheckboxes = getRowCheckboxes();
-
-        if (bulkDeleteButton) {
-            bulkDeleteButton.disabled = selectedCount === 0;
-        }
-
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = rowCheckboxes.length > 0 && rowCheckboxes.every(function (checkbox) { return checkbox.checked; });
-            selectAllCheckbox.indeterminate = selectedCount > 0 && !selectAllCheckbox.checked;
-        }
-    };
-
-    const resetBulkSelection = function () {
-        const selectAllCheckbox = getSelectAllCheckbox();
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        }
-
-        getRowCheckboxes().forEach(function (checkbox) {
-            checkbox.checked = false;
-        });
-
-        if (bulkSelectedIds) {
-            bulkSelectedIds.innerHTML = '';
-        }
-
-        syncBulkSelection();
-    };
-
-    const syncBulkDeleteConfirmState = function () {
-        if (!bulkDeleteConfirmSubmit || !bulkDeleteConfirmCheckbox) return;
-
-        bulkDeleteConfirmSubmit.disabled = !bulkDeleteConfirmCheckbox.checked;
-    };
-
-    const syncFilterFormFromUrl = function (url) {
-        if (!filterForm) return;
-
-        const params = url.searchParams;
-        isSyncingFilters = true;
-
-        filterForm.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (field) {
-            if (field.disabled) return;
-
-            const tagName = field.tagName.toLowerCase();
-            const type = (field.getAttribute('type') || '').toLowerCase();
-            if (tagName === 'button' || ['button', 'submit', 'reset', 'checkbox', 'radio', 'file'].includes(type)) {
-                return;
-            }
-
-            const nextValue = resetAdminTicketFilterFieldValue(field.name, params);
-            const valueChanged = field.value !== nextValue;
-            field.value = nextValue;
-
-            if (valueChanged && tagName === 'select') {
-                field.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
-
-        if (statusView) {
-            statusView.value = params.get('status') ?? DEFAULT_STATUS_VIEW;
-        }
-
-        isSyncingFilters = false;
-    };
-
-    const applyLoadingState = function () {
-        const resultsContainer = getResultsContainer();
-        if (!resultsContainer) return;
-
-        resultsContainer.classList.toggle('opacity-60', isResultsLoading);
-        resultsContainer.classList.toggle('transition-opacity', true);
-        resultsContainer.setAttribute('aria-busy', isResultsLoading ? 'true' : 'false');
-    };
-
-    const buildFilterUrl = function () {
-        const selectedMonth = filterForm?.querySelector('select[name="month"]')?.value?.trim() || '';
-        const formEntries = filterForm ? Array.from(new FormData(filterForm).entries()) : [];
-
-        return buildAdminTicketFilterUrl({
-            routeBase,
-            formEntries,
-            selectedMonth,
-            statusValue: statusView ? statusView.value : DEFAULT_STATUS_VIEW,
-            origin: window.location.origin,
+    const syncRevertSubmitState = () => {
+        syncCheckboxControlledSubmitState({
+            checkbox: revertConfirmCheckbox,
+            submitButton: revertSubmitButton,
         });
     };
 
-    const loadTicketResults = async function (url, { history = 'replace' } = {}) {
-        const normalizedUrl = normalizeAdminTicketResultsUrl(url, window.location.origin);
-        const requestUrl = new URL(normalizedUrl.toString());
-        requestUrl.searchParams.set('partial', '1');
-
-        const requestId = ++activeRequestId;
-        if (activeRequestController) {
-            activeRequestController.abort();
-        }
-
-        activeRequestController = new AbortController();
-        isResultsLoading = true;
-        applyLoadingState();
-
-        try {
-            const response = await fetch(requestUrl.toString(), {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-                signal: activeRequestController.signal,
-            });
-
-            if (!response.ok) {
-                throw new Error(`Ticket results request failed with status ${response.status}`);
-            }
-
-            const payload = await response.json();
-            if (activeRequestId !== requestId) {
-                return;
-            }
-
-            const resultsContainer = getResultsContainer();
-            if (!resultsContainer || typeof payload?.html !== 'string') {
-                throw new Error('Ticket results payload was incomplete.');
-            }
-
-            resultsContainer.outerHTML = payload.html;
-            snapshotToken = payload.token || '';
-            pageSnapshotToken = payload.page_token || '';
-            pageRoot.dataset.snapshotToken = snapshotToken;
-            pageRoot.dataset.pageSnapshotToken = pageSnapshotToken;
-
-            if (history === 'push') {
-                window.history.pushState({ adminTickets: true }, '', relativePathForUrl(normalizedUrl));
-            } else if (history === 'replace') {
-                window.history.replaceState({ adminTickets: true }, '', relativePathForUrl(normalizedUrl));
-            }
-
-            syncFilterFormFromUrl(normalizedUrl);
-            updateReturnPathInputs(relativePathForUrl(normalizedUrl));
-            resetBulkSelection();
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                return;
-            }
-
-            window.location.assign(relativePathForUrl(normalizedUrl));
-        } finally {
-            if (activeRequestId === requestId) {
-                activeRequestController = null;
-                isResultsLoading = false;
-                applyLoadingState();
-
-                scheduleTicketListPolling();
-            }
-        }
-    };
-
-    const submitFilters = function () {
-        if (!filterForm) return;
-        if (isSyncingFilters) return;
-
-        if (filterSubmitTimeout) {
-            window.clearTimeout(filterSubmitTimeout);
-            filterSubmitTimeout = null;
-        }
-
-        const targetUrl = buildFilterUrl();
-        targetUrl.searchParams.delete('page');
-        void loadTicketResults(targetUrl, { history: 'replace' });
-    };
-
-    const syncRevertSubmitState = function () {
-        if (!revertSubmitButton || !revertConfirmCheckbox) return;
-        revertSubmitButton.disabled = !revertConfirmCheckbox.checked;
-    };
-
-    const syncEditCloseReasonVisibility = function () {
-        if (!editStatusSelect || !editCloseReasonWrap || !editCloseReasonInput) return;
-
-        const isClosed = editStatusSelect.value === 'closed';
-        editCloseReasonWrap.classList.toggle('hidden', !isClosed);
-        editCloseReasonInput.required = isClosed;
-        if (!isClosed) {
-            editCloseReasonInput.value = '';
-        }
-    };
-
-    const populateEditModal = function (button) {
-        const ticketId = button.dataset.ticketId;
-        if (!ticketId || !editForm) return;
-
-        editForm.action = quickUpdateRouteTemplate.replace('__TICKET__', ticketId);
-        if (editTicketText) {
-            editTicketText.textContent = 'Ticket #' + (button.dataset.ticketNumber || '');
-        }
-        setMultiSelectValues(editAssignedSelect, parseAssignedIds(button.dataset.assignedTo || '[]'));
-        if (editStatusSelect) editStatusSelect.value = button.dataset.status || 'open';
-        if (editCloseReasonInput) editCloseReasonInput.value = '';
-        if (editPrioritySelect) editPrioritySelect.value = button.dataset.priority || '';
-        if (editTicketTypeSelect) editTicketTypeSelect.value = button.dataset.ticketType || 'external';
-
-        if (editStatusSelect) {
-            const canRevert = button.dataset.canRevert === '1';
-            const isClosedTicket = (button.dataset.status || '') === 'closed';
-            const closedOption = editStatusSelect.querySelector('option[value="closed"]');
-
-            ['open', 'in_progress', 'pending', 'resolved'].forEach(function (statusValue) {
-                const option = editStatusSelect.querySelector(`option[value="${statusValue}"]`);
-                if (option) {
-                    option.disabled = isClosedTicket && !canRevert;
-                }
-            });
-
-            if (closedOption) {
-                closedOption.disabled = false;
-                closedOption.textContent = 'Closed';
-            }
-
-            if (isClosedTicket && !canRevert) {
-                editStatusSelect.value = 'closed';
-            }
-
-            if (editCloseHint) {
-                if (isClosedTicket && !canRevert) {
-                    editCloseHint.classList.remove('hidden');
-                    editCloseHint.textContent = 'Closed tickets cannot be reverted after 7 days.';
-                } else {
-                    editCloseHint.classList.add('hidden');
-                    editCloseHint.textContent = '';
-                }
-            }
-        }
-
-        syncEditCloseReasonVisibility();
-
-        if (editDeleteButton) {
-            editDeleteButton.dataset.ticketId = ticketId;
-            editDeleteButton.dataset.ticketNumber = button.dataset.ticketNumber || '';
-        }
-    };
-
-    const hasOpenModal = function () {
-        return [assignModal, revertModal, editModal, deleteModal, bulkDeleteConfirmModal].some(function (modal) {
-            return modal && !modal.classList.contains('hidden');
+    const syncBulkDeleteConfirmState = () => {
+        syncCheckboxControlledSubmitState({
+            checkbox: bulkDeleteConfirmCheckbox,
+            submitButton: bulkDeleteConfirmSubmit,
         });
     };
 
-    const pollTicketListSnapshot = async function () {
-        if (!snapshotToken) {
-            return;
-        }
+    const bulkSelection = createAdminTicketBulkSelection({
+        pageRoot,
+        bulkDeleteButton,
+        bulkSelectedIds,
+    });
 
-        if (document.hidden || hasOpenModal() || isResultsLoading) {
-            scheduleTicketListPolling();
-            return;
-        }
-
-        const heartbeatUrl = normalizeAdminTicketResultsUrl(window.location.href, window.location.origin);
-        heartbeatUrl.searchParams.set('heartbeat', '1');
-
-        try {
-            const response = await fetch(heartbeatUrl.toString(), {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            });
-            if (!response.ok) return;
-
-            const payload = await response.json();
-            if (!payload || !payload.token) return;
-
-            const nextSnapshotToken = payload.token || '';
-            const nextPageSnapshotToken = payload.page_token || '';
-            if (nextSnapshotToken !== snapshotToken && nextPageSnapshotToken !== pageSnapshotToken) {
-                await loadTicketResults(window.location.href, { history: 'none' });
-                return;
-            }
-
-            snapshotToken = nextSnapshotToken;
-            pageSnapshotToken = nextPageSnapshotToken;
-            pageRoot.dataset.snapshotToken = snapshotToken;
-            pageRoot.dataset.pageSnapshotToken = pageSnapshotToken;
-        } catch (error) {
-        } finally {
-            scheduleTicketListPolling();
-        }
-    };
-
-    if (filterForm) {
-        filterForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            submitFilters();
-        });
-
-        filterFieldSelectors.forEach(function (selector) {
-            const field = filterForm.querySelector(selector);
-            if (!field) return;
-
-            field.addEventListener('change', submitFilters);
-        });
-
-        const searchInput = filterForm.querySelector('input[name="search"]');
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                if (filterSubmitTimeout) {
-                    window.clearTimeout(filterSubmitTimeout);
-                }
-
-                filterSubmitTimeout = window.setTimeout(function () {
-                    submitFilters();
-                }, 350);
-            });
-        }
-    }
-
-    if (statusView) {
-        statusView.addEventListener('change', function () {
-            if (isSyncingFilters) return;
-
-            const targetUrl = buildFilterUrl();
-            targetUrl.searchParams.delete('page');
-            void loadTicketResults(targetUrl, { history: 'replace' });
-        });
-    }
+    const resultsController = createAdminTicketResultsController({
+        pageRoot,
+        filterForm,
+        statusView,
+        routeBase,
+        filterFieldSelectors: [
+            'select[name="priority"]',
+            'select[name="category"]',
+            'select[name="province"]',
+            'select[name="municipality"]',
+            'select[name="month"]',
+            'select[name="assigned_to"]',
+            'select[name="account_id"]',
+        ],
+        getResultsContainer: () => pageRoot.querySelector('[data-admin-tickets-results]'),
+        hasOpenModal: () => hasOpenModal(modalNodes),
+        onResultsUpdated: () => bulkSelection.resetBulkSelection(),
+    });
 
     if (revertConfirmCheckbox) {
         revertConfirmCheckbox.addEventListener('change', syncRevertSubmitState);
@@ -464,7 +116,7 @@ const initAdminTicketsIndexPage = () => {
     }
 
     if (revertForm) {
-        revertForm.addEventListener('submit', function (event) {
+        revertForm.addEventListener('submit', (event) => {
             if (!revertConfirmCheckbox || revertConfirmCheckbox.checked) {
                 return;
             }
@@ -474,36 +126,36 @@ const initAdminTicketsIndexPage = () => {
     }
 
     if (editStatusSelect) {
-        editStatusSelect.addEventListener('change', syncEditCloseReasonVisibility);
+        editStatusSelect.addEventListener('change', syncEditStatusState);
     }
 
-    pageRoot.addEventListener('click', function (event) {
+    pageRoot.addEventListener('click', (event) => {
         const clearLink = event.target.closest('[data-admin-ticket-clear]');
         if (clearLink) {
             event.preventDefault();
-            void loadTicketResults(clearLink.href, { history: 'replace' });
+            void resultsController.loadTicketResults(clearLink.href, { history: 'replace' });
             return;
         }
 
         const selectAllCheckbox = event.target.closest('#select-all-tickets');
         if (selectAllCheckbox) {
-            getRowCheckboxes().forEach(function (checkbox) {
+            bulkSelection.getRowCheckboxes().forEach((checkbox) => {
                 checkbox.checked = selectAllCheckbox.checked;
             });
-            syncBulkSelection();
+            bulkSelection.syncBulkSelection();
             return;
         }
 
         const ticketCheckbox = event.target.closest('.js-ticket-checkbox');
         if (ticketCheckbox) {
-            syncBulkSelection();
+            bulkSelection.syncBulkSelection();
             return;
         }
 
         const paginationLink = event.target.closest('[data-admin-ticket-pagination] a');
         if (paginationLink) {
             event.preventDefault();
-            void loadTicketResults(paginationLink.href, { history: 'push' });
+            void resultsController.loadTicketResults(paginationLink.href, { history: 'push' });
             return;
         }
 
@@ -524,7 +176,20 @@ const initAdminTicketsIndexPage = () => {
 
         const editButton = event.target.closest('.js-open-edit-modal');
         if (editButton) {
-            populateEditModal(editButton);
+            populateAdminTicketEditModal({
+                button: editButton,
+                editForm,
+                editTicketText,
+                editAssignedSelect,
+                editStatusSelect,
+                editCloseReasonInput,
+                editCloseHint,
+                editPrioritySelect,
+                editTicketTypeSelect,
+                editDeleteButton,
+                quickUpdateRouteTemplate,
+                onStatusStateSync: syncEditStatusState,
+            });
             if (editModalController) editModalController.open();
 
             return;
@@ -537,7 +202,7 @@ const initAdminTicketsIndexPage = () => {
 
             revertForm.action = statusRouteTemplate.replace('__TICKET__', ticketId);
             if (revertTicketText) {
-                revertTicketText.textContent = 'Ticket #' + (revertButton.dataset.ticketNumber || '') + ' will be reverted to In Progress.';
+                revertTicketText.textContent = `Ticket #${revertButton.dataset.ticketNumber || ''} will be reverted to In Progress.`;
             }
             if (revertConfirmCheckbox) {
                 revertConfirmCheckbox.checked = false;
@@ -548,7 +213,7 @@ const initAdminTicketsIndexPage = () => {
     });
 
     if (editDeleteButton) {
-        editDeleteButton.addEventListener('click', function () {
+        editDeleteButton.addEventListener('click', () => {
             const ticketId = editDeleteButton.dataset.ticketId;
             if (!ticketId || !deleteForm) return;
 
@@ -562,8 +227,8 @@ const initAdminTicketsIndexPage = () => {
     }
 
     if (bulkDeleteButton) {
-        bulkDeleteButton.addEventListener('click', function () {
-            if (selectedTicketIds().length === 0) {
+        bulkDeleteButton.addEventListener('click', () => {
+            if (bulkSelection.selectedTicketIds().length === 0) {
                 return;
             }
 
@@ -575,13 +240,12 @@ const initAdminTicketsIndexPage = () => {
 
             if (bulkDeleteConfirmModalController) {
                 bulkDeleteConfirmModalController.open();
-                return;
             }
         });
     }
 
     if (bulkDeleteConfirmSubmit && bulkDeleteForm) {
-        bulkDeleteConfirmSubmit.addEventListener('click', function () {
+        bulkDeleteConfirmSubmit.addEventListener('click', () => {
             if (!bulkDeleteConfirmCheckbox || !bulkDeleteConfirmCheckbox.checked) {
                 return;
             }
@@ -595,8 +259,8 @@ const initAdminTicketsIndexPage = () => {
     }
 
     if (bulkDeleteForm) {
-        bulkDeleteForm.addEventListener('submit', function (event) {
-            const selectedIds = selectedTicketIds();
+        bulkDeleteForm.addEventListener('submit', (event) => {
+            const selectedIds = bulkSelection.selectedTicketIds();
             if (selectedIds.length === 0) {
                 event.preventDefault();
                 return;
@@ -608,48 +272,15 @@ const initAdminTicketsIndexPage = () => {
             }
 
             allowBulkDeleteSubmit = false;
-
-            if (bulkSelectedIds) {
-                bulkSelectedIds.innerHTML = '';
-                selectedIds.forEach(function (id) {
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'selected_ids[]';
-                    hiddenInput.value = id;
-                    bulkSelectedIds.appendChild(hiddenInput);
-                });
-            }
+            bulkSelection.populateSelectedIds(selectedIds);
         });
     }
 
-    window.addEventListener('popstate', function () {
-        syncFilterFormFromUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin));
-        void loadTicketResults(window.location.href, { history: 'none' });
-    });
-
-    document.addEventListener('visibilitychange', function () {
-        if (document.hidden) {
-            clearTicketListPolling();
-            return;
-        }
-
-        scheduleTicketListPolling(0);
-    });
-
-    window.addEventListener('focus', function () {
-        if (!document.hidden) {
-            scheduleTicketListPolling(0);
-        }
-    });
-
-    updateReturnPathInputs(relativePathForUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin)));
-    syncFilterFormFromUrl(normalizeAdminTicketResultsUrl(window.location.href, window.location.origin));
-    syncEditCloseReasonVisibility();
+    resultsController.bind();
+    syncEditStatusState();
     syncRevertSubmitState();
     syncBulkDeleteConfirmState();
-    syncBulkSelection();
-
-    scheduleTicketListPolling();
+    bulkSelection.syncBulkSelection();
 };
 
 bootPage(initAdminTicketsIndexPage);
