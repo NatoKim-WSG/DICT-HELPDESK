@@ -12,6 +12,7 @@ const initClientDashboardPage = () => {
     let activeToken = initialToken;
     let checking = false;
     let staleDetected = false;
+    let pollTimeoutId = null;
 
     const showRefreshPrompt = function () {
         if (document.querySelector('.js-live-refresh-prompt')) return;
@@ -27,6 +28,20 @@ const initClientDashboardPage = () => {
                 window.location.reload();
             });
         }
+    };
+
+    const scheduleNextPoll = function (delay = 30000) {
+        if (pollTimeoutId !== null) {
+            window.clearTimeout(pollTimeoutId);
+        }
+
+        if (staleDetected || document.hidden) {
+            pollTimeoutId = null;
+
+            return;
+        }
+
+        pollTimeoutId = window.setTimeout(pollSnapshot, delay);
     };
 
     const pollSnapshot = async function () {
@@ -49,6 +64,9 @@ const initClientDashboardPage = () => {
             if (payload.token !== activeToken) {
                 staleDetected = true;
                 showRefreshPrompt();
+
+                scheduleNextPoll();
+
                 return;
             }
 
@@ -56,10 +74,21 @@ const initClientDashboardPage = () => {
         } catch (error) {
         } finally {
             checking = false;
+            scheduleNextPoll();
         }
     };
 
-    window.setInterval(pollSnapshot, 30000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden || staleDetected) {
+            scheduleNextPoll();
+
+            return;
+        }
+
+        scheduleNextPoll(5000);
+    });
+
+    scheduleNextPoll();
 };
 
 bootPage(initClientDashboardPage);

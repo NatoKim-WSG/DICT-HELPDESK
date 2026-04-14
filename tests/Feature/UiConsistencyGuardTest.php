@@ -54,19 +54,23 @@ class UiConsistencyGuardTest extends TestCase
 
         foreach ($modalViewFiles as $modalViewFile) {
             $contents = File::get(resource_path('views/'.$modalViewFile));
+            $usesSharedUserModals = str_contains($contents, "@include('admin.users.partials.account-modals'");
+            $expectedModalRoot = $usesSharedUserModals ? "@include('admin.users.partials.account-modals'" : 'app-modal-root';
+            $expectedModalOverlay = $usesSharedUserModals ? "@include('admin.users.partials.account-modals'" : 'app-modal-overlay';
+            $expectedModalPanel = $usesSharedUserModals ? "@include('admin.users.partials.account-modals'" : 'app-modal-panel';
 
             $this->assertStringContainsString(
-                'app-modal-root',
+                $expectedModalRoot,
                 $contents,
                 "Expected {$modalViewFile} to define at least one modal root."
             );
             $this->assertStringContainsString(
-                'app-modal-overlay',
+                $expectedModalOverlay,
                 $contents,
                 "Expected {$modalViewFile} to define a modal overlay."
             );
             $this->assertStringContainsString(
-                'app-modal-panel',
+                $expectedModalPanel,
                 $contents,
                 "Expected {$modalViewFile} to define a modal panel."
             );

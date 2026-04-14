@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
-use App\Models\Ticket;
+use App\Services\Client\ClientDashboardSummaryService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private ClientDashboardSummaryService $dashboardSummary,
+    ) {}
+
     public function index(Request $request)
     {
         $user = auth()->user();
-        /** @var Builder<Ticket> $ticketQuery */
-        $ticketQuery = $user->tickets()->getQuery();
-        $liveSnapshotToken = $this->buildLiveSnapshotToken(clone $ticketQuery);
+        $summary = $this->dashboardSummary->summaryFor($user);
+        $liveSnapshotToken = $summary['live_snapshot_token'];
 
         if ($request->boolean('heartbeat')) {
             return response()->json([
@@ -22,37 +25,19 @@ class DashboardController extends Controller
             ]);
         }
 
-        $stats = [
-            'total_tickets' => (clone $ticketQuery)->count(),
-            'open_tickets' => (clone $ticketQuery)->open()->count(),
-            'in_progress_tickets' => (clone $ticketQuery)->where('status', 'in_progress')->count(),
-        ];
+        $stats = $summary['stats'];
 
         $recentStart = now()->subDays(10)->startOfDay();
         $recentEnd = now()->endOfDay();
 
-        $recentTickets = (clone $ticketQuery)
+        /** @var Builder $recentTicketQuery */
+        $recentTicketQuery = $this->dashboardSummary->recentTicketsQueryFor($user);
+        $recentTickets = $recentTicketQuery
             ->whereBetween('created_at', [$recentStart, $recentEnd])
-            ->with(['category', 'assignedUser', 'assignedUsers'])
             ->latest()
             ->take(5)
             ->get();
 
         return view('client.dashboard', compact('stats', 'recentTickets', 'liveSnapshotToken'));
-    }
-
-    /**
-     * @param  Builder<Ticket>  $ticketQuery
-     */
-    private function buildLiveSnapshotToken(Builder $ticketQuery): string
-    {
-        $latestUpdatedAt = (clone $ticketQuery)->max('updated_at');
-        $latestUpdatedTimestamp = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
-        $totalTickets = (clone $ticketQuery)->count();
-
-        return sha1(json_encode([
-            'latest_updated_at' => $latestUpdatedTimestamp,
-            'total_tickets' => $totalTickets,
-        ]));
     }
 }

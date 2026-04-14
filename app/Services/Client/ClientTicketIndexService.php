@@ -80,23 +80,38 @@ class ClientTicketIndexService
      */
     public function buildSnapshotToken(Builder $ticketQuery): string
     {
+        return $this->buildSnapshotTokenFromSummary($this->buildSummarySnapshot($ticketQuery));
+    }
+
+    public function buildSnapshotTokenFromSummary(array $summary): string
+    {
+        $latestUpdatedTimestamp = ! empty($summary['latest_updated_at'])
+            ? strtotime((string) $summary['latest_updated_at'])
+            : 0;
+
+        return sha1(json_encode([
+            'latest_updated_at' => $latestUpdatedTimestamp,
+            'open_tickets' => (int) ($summary['open_tickets'] ?? 0),
+            'total_tickets' => (int) ($summary['total_tickets'] ?? 0),
+        ]));
+    }
+
+    /**
+     * @param  Builder<Ticket>  $ticketQuery
+     * @return array<string, mixed>
+     */
+    public function buildSummarySnapshot(Builder $ticketQuery): array
+    {
         $openStatusesSqlList = "'".implode("','", Ticket::OPEN_STATUSES)."'";
         $summary = (clone $ticketQuery)
             ->toBase()
             ->selectRaw('COUNT(*) as total_tickets')
             ->selectRaw("SUM(CASE WHEN status IN ({$openStatusesSqlList}) THEN 1 ELSE 0 END) as open_tickets")
+            ->selectRaw("SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_tickets")
             ->selectRaw('MAX(updated_at) as latest_updated_at')
             ->first();
-        $summaryRow = is_object($summary) ? (array) $summary : [];
-        $latestUpdatedTimestamp = ! empty($summaryRow['latest_updated_at'])
-            ? strtotime((string) $summaryRow['latest_updated_at'])
-            : 0;
 
-        return sha1(json_encode([
-            'latest_updated_at' => $latestUpdatedTimestamp,
-            'open_tickets' => (int) ($summaryRow['open_tickets'] ?? 0),
-            'total_tickets' => (int) ($summaryRow['total_tickets'] ?? 0),
-        ]));
+        return is_object($summary) ? (array) $summary : [];
     }
 
     private function allowedStatusesForTab(string $activeTab): array
