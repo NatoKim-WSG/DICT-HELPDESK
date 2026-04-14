@@ -12,47 +12,22 @@ class ManagedUserAccessService
 
     public function showError(User $currentUser, User $targetUser): ?string
     {
-        if ($this->isSystemReplacementUser($targetUser)) {
-            return 'System archive users cannot be accessed from user management.';
-        }
-
-        if ($this->userDirectory->cannotManageTarget($currentUser, $targetUser)) {
-            return 'You do not have permission to view this user.';
-        }
-
-        return null;
+        return $this->systemAccessError($targetUser)
+            ?? $this->managementPermissionError($currentUser, $targetUser, 'You do not have permission to view this user.');
     }
 
     public function editError(User $currentUser, User $targetUser): ?string
     {
-        if ($this->isSystemReplacementUser($targetUser)) {
-            return 'System archive users cannot be accessed from user management.';
-        }
-
-        if ($targetUser->id === $currentUser->id) {
-            return 'Use Account Settings to edit your own account.';
-        }
-
-        if ($this->userDirectory->cannotManageTarget($currentUser, $targetUser)) {
-            return 'You do not have permission to edit this user.';
-        }
-
-        return null;
+        return $this->systemAccessError($targetUser)
+            ?? $this->selfTargetError($currentUser, $targetUser, 'Use Account Settings to edit your own account.')
+            ?? $this->managementPermissionError($currentUser, $targetUser, 'You do not have permission to edit this user.');
     }
 
     public function updateError(User $currentUser, User $targetUser): ?string
     {
-        if ($this->isSystemReplacementUser($targetUser)) {
-            return 'System archive users cannot be modified.';
-        }
-
-        if ($targetUser->id === $currentUser->id) {
-            return 'Use Account Settings to edit your own account.';
-        }
-
-        return $this->userDirectory->cannotManageTarget($currentUser, $targetUser)
-            ? 'You do not have permission to edit this user.'
-            : null;
+        return $this->systemModifyError($targetUser)
+            ?? $this->selfTargetError($currentUser, $targetUser, 'Use Account Settings to edit your own account.')
+            ?? $this->managementPermissionError($currentUser, $targetUser, 'You do not have permission to edit this user.');
     }
 
     public function destroyError(User $currentUser, User $targetUser): ?string
@@ -119,15 +94,8 @@ class ManagedUserAccessService
 
     public function credentialAccessBoundaryError(User $currentUser, User $targetUser): ?string
     {
-        if ($this->isSystemReplacementUser($targetUser)) {
-            return 'System archive users cannot be modified.';
-        }
-
-        if ($this->userDirectory->cannotManageTarget($currentUser, $targetUser)) {
-            return 'You do not have permission to modify this user.';
-        }
-
-        return null;
+        return $this->systemModifyError($targetUser)
+            ?? $this->managementPermissionError($currentUser, $targetUser, 'You do not have permission to modify this user.');
     }
 
     public function resolveReturnUrl(mixed $candidate, User $targetUser): string
@@ -175,5 +143,33 @@ class ManagedUserAccessService
     private function isSystemReplacementUser(User $user): bool
     {
         return $user->isSystemReplacementAccount();
+    }
+
+    private function systemAccessError(User $targetUser): ?string
+    {
+        return $this->isSystemReplacementUser($targetUser)
+            ? 'System archive users cannot be accessed from user management.'
+            : null;
+    }
+
+    private function systemModifyError(User $targetUser): ?string
+    {
+        return $this->isSystemReplacementUser($targetUser)
+            ? 'System archive users cannot be modified.'
+            : null;
+    }
+
+    private function selfTargetError(User $currentUser, User $targetUser, string $message): ?string
+    {
+        return $targetUser->id === $currentUser->id
+            ? $message
+            : null;
+    }
+
+    private function managementPermissionError(User $currentUser, User $targetUser, string $message): ?string
+    {
+        return $this->userDirectory->cannotManageTarget($currentUser, $targetUser)
+            ? $message
+            : null;
     }
 }

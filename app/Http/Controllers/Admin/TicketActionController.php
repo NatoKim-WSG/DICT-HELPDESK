@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\HandlesAdminReturnToRedirects;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Tickets\AssignTicketRequest;
 use App\Http\Requests\Admin\Tickets\BulkTicketActionRequest;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\DB;
 
 class TicketActionController extends Controller
 {
+    use HandlesAdminReturnToRedirects;
+
     public function __construct(
         private TicketAcknowledgmentService $ticketAcknowledgments,
         private SystemLogService $systemLogs,
@@ -239,26 +242,6 @@ class TicketActionController extends Controller
             'merge' => $this->handleBulkMerge($request, $tickets, $selectedIds),
             default => $this->redirectBackOrReturnTo($request)->with('error', 'Invalid bulk action.'),
         };
-    }
-
-    private function returnPathFromRequest(Request $request): ?string
-    {
-        $returnTo = trim($request->string('return_to')->toString());
-        if ($returnTo === '' || ! str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//')) {
-            return null;
-        }
-
-        return $returnTo;
-    }
-
-    private function redirectBackOrReturnTo(Request $request)
-    {
-        $returnPath = $this->returnPathFromRequest($request);
-        if ($returnPath !== null) {
-            return redirect()->to($returnPath);
-        }
-
-        return redirect()->back();
     }
 
     private function canRunDestructiveAction(): bool

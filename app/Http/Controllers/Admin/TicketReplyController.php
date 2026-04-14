@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\HandlesAdminReturnToRedirects;
 use App\Http\Controllers\Concerns\InteractsWithTicketReplies;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Tickets\StoreTicketReplyRequest;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 
 class TicketReplyController extends Controller
 {
+    use HandlesAdminReturnToRedirects;
     use InteractsWithTicketReplies;
 
     public function __construct(
@@ -123,25 +125,5 @@ class TicketReplyController extends Controller
     private function authorizeTicketAccess(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
-    }
-
-    private function returnPathFromRequest(Request $request): ?string
-    {
-        $returnTo = trim($request->string('return_to')->toString());
-        if ($returnTo === '' || ! str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//')) {
-            return null;
-        }
-
-        return $returnTo;
-    }
-
-    private function redirectBackOrReturnTo(Request $request)
-    {
-        $returnPath = $this->returnPathFromRequest($request);
-        if ($returnPath !== null) {
-            return redirect()->to($returnPath);
-        }
-
-        return redirect()->back();
     }
 }
