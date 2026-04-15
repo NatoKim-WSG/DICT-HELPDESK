@@ -135,6 +135,8 @@ const initClientTicketShowPage = () => {
     });
 
     const closeMenus = () => {
+        if (!thread) return;
+
         thread.querySelectorAll('.js-more-menu').forEach((menu) => {
             menu.classList.add('hidden');
         });

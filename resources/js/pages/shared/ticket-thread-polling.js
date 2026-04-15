@@ -9,6 +9,15 @@ export const createReplyPolling = ({
     let isPolling = false;
     let timeoutId = 0;
 
+    const resolvePollUrl = () => {
+        if (typeof repliesUrl === 'function') {
+            const nextUrl = repliesUrl(getCursor());
+            return typeof nextUrl === 'string' ? nextUrl.trim() : '';
+        }
+
+        return typeof repliesUrl === 'string' ? repliesUrl.trim() : '';
+    };
+
     const stop = () => {
         if (timeoutId) {
             window.clearTimeout(timeoutId);
@@ -18,7 +27,7 @@ export const createReplyPolling = ({
 
     const schedule = () => {
         stop();
-        if (!repliesUrl || document.visibilityState !== 'visible') return;
+        if (resolvePollUrl() === '' || document.visibilityState !== 'visible') return;
 
         timeoutId = window.setTimeout(() => {
             poll();
@@ -26,11 +35,12 @@ export const createReplyPolling = ({
     };
 
     const poll = async () => {
-        if (!repliesUrl || isPolling || document.visibilityState !== 'visible') return;
+        const pollUrl = resolvePollUrl();
+        if (pollUrl === '' || isPolling || document.visibilityState !== 'visible') return;
         isPolling = true;
 
         try {
-            const response = await fetch(repliesUrl(getCursor()), {
+            const response = await fetch(pollUrl, {
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',

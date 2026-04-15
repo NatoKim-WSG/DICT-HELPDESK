@@ -25,6 +25,7 @@ export const registerEnhancedSelects = () => {
         const toggle = dropdown.querySelector('.app-select-toggle');
         if (toggle) {
             toggle.setAttribute('aria-expanded', 'false');
+            toggle.removeAttribute('aria-activedescendant');
         }
         if (openDropdown === dropdown) {
             openDropdown = null;
@@ -56,7 +57,8 @@ export const registerEnhancedSelects = () => {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'app-select';
-        wrapper.dataset.enhancedIndex = String(enhancedSelectIndex++);
+        const selectIndex = enhancedSelectIndex++;
+        wrapper.dataset.enhancedIndex = String(selectIndex);
         if (isMultiSelect) {
             wrapper.classList.add('app-select--multiple');
         }
@@ -98,13 +100,65 @@ export const registerEnhancedSelects = () => {
         toggle.appendChild(caret);
 
         const menu = document.createElement('div');
+        const menuId = `app-select-menu-${selectIndex}`;
         menu.className = 'app-select-menu';
+        menu.id = menuId;
         menu.setAttribute('role', 'listbox');
+        toggle.setAttribute('aria-controls', menuId);
         if (isMultiSelect) {
             menu.setAttribute('aria-multiselectable', 'true');
         }
 
         const getSelectedOptions = () => Array.from(select.options).filter((option) => option.selected);
+        const getEnabledOptionButtons = () => Array.from(
+            menu.querySelectorAll('.app-select-option:not([disabled])')
+        );
+        const selectedOptionIndex = () => {
+            const buttons = getEnabledOptionButtons();
+
+            return Math.max(0, buttons.findIndex((button) => button.dataset.value === select.value));
+        };
+        const focusOptionAtIndex = (index) => {
+            const buttons = getEnabledOptionButtons();
+            if (buttons.length === 0) return;
+
+            const boundedIndex = Math.max(0, Math.min(index, buttons.length - 1));
+            const button = buttons[boundedIndex];
+            button.focus();
+            toggle.setAttribute('aria-activedescendant', button.id);
+            button.scrollIntoView({ block: 'nearest' });
+        };
+        const openSelect = ({ focus = null } = {}) => {
+            if (toggle.disabled) return;
+
+            closeAllDropdowns(wrapper);
+            wrapper.classList.add('is-open');
+            toggle.setAttribute('aria-expanded', 'true');
+            openDropdown = wrapper;
+
+            if (focus === 'first') {
+                window.requestAnimationFrame(() => focusOptionAtIndex(0));
+                return;
+            }
+
+            if (focus === 'last') {
+                window.requestAnimationFrame(() => {
+                    const buttons = getEnabledOptionButtons();
+                    focusOptionAtIndex(buttons.length - 1);
+                });
+                return;
+            }
+
+            if (focus === 'selected') {
+                window.requestAnimationFrame(() => focusOptionAtIndex(selectedOptionIndex()));
+            }
+        };
+        const closeSelect = ({ restoreFocus = false } = {}) => {
+            closeDropdown(wrapper);
+            if (restoreFocus) {
+                toggle.focus();
+            }
+        };
 
         const syncLabel = () => {
             if (isMultiSelect) {
@@ -127,6 +181,7 @@ export const registerEnhancedSelects = () => {
 
                 optionButton.classList.toggle('is-active', isSelected);
                 optionButton.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                optionButton.tabIndex = isSelected ? 0 : -1;
             });
         };
 
@@ -144,8 +199,12 @@ export const registerEnhancedSelects = () => {
             menu.innerHTML = '';
             Array.from(select.options).forEach((option) => {
                 const optionButton = document.createElement('button');
+                const optionIndex = menu.childElementCount;
                 optionButton.type = 'button';
                 optionButton.className = 'app-select-option';
+                optionButton.id = `${menuId}-option-${optionIndex}`;
+                optionButton.setAttribute('role', 'option');
+                optionButton.tabIndex = -1;
                 if (capitalizeDisplay) {
                     optionButton.classList.add('capitalize');
                 }
@@ -169,7 +228,7 @@ export const registerEnhancedSelects = () => {
                     syncLabel();
 
                     if (!isMultiSelect) {
-                        closeDropdown(wrapper);
+                        closeSelect({ restoreFocus: true });
                     }
                 });
 
@@ -183,16 +242,105 @@ export const registerEnhancedSelects = () => {
             if (toggle.disabled) return;
 
             const willOpen = !wrapper.classList.contains('is-open');
-            closeAllDropdowns(wrapper);
-            wrapper.classList.toggle('is-open', willOpen);
-            toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-            openDropdown = willOpen ? wrapper : null;
+            if (!willOpen) {
+                closeSelect();
+                return;
+            }
+
+            openSelect();
         });
 
         toggle.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                closeDropdown(wrapper);
-                toggle.setAttribute('aria-expanded', 'false');
+                closeSelect({ restoreFocus: true });
+                return;
+            }
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+
+                if (wrapper.classList.contains('is-open')) {
+                    focusOptionAtIndex(selectedOptionIndex() + 1);
+                    return;
+                }
+
+                openSelect({ focus: 'selected' });
+                return;
+            }
+
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+
+                if (wrapper.classList.contains('is-open')) {
+                    focusOptionAtIndex(selectedOptionIndex() - 1);
+                    return;
+                }
+
+                openSelect({ focus: 'last' });
+                return;
+            }
+
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+
+                if (wrapper.classList.contains('is-open')) {
+                    closeSelect();
+                    return;
+                }
+
+                openSelect({ focus: 'selected' });
+                return;
+            }
+
+            if (event.key === 'Home') {
+                event.preventDefault();
+                openSelect({ focus: 'first' });
+                return;
+            }
+
+            if (event.key === 'End') {
+                event.preventDefault();
+                openSelect({ focus: 'last' });
+            }
+        });
+
+        menu.addEventListener('keydown', (event) => {
+            const optionButtons = getEnabledOptionButtons();
+            const activeElement = event.target.closest('.app-select-option');
+            const currentIndex = Math.max(0, optionButtons.indexOf(activeElement));
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                focusOptionAtIndex(currentIndex + 1);
+                return;
+            }
+
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                focusOptionAtIndex(currentIndex - 1);
+                return;
+            }
+
+            if (event.key === 'Home') {
+                event.preventDefault();
+                focusOptionAtIndex(0);
+                return;
+            }
+
+            if (event.key === 'End') {
+                event.preventDefault();
+                focusOptionAtIndex(optionButtons.length - 1);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeSelect({ restoreFocus: true });
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                closeSelect();
             }
         });
 

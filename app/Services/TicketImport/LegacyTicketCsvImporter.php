@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 use RuntimeException;
 use SplFileObject;
+use Traversable;
 
 class LegacyTicketCsvImporter
 {
@@ -64,6 +65,8 @@ class LegacyTicketCsvImporter
         'closed' => 'closed',
     ];
 
+    private const PERSIST_BATCH_SIZE = 250;
+
     /**
      * @param  array{
      *     default_user?: string|int|null,
@@ -89,28 +92,47 @@ class LegacyTicketCsvImporter
     {
         $settings = $this->normalizeOptions($options);
         $resolvedPath = $this->pathResolver->resolve($path);
-        $rows = $this->readRows($resolvedPath, $settings['delimiter']);
-        $preparedRows = [];
-
-        foreach ($rows as $row) {
-            $preparedRows[] = $this->prepareRow($row['line'], $row['data'], $settings);
-        }
-
         $summary = [
             'path' => $resolvedPath,
-            'rows' => count($rows),
-            'validated' => count($preparedRows),
+            'rows' => 0,
+            'validated' => 0,
             'imported' => 0,
             'updated' => 0,
             'skipped' => 0,
             'dry_run' => $settings['dry_run'],
         ];
 
+        foreach ($this->readRows($resolvedPath, $settings['delimiter']) as $row) {
+            $this->prepareRow($row['line'], $row['data'], $settings);
+            $summary['rows']++;
+            $summary['validated']++;
+        }
+
         if ($settings['dry_run']) {
             return $summary;
         }
 
-        $summary = array_merge($summary, $this->persistence->persist($preparedRows, $settings['update_existing']));
+        $batch = [];
+        foreach ($this->readRows($resolvedPath, $settings['delimiter']) as $row) {
+            $batch[] = $this->prepareRow($row['line'], $row['data'], $settings);
+
+            if (count($batch) < self::PERSIST_BATCH_SIZE) {
+                continue;
+            }
+
+            $summary = $this->mergePersistenceSummary(
+                $summary,
+                $this->persistence->persist($batch, $settings['update_existing'])
+            );
+            $batch = [];
+        }
+
+        if ($batch !== []) {
+            $summary = $this->mergePersistenceSummary(
+                $summary,
+                $this->persistence->persist($batch, $settings['update_existing'])
+            );
+        }
 
         return $summary;
     }
@@ -227,9 +249,9 @@ class LegacyTicketCsvImporter
     }
 
     /**
-     * @return list<array{line: int, data: array<string, string|null>}>
+     * @return Traversable<int, array{line: int, data: array<string, string|null>}>
      */
-    private function readRows(string $path, string $delimiter): array
+    private function readRows(string $path, string $delimiter): Traversable
     {
         $file = new SplFileObject($path, 'r');
         $file->setFlags(SplFileObject::READ_CSV | SplFileObject::DROP_NEW_LINE);
@@ -267,7 +289,6 @@ class LegacyTicketCsvImporter
             throw new RuntimeException('Import file must include a created_at column so historical ticket dates are preserved.');
         }
 
-        $rows = [];
         $lineNumber = 1;
 
         while (! $file->eof()) {
@@ -283,13 +304,41 @@ class LegacyTicketCsvImporter
                 $row[$header] = isset($rawRow[$index]) ? trim((string) $rawRow[$index]) : null;
             }
 
-            $rows[] = [
+            yield [
                 'line' => $lineNumber,
                 'data' => $row,
             ];
         }
+    }
 
-        return $rows;
+    /**
+     * @param  array{
+     *     path: string,
+     *     rows: int,
+     *     validated: int,
+     *     imported: int,
+     *     updated: int,
+     *     skipped: int,
+     *     dry_run: bool
+     * }  $summary
+     * @param  array{imported: int, updated: int, skipped: int}  $persistenceSummary
+     * @return array{
+     *     path: string,
+     *     rows: int,
+     *     validated: int,
+     *     imported: int,
+     *     updated: int,
+     *     skipped: int,
+     *     dry_run: bool
+     * }
+     */
+    private function mergePersistenceSummary(array $summary, array $persistenceSummary): array
+    {
+        $summary['imported'] += $persistenceSummary['imported'];
+        $summary['updated'] += $persistenceSummary['updated'];
+        $summary['skipped'] += $persistenceSummary['skipped'];
+
+        return $summary;
     }
 
     private function normalizeHeader(string $value): string

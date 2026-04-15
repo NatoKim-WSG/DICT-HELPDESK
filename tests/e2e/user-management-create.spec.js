@@ -35,6 +35,7 @@ test('super user can create a client account from the browser flow', async ({ pa
     const stamp = Date.now();
     const email = `e2e-client-${stamp}@example.com`;
     const username = `e2e.client.${stamp}`;
+    const password = `PlaywrightClient!${stamp}`;
 
     await page.getByLabel('Username').fill(username);
     await page.getByLabel('Display Name').fill(`E2E Client ${stamp}`);
@@ -42,6 +43,8 @@ test('super user can create a client account from the browser flow', async ({ pa
     await page.getByLabel('Phone Number').fill('09175550000');
     await page.getByLabel('Role').selectOption('client');
     await page.getByLabel('Department').selectOption('iOne');
+    await page.getByLabel('Password *', { exact: true }).fill(password);
+    await page.getByLabel('Confirm Password *', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Create User' }).click();
 
     await expect(page).toHaveURL(/\/admin\/users$/);
@@ -52,5 +55,25 @@ test('super user can create a client account from the browser flow', async ({ pa
 
     await expect(page.getByText(email)).toBeVisible();
     await expect(page.getByText(`@${username}`)).toBeVisible();
+});
+
+test('enhanced select supports keyboard navigation on the create user form', async ({ page }) => {
+    await loginAsSeededSuperUser(page);
+
+    await page.goto('/admin/users/create');
+    await expect(page.getByRole('heading', { name: 'Create New User' })).toBeVisible();
+
+    const departmentSelect = page.locator('.app-select').first();
+    const departmentToggle = departmentSelect.locator('.app-select-toggle');
+
+    await departmentToggle.focus();
+    await departmentToggle.press('ArrowDown');
+    await expect(departmentSelect).toHaveClass(/is-open/);
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    await expect(departmentToggle).toContainText('AFP');
+    await expect(page.getByLabel('Department')).toHaveValue('AFP');
 });
 
