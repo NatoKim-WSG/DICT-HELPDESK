@@ -9,9 +9,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use RuntimeException;
+use Traversable;
 
 class LegacyTicketXlsxImporter
 {
+    private const PERSIST_BATCH_SIZE = 250;
+
     public function __construct(
         private readonly HelpdeskTrackerXlsxParser $parser,
         private readonly HelpdeskTrackerDescriptionFormatter $formatter,
@@ -52,39 +55,64 @@ class LegacyTicketXlsxImporter
 
         $settings = $this->normalizeOptions($options);
         $resolvedPaths = array_map(fn (string $path) => $this->pathResolver->resolve($path), $paths);
-        $preparedRows = [];
-
-        foreach ($resolvedPaths as $resolvedPath) {
-            foreach ($this->parser->parse($resolvedPath) as $row) {
-                $preparedRows[] = $this->prepareRow($resolvedPath, $row, $settings);
-            }
-        }
+        $preparedRows = new PreparedImportRowSpool;
 
         $summary = [
             'paths' => $resolvedPaths,
             'files' => count($resolvedPaths),
-            'rows' => count($preparedRows),
-            'validated' => count($preparedRows),
+            'rows' => 0,
+            'validated' => 0,
             'imported' => 0,
             'updated' => 0,
             'skipped' => 0,
             'dry_run' => $settings['dry_run'],
         ];
 
-        if ($settings['dry_run']) {
+        try {
+            foreach ($this->iteratePreparedRows($resolvedPaths, $settings) as $preparedRow) {
+                $preparedRows->append($preparedRow);
+                $summary['rows']++;
+                $summary['validated']++;
+            }
+
+            if ($settings['dry_run']) {
+                return $summary;
+            }
+
+            $batch = [];
+            foreach ($preparedRows->rows() as $preparedRow) {
+                $batch[] = $preparedRow;
+
+                if (count($batch) < self::PERSIST_BATCH_SIZE) {
+                    continue;
+                }
+
+                $summary = $this->mergePersistenceSummary(
+                    $summary,
+                    $this->persistence->persist(
+                        $batch,
+                        $settings['update_existing'],
+                        fn (array $rows): array => $this->loadExistingTicketsByMatchKey($rows)
+                    )
+                );
+                $batch = [];
+            }
+
+            if ($batch !== []) {
+                $summary = $this->mergePersistenceSummary(
+                    $summary,
+                    $this->persistence->persist(
+                        $batch,
+                        $settings['update_existing'],
+                        fn (array $rows): array => $this->loadExistingTicketsByMatchKey($rows)
+                    )
+                );
+            }
+
             return $summary;
+        } finally {
+            unset($preparedRows);
         }
-
-        $summary = array_merge(
-            $summary,
-            $this->persistence->persist(
-                $preparedRows,
-                $settings['update_existing'],
-                fn (array $rows): array => $this->loadExistingTicketsByMatchKey($rows)
-            )
-        );
-
-        return $summary;
     }
 
     /**
@@ -104,6 +132,7 @@ class LegacyTicketXlsxImporter
      * }  $row
      * @return array{
      *     ticket_number: string|null,
+     *     match_key: string,
      *     match_subject: string,
      *     match_created_at: Carbon,
      *     attributes: array<string, mixed>
@@ -206,6 +235,8 @@ class LegacyTicketXlsxImporter
      */
     private function loadExistingTicketsByMatchKey(array $preparedRows): array
     {
+        $matchSubjects = [];
+        $matchCreatedAts = [];
         $existingTicketsByKey = [];
 
         foreach ($preparedRows as $preparedRow) {
@@ -219,11 +250,31 @@ class LegacyTicketXlsxImporter
                 continue;
             }
 
-            $existingTicketsByKey[$matchKey] = Ticket::query()
-                ->where('subject', $preparedRow['match_subject'])
-                ->where('created_at', $preparedRow['match_created_at'])
-                ->orderBy('id')
-                ->get();
+            $existingTicketsByKey[$matchKey] = collect();
+            $matchSubjects[] = $preparedRow['match_subject'];
+            $matchCreatedAts[] = $preparedRow['match_created_at']->copy();
+        }
+
+        if ($existingTicketsByKey === []) {
+            return [];
+        }
+
+        $existingTickets = Ticket::query()
+            ->whereIn('subject', array_values(array_unique($matchSubjects)))
+            ->whereIn('created_at', array_values(array_unique(array_map(
+                fn (Carbon $createdAt) => $createdAt->copy()->setTimezone('UTC')->format('Y-m-d H:i:s'),
+                $matchCreatedAts
+            ))))
+            ->orderBy('id')
+            ->get();
+
+        foreach ($existingTickets as $ticket) {
+            $matchKey = $this->buildMatchKey((string) $ticket->subject, $ticket->created_at->copy());
+            if (! array_key_exists($matchKey, $existingTicketsByKey)) {
+                continue;
+            }
+
+            $existingTicketsByKey[$matchKey]->push($ticket);
         }
 
         return $existingTicketsByKey;
@@ -377,5 +428,65 @@ class LegacyTicketXlsxImporter
             'province' => $snapshot['province'] ?? 'Unspecified',
             'municipality' => $snapshot['municipality'] ?? 'Unspecified',
         ];
+    }
+
+    /**
+     * @param  list<string>  $resolvedPaths
+     * @param  array{
+     *     default_user: string|null,
+     *     default_category: string|null,
+     *     default_priority: string,
+     *     default_status: string,
+     *     source_timezone: string,
+     *     dry_run: bool,
+     *     update_existing: bool
+     * }  $settings
+     * @return Traversable<int, array{
+     *     ticket_number: string|null,
+     *     match_key: string,
+     *     match_subject: string,
+     *     match_created_at: Carbon,
+     *     attributes: array<string, mixed>
+     * }>
+     */
+    private function iteratePreparedRows(array $resolvedPaths, array $settings): Traversable
+    {
+        foreach ($resolvedPaths as $resolvedPath) {
+            foreach ($this->parser->parse($resolvedPath) as $row) {
+                yield $this->prepareRow($resolvedPath, $row, $settings);
+            }
+        }
+    }
+
+    /**
+     * @param  array{
+     *     paths: list<string>,
+     *     files: int,
+     *     rows: int,
+     *     validated: int,
+     *     imported: int,
+     *     updated: int,
+     *     skipped: int,
+     *     dry_run: bool
+     * }  $summary
+     * @param  array{imported: int, updated: int, skipped: int}  $persistenceSummary
+     * @return array{
+     *     paths: list<string>,
+     *     files: int,
+     *     rows: int,
+     *     validated: int,
+     *     imported: int,
+     *     updated: int,
+     *     skipped: int,
+     *     dry_run: bool
+     * }
+     */
+    private function mergePersistenceSummary(array $summary, array $persistenceSummary): array
+    {
+        $summary['imported'] += $persistenceSummary['imported'];
+        $summary['updated'] += $persistenceSummary['updated'];
+        $summary['skipped'] += $persistenceSummary['skipped'];
+
+        return $summary;
     }
 }

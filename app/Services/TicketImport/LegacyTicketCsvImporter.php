@@ -92,6 +92,7 @@ class LegacyTicketCsvImporter
     {
         $settings = $this->normalizeOptions($options);
         $resolvedPath = $this->pathResolver->resolve($path);
+        $preparedRows = new PreparedImportRowSpool;
         $summary = [
             'path' => $resolvedPath,
             'rows' => 0,
@@ -102,39 +103,43 @@ class LegacyTicketCsvImporter
             'dry_run' => $settings['dry_run'],
         ];
 
-        foreach ($this->readRows($resolvedPath, $settings['delimiter']) as $row) {
-            $this->prepareRow($row['line'], $row['data'], $settings);
-            $summary['rows']++;
-            $summary['validated']++;
-        }
-
-        if ($settings['dry_run']) {
-            return $summary;
-        }
-
-        $batch = [];
-        foreach ($this->readRows($resolvedPath, $settings['delimiter']) as $row) {
-            $batch[] = $this->prepareRow($row['line'], $row['data'], $settings);
-
-            if (count($batch) < self::PERSIST_BATCH_SIZE) {
-                continue;
+        try {
+            foreach ($this->readRows($resolvedPath, $settings['delimiter']) as $row) {
+                $preparedRows->append($this->prepareRow($row['line'], $row['data'], $settings));
+                $summary['rows']++;
+                $summary['validated']++;
             }
 
-            $summary = $this->mergePersistenceSummary(
-                $summary,
-                $this->persistence->persist($batch, $settings['update_existing'])
-            );
+            if ($settings['dry_run']) {
+                return $summary;
+            }
+
             $batch = [];
-        }
+            foreach ($preparedRows->rows() as $preparedRow) {
+                $batch[] = $preparedRow;
 
-        if ($batch !== []) {
-            $summary = $this->mergePersistenceSummary(
-                $summary,
-                $this->persistence->persist($batch, $settings['update_existing'])
-            );
-        }
+                if (count($batch) < self::PERSIST_BATCH_SIZE) {
+                    continue;
+                }
 
-        return $summary;
+                $summary = $this->mergePersistenceSummary(
+                    $summary,
+                    $this->persistence->persist($batch, $settings['update_existing'])
+                );
+                $batch = [];
+            }
+
+            if ($batch !== []) {
+                $summary = $this->mergePersistenceSummary(
+                    $summary,
+                    $this->persistence->persist($batch, $settings['update_existing'])
+                );
+            }
+
+            return $summary;
+        } finally {
+            unset($preparedRows);
+        }
     }
 
     /**

@@ -34,7 +34,7 @@ class TicketImportPersistenceService
             $preparedRows,
             $updateExisting,
             &$summary,
-            $existingTicketsByNumber,
+            &$existingTicketsByNumber,
             &$existingTicketsByKey
         ): void {
             foreach ($preparedRows as $preparedRow) {
@@ -49,7 +49,8 @@ class TicketImportPersistenceService
                             continue;
                         }
 
-                        $this->updateTicket($existingTicket, $preparedRow['attributes']);
+                        $existingTicket = $this->updateTicket($existingTicket, $preparedRow['attributes']);
+                        $this->registerPersistedTicketLookups($preparedRow, $existingTicket, $existingTicketsByNumber, $existingTicketsByKey);
                         $summary['updated']++;
 
                         continue;
@@ -65,14 +66,16 @@ class TicketImportPersistenceService
                     $existingTicketsByKey[$matchKey] = $matches;
 
                     if ($existingTicket instanceof Ticket) {
-                        $this->updateTicket($existingTicket, $preparedRow['attributes']);
+                        $existingTicket = $this->updateTicket($existingTicket, $preparedRow['attributes']);
+                        $this->registerPersistedTicketLookups($preparedRow, $existingTicket, $existingTicketsByNumber, $existingTicketsByKey);
                         $summary['updated']++;
 
                         continue;
                     }
                 }
 
-                $this->createTicket($preparedRow['attributes']);
+                $ticket = $this->createTicket($preparedRow['attributes']);
+                $this->registerPersistedTicketLookups($preparedRow, $ticket, $existingTicketsByNumber, $existingTicketsByKey);
                 $summary['imported']++;
             }
         });
@@ -106,23 +109,55 @@ class TicketImportPersistenceService
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createTicket(array $attributes): void
+    private function createTicket(array $attributes): Ticket
     {
         $ticket = new Ticket;
         $ticket->timestamps = false;
         $ticket->forceFill($attributes);
         $ticket->save();
         $this->importedTickets->syncImportedReviewState($ticket);
+
+        return $ticket;
     }
 
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function updateTicket(Ticket $ticket, array $attributes): void
+    private function updateTicket(Ticket $ticket, array $attributes): Ticket
     {
         $ticket->timestamps = false;
         $ticket->forceFill($attributes);
         $ticket->save();
         $this->importedTickets->syncImportedReviewState($ticket);
+
+        return $ticket;
+    }
+
+    /**
+     * @param  array{ticket_number: string|null, attributes: array<string, mixed>, match_key?: string}  $preparedRow
+     * @param  array<string, Ticket>  $existingTicketsByNumber
+     * @param  array<string, Collection<int, Ticket>>  $existingTicketsByKey
+     */
+    private function registerPersistedTicketLookups(
+        array $preparedRow,
+        Ticket $ticket,
+        array &$existingTicketsByNumber,
+        array &$existingTicketsByKey
+    ): void {
+        $ticketNumber = $preparedRow['ticket_number'] ?? null;
+        if (is_string($ticketNumber) && $ticketNumber !== '') {
+            $existingTicketsByNumber[$ticketNumber] = $ticket;
+        }
+
+        if (! isset($preparedRow['match_key'])) {
+            return;
+        }
+
+        $matchKey = $preparedRow['match_key'];
+        $matches = $existingTicketsByKey[$matchKey] ?? collect();
+        $existingTicketsByKey[$matchKey] = $matches
+            ->push($ticket)
+            ->unique(fn (Ticket $existingTicket) => $existingTicket->id)
+            ->values();
     }
 }

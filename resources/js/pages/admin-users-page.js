@@ -207,24 +207,30 @@ const initAdminUsersPage = () => {
         }
     };
 
-    document.querySelectorAll('.js-toggle-user-status').forEach((button) => {
-        button.addEventListener('click', () => {
-            const userId = button.dataset.userId;
-            const userName = button.dataset.userName || '';
-            const nextIsActive = button.dataset.newStatus === '1';
+    pageRoot.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const statusButton = target.closest('.js-toggle-user-status');
+        if (statusButton instanceof HTMLElement) {
+            const userId = statusButton.dataset.userId;
+            const userName = statusButton.dataset.userName || '';
+            const nextIsActive = statusButton.dataset.newStatus === '1';
 
             if (!userId) return;
             openStatusModal({ userId, userName, nextIsActive });
-        });
-    });
 
-    document.querySelectorAll('.delete-user-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-            const userId = button.dataset.userId;
-            const userName = button.dataset.userName || '';
-            if (!userId) return;
-            openDeleteModal({ userId, userName });
-        });
+            return;
+        }
+
+        const deleteButton = target.closest('.delete-user-btn');
+        if (!(deleteButton instanceof HTMLElement)) return;
+
+        const userId = deleteButton.dataset.userId;
+        const userName = deleteButton.dataset.userName || '';
+        if (!userId) return;
+
+        openDeleteModal({ userId, userName });
     });
 
     if (statusCheckbox) {
@@ -274,7 +280,6 @@ const initAdminUsersPage = () => {
                 }
 
                 showNotification(payload.message || 'User status updated successfully.');
-                window.setTimeout(() => window.location.reload(), 250);
             } catch (error) {
                 showNotification(error?.message || 'Unable to update user status.', 'error');
                 confirmStatusButton.disabled = false;

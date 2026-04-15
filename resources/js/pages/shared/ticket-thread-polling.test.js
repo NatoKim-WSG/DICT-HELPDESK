@@ -14,6 +14,7 @@ describe('createReplyPolling', function () {
             addEventListener: vi.fn(),
         });
         vi.stubGlobal('fetch', vi.fn());
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     it('does not schedule polling when the feed url is blank', function () {
@@ -80,5 +81,33 @@ describe('createReplyPolling', function () {
         expect(syncReplies).toHaveBeenCalledWith([{ id: 7 }]);
         expect(queueSeenSync).toHaveBeenCalledTimes(1);
         expect(window.setTimeout).toHaveBeenCalledWith(expect.any(Function), 5000);
+    });
+
+    it('logs a polling error once until a successful poll resets the warning state', async function () {
+        fetch
+            .mockRejectedValueOnce(new Error('network down'))
+            .mockRejectedValueOnce(new Error('still down'))
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ cursor: '', replies: [] }),
+            })
+            .mockRejectedValueOnce(new Error('down again'));
+
+        const polling = createReplyPolling({
+            repliesUrl: () => '/tickets/15/replies',
+            getCursor: () => '',
+            setCursor: vi.fn(),
+            syncReplies: vi.fn(),
+            queueSeenSync: vi.fn(),
+            intervalMs: 5000,
+        });
+
+        await polling.poll();
+        await polling.poll();
+        expect(console.warn).toHaveBeenCalledTimes(1);
+
+        await polling.poll();
+        await polling.poll();
+        expect(console.warn).toHaveBeenCalledTimes(2);
     });
 });

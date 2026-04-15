@@ -181,4 +181,45 @@ class LegacyTicketImportCommandTest extends TestCase
         $this->assertSame('Existing imported ticket', $existingTicket->subject);
         $this->assertDatabaseCount('tickets', 1);
     }
+
+    public function test_import_command_skips_duplicate_ticket_numbers_within_the_same_file(): void
+    {
+        $requester = User::create([
+            'name' => 'Legacy Import User',
+            'username' => 'legacy.import.duplicate',
+            'email' => 'legacy-import-duplicate@example.com',
+            'department' => 'iOne',
+            'phone' => '09171234570',
+            'role' => User::ROLE_CLIENT,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+        Category::create([
+            'name' => 'Other',
+            'description' => 'General import category',
+            'color' => '#6B7280',
+            'is_active' => true,
+        ]);
+
+        $importPath = storage_path('app/private/imports/duplicate-ticket-number.csv');
+        File::ensureDirectoryExists(dirname($importPath));
+        File::put($importPath, implode(PHP_EOL, [
+            'ticket_number,subject,description,created_at,category',
+            '"TK-LEGACY-2001","First import row","Created first","2025-06-24 15:04:43","Other"',
+            '"TK-LEGACY-2001","Duplicate import row","Should be skipped","2025-06-24 16:04:43","Other"',
+            '',
+        ]));
+
+        $this->artisan('tickets:import-csv', [
+            'path' => 'duplicate-ticket-number.csv',
+            '--default-user' => (string) $requester->id,
+            '--source-timezone' => 'Asia/Manila',
+        ])->assertSuccessful();
+
+        $ticket = Ticket::query()->sole();
+
+        $this->assertSame('TK-LEGACY-2001', $ticket->ticket_number);
+        $this->assertSame('First import row', $ticket->subject);
+        $this->assertDatabaseCount('tickets', 1);
+    }
 }

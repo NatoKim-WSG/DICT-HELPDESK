@@ -3,6 +3,7 @@
 namespace App\Services\TicketImport;
 
 use RuntimeException;
+use Traversable;
 use ZipArchive;
 
 class HelpdeskTrackerXlsxParser
@@ -34,13 +35,13 @@ class HelpdeskTrackerXlsxParser
     ];
 
     /**
-     * @return list<array{
+     * @return Traversable<int, array{
      *     source_sheet: string,
      *     source_row: int,
      *     values: array<string, string|null>
      * }>
      */
-    public function parse(string $path): array
+    public function parse(string $path): Traversable
     {
         $archive = new ZipArchive;
         if ($archive->open($path) !== true) {
@@ -51,22 +52,16 @@ class HelpdeskTrackerXlsxParser
             $sharedStrings = $this->loadSharedStrings($archive);
             $formats = $this->loadStyleFormats($archive);
             $worksheets = $this->loadWorksheets($archive);
-            $rows = [];
 
             foreach ($worksheets as $worksheet) {
-                $rows = [
-                    ...$rows,
-                    ...$this->readWorksheetRows(
-                        archive: $archive,
-                        worksheetPath: $worksheet['path'],
-                        sheetName: $worksheet['name'],
-                        sharedStrings: $sharedStrings,
-                        formats: $formats,
-                    ),
-                ];
+                yield from $this->readWorksheetRows(
+                    archive: $archive,
+                    worksheetPath: $worksheet['path'],
+                    sheetName: $worksheet['name'],
+                    sharedStrings: $sharedStrings,
+                    formats: $formats,
+                );
             }
-
-            return $rows;
         } finally {
             $archive->close();
         }
@@ -168,7 +163,7 @@ class HelpdeskTrackerXlsxParser
     /**
      * @param  array<int, string>  $sharedStrings
      * @param  array<int, array{type: string}>  $formats
-     * @return list<array{
+     * @return Traversable<int, array{
      *     source_sheet: string,
      *     source_row: int,
      *     values: array<string, string|null>
@@ -180,7 +175,7 @@ class HelpdeskTrackerXlsxParser
         string $sheetName,
         array $sharedStrings,
         array $formats,
-    ): array {
+    ): Traversable {
         $xml = $this->loadXml($archive, $worksheetPath);
         if (! $xml instanceof \SimpleXMLElement) {
             throw new RuntimeException('Worksheet not found: '.$worksheetPath);
@@ -188,7 +183,6 @@ class HelpdeskTrackerXlsxParser
 
         $xml->registerXPathNamespace('main', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
 
-        $rows = [];
         $headerMap = null;
 
         foreach ($xml->xpath('//main:sheetData/main:row') ?: [] as $rowNode) {
@@ -210,14 +204,12 @@ class HelpdeskTrackerXlsxParser
                 continue;
             }
 
-            $rows[] = [
+            yield [
                 'source_sheet' => $sheetName,
                 'source_row' => $rowNumber,
                 'values' => $values,
             ];
         }
-
-        return $rows;
     }
 
     /**

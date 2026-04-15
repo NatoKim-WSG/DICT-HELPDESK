@@ -8,6 +8,7 @@ export const createReplyPolling = ({
 }) => {
     let isPolling = false;
     let timeoutId = 0;
+    let hasLoggedError = false;
 
     const resolvePollUrl = () => {
         if (typeof repliesUrl === 'function') {
@@ -58,7 +59,12 @@ export const createReplyPolling = ({
             const replies = Array.isArray(data && data.replies) ? data.replies : [];
             syncReplies(replies);
             queueSeenSync();
+            hasLoggedError = false;
         } catch (error) {
+            if (!hasLoggedError && typeof console !== 'undefined' && typeof console.warn === 'function') {
+                console.warn('Reply polling failed.', error);
+                hasLoggedError = true;
+            }
         } finally {
             isPolling = false;
             schedule();
