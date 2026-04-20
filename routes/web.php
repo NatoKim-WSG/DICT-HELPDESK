@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DepartmentManagementController;
 use App\Http\Controllers\Admin\ManagedUserAccountController;
 use App\Http\Controllers\Admin\ManagedUserCredentialController;
 use App\Http\Controllers\Admin\ManagedUserProfileController;
@@ -190,6 +191,17 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
         Route::post('/users/{user}/password/reveal-temporary', [ManagedUserCredentialController::class, 'revealManagedUserPassword'])
             ->middleware(['throttle:20,1', 'role:shadow'])
             ->name('users.password.reveal-temporary');
+    });
+
+    Route::middleware('role:admin,shadow')->group(function () {
+        Route::get('/departments', [DepartmentManagementController::class, 'index'])->name('departments.index');
+        Route::post('/departments', [DepartmentManagementController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('departments.store');
+        Route::get('/departments/{department}/edit', [DepartmentManagementController::class, 'edit'])->name('departments.edit');
+        Route::put('/departments/{department}', [DepartmentManagementController::class, 'update'])
+            ->middleware('throttle:20,1')
+            ->name('departments.update');
     });
 });
 

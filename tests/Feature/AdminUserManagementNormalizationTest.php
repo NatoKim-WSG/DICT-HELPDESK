@@ -69,7 +69,7 @@ class AdminUserManagementNormalizationTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'technical-user@example.com',
             'role' => User::ROLE_TECHNICAL,
-            'department' => 'iOne',
+            'department' => 'DAR',
         ]);
     }
 
@@ -105,7 +105,7 @@ class AdminUserManagementNormalizationTest extends TestCase
             'name' => 'Technical Agent',
             'email' => 'technical-agent@example.com',
             'role' => User::ROLE_TECHNICAL,
-            'department' => 'iOne',
+            'department' => 'DAR',
         ]);
     }
 

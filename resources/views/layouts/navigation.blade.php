@@ -33,6 +33,10 @@
             $menuItems[] = ['label' => 'Users', 'icon' => 'users', 'href' => route('admin.users.index'), 'active' => request()->routeIs('admin.users.*'), 'disabled' => false];
         }
 
+        if ($user->canManageStaffAccounts()) {
+            $menuItems[] = ['label' => 'Departments', 'icon' => 'building', 'href' => route('admin.departments.index'), 'active' => request()->routeIs('admin.departments.*'), 'disabled' => false];
+        }
+
         if ($user->isShadow()) {
             $menuItems[] = ['label' => 'System Logs', 'icon' => 'book', 'href' => route('admin.system-logs.index'), 'active' => request()->routeIs('admin.system-logs.*'), 'disabled' => false];
         }
@@ -52,6 +56,7 @@
         'chart' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 20V10m6 10V4m6 16v-7m6 7V7"/>',
         'plus' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/>',
         'user' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 21a8 8 0 10-16 0M12 11a4 4 0 100-8 4 4 0 000 8z"/>',
+        'building' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 21h16M7 21V7l5-3 5 3v14M9 10h.01M9 13h.01M9 16h.01M15 10h.01M15 13h.01M15 16h.01"/>',
     ];
 @endphp
 

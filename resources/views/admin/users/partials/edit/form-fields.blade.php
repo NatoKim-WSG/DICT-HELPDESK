@@ -74,6 +74,11 @@
             <input type="hidden" id="department_hidden" name="department" value="" disabled>
         </div>
         <p id="department-role-hint" class="mt-2 text-sm text-gray-500"></p>
+        @if(auth()->user()->canManageStaffAccounts())
+            <p class="mt-2 text-sm text-gray-500">
+                Need a new department? <a href="{{ route('admin.departments.index') }}" class="font-medium text-blue-600 hover:text-blue-800">Manage departments</a>.
+            </p>
+        @endif
         @error('department')
             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
         @enderror

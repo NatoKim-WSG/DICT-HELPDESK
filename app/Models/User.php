@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class User extends Authenticatable
@@ -17,6 +18,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected static array $departmentBrandAssetCache = [];
+
+    protected static ?array $allowedDepartmentCache = null;
 
     public const ROLE_CLIENT = 'client';
 
@@ -350,9 +353,11 @@ class User extends Authenticatable
 
     public static function managedDepartmentForRole(string $role, string $department): string
     {
-        return in_array(self::normalizeRole($role), self::TICKET_CONSOLE_ROLES, true)
-            ? self::supportDepartment()
-            : $department;
+        $trimmedDepartment = trim($department);
+
+        return $trimmedDepartment !== ''
+            ? $trimmedDepartment
+            : self::supportDepartment();
     }
 
     public static function emailUsesReservedSystemDomain(?string $email): bool
@@ -372,8 +377,7 @@ class User extends Authenticatable
 
     public static function departmentBrandAssets(?string $department, ?string $role = null): array
     {
-        $brandKey = self::departmentBrandKey($department, $role);
-        $cacheKey = $brandKey.'|'.(string) $department.'|'.(string) $role;
+        $cacheKey = mb_strtolower(trim((string) $department)).'|'.self::normalizeRole($role);
 
         if (isset(self::$departmentBrandAssetCache[$cacheKey])) {
             return self::$departmentBrandAssetCache[$cacheKey];
@@ -387,10 +391,31 @@ class User extends Authenticatable
 
     public static function allowedDepartments(): array
     {
+        if (self::$allowedDepartmentCache !== null) {
+            return self::$allowedDepartmentCache;
+        }
+
+        if (Schema::hasTable('departments')) {
+            $departments = Department::query()
+                ->orderByRaw("LOWER(name)")
+                ->pluck('name')
+                ->all();
+
+            if ($departments !== []) {
+                return self::$allowedDepartmentCache = $departments;
+            }
+        }
+
         $departments = self::ALLOWED_DEPARTMENTS;
         usort($departments, fn (string $left, string $right) => strnatcasecmp($left, $right));
 
-        return $departments;
+        return self::$allowedDepartmentCache = $departments;
+    }
+
+    public static function flushDepartmentCaches(): void
+    {
+        self::$allowedDepartmentCache = null;
+        self::$departmentBrandAssetCache = [];
     }
 
     public static function generateAvailableUsername(string $name, ?int $ignoreUserId = null): string

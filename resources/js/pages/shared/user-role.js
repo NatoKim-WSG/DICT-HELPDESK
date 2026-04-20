@@ -8,12 +8,14 @@ export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentH
     const internalDepartment = String(supportDepartment || '').trim() || 'iOne';
 
     if (isInternalRole(roleSelect.value)) {
-        departmentSelect.value = internalDepartment;
-        departmentSelect.disabled = true;
-        departmentHidden.value = internalDepartment;
-        departmentHidden.disabled = false;
+        if (!String(departmentSelect.value || '').trim()) {
+            departmentSelect.value = internalDepartment;
+        }
+        departmentSelect.disabled = false;
+        departmentHidden.value = '';
+        departmentHidden.disabled = true;
         if (hint) {
-            hint.textContent = `Internal users are automatically assigned to ${internalDepartment}.`;
+            hint.textContent = `Choose the department for this staff account. Default support department is ${internalDepartment}.`;
         }
 
         return;
@@ -23,6 +25,6 @@ export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentH
     departmentHidden.value = '';
     departmentHidden.disabled = true;
     if (hint) {
-        hint.textContent = 'Select the client department.';
+        hint.textContent = 'Select the department for this client account.';
     }
 };

@@ -3,13 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Attachment;
+use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\TicketReply;
 use App\Models\User;
 use App\Policies\AttachmentPolicy;
+use App\Policies\DepartmentPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\TicketReplyPolicy;
 use App\Policies\UserPolicy;
+use App\Services\SupportBrandingService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(SupportBrandingService::class);
     }
 
     /**
@@ -29,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Ticket::class, TicketPolicy::class);
         Gate::policy(TicketReply::class, TicketReplyPolicy::class);
         Gate::policy(User::class, UserPolicy::class);

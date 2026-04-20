@@ -119,7 +119,7 @@ trait InteractsWithTicketReplies
 
     protected function departmentLogoForUser(?User $user, bool $fromSupport): string
     {
-        if ($fromSupport) {
+        if ($fromSupport && ! $user) {
             return User::supportLogoUrl();
         }
 
