@@ -30,10 +30,10 @@
 
     <div class="sm:col-span-1">
         <label for="email" class="block text-sm font-medium text-gray-700">
-            Email Address <span class="text-red-500">*</span>
+            Email Address (Optional)
         </label>
         <div class="mt-1">
-            <input type="email" name="email" id="email" value="{{ old('email', $user->email) }}" required
+            <input type="email" name="email" id="email" value="{{ old('email', $user->email) }}"
                 data-profile-edit-lockable
                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md @error('email') border-red-300 @enderror">
         </div>

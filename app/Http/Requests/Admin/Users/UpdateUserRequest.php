@@ -31,7 +31,7 @@ class UpdateUserRequest extends FormRequest
             'username' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9._-]+$/', Rule::unique('users', 'username')->ignore($targetUser->id)],
             'name' => ['required', 'string', 'max:255'],
             'email' => [
-                'required',
+                'nullable',
                 'email',
                 Rule::unique('users', 'email')->ignore($targetUser->id),
                 function (string $attribute, mixed $value, \Closure $fail) use ($canManageTarget): void {
@@ -78,8 +78,8 @@ class UpdateUserRequest extends FormRequest
         $this->merge([
             'username' => $username !== '' ? $username : null,
             'name' => $rawName,
-            'email' => trim((string) $this->input('email')),
-            'phone' => trim((string) $this->input('phone')),
+            'email' => ($email = trim((string) $this->input('email'))) !== '' ? $email : null,
+            'phone' => ($phone = trim((string) $this->input('phone'))) !== '' ? $phone : null,
         ]);
     }
 }

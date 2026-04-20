@@ -447,9 +447,49 @@ class AdminUserManagementNormalizationTest extends TestCase
         $response = $this->actingAs($superUser)->get(route('admin.users.edit', $client));
 
         $response->assertOk();
+        $response->assertDontSee('Email Address <span class="text-red-500">*</span>', false);
+        $response->assertSee('Email Address (Optional)');
         $response->assertDontSee('name="password"', false);
         $response->assertDontSee('name="password_confirmation"', false);
         $response->assertSee('Password changes for client accounts are restricted to admins.', false);
+    }
+
+    public function test_super_admin_can_update_client_without_email(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin Optional Edit',
+            'email' => 'super-admin-optional-edit@example.com',
+            'phone' => '091000000115',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_ADMIN,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $client = User::create([
+            'name' => 'Client Optional Edit',
+            'email' => 'client-optional-edit@example.com',
+            'phone' => '091000000116',
+            'department' => 'iOne',
+            'role' => User::ROLE_CLIENT,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->put(route('admin.users.update', $client), [
+            'name' => 'Client Optional Edit Updated',
+            'email' => '',
+            'phone' => '091000000116',
+            'department' => 'iOne',
+            'role' => User::ROLE_CLIENT,
+            'is_active' => true,
+        ]);
+
+        $response->assertRedirect(route('admin.users.index'));
+
+        $client->refresh();
+        $this->assertNull($client->email);
+        $this->assertSame('Client Optional Edit Updated', $client->name);
     }
 
     public function test_edit_client_page_defaults_back_and_cancel_to_clients_segment(): void
