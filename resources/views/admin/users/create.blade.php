@@ -55,7 +55,7 @@
                     <!-- Email -->
                     <div class="sm:col-span-1">
                         <label for="email" class="block text-sm font-medium text-gray-700">
-                            Email Address
+                            Email Address (Optional)
                         </label>
                         <div class="mt-1">
                             <input type="email" name="email" id="email" value="{{ old('email') }}"

@@ -194,6 +194,7 @@ class AdminUserManagementNormalizationTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Email Address <span class="text-red-500">*</span>', false);
+        $response->assertSee('Email Address (Optional)');
         $response->assertDontSee('Phone Number <span class="text-red-500">*</span>', false);
         $response->assertSee('Password <span class="text-red-500">*</span>', false);
         $response->assertSee('Confirm Password <span class="text-red-500">*</span>', false);
