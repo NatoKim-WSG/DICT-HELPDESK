@@ -139,6 +139,14 @@ class AdminUserManagementNormalizationTest extends TestCase
         $createdUser = User::query()->where('username', 'no.contact.user')->firstOrFail();
         $this->assertNull($createdUser->email);
         $this->assertNull($createdUser->phone);
+
+        $directoryResponse = $this->actingAs($superAdmin)->get(route('admin.users.clients', [
+            'search' => 'no.contact.user',
+        ]));
+
+        $directoryResponse->assertOk();
+        $directoryResponse->assertSee('@no.contact.user');
+        $directoryResponse->assertSee('No Contact User');
     }
 
     public function test_super_admin_create_user_requires_password_fields(): void

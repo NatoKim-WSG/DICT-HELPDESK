@@ -17,8 +17,11 @@ class UserDirectoryService
             $segment = 'clients';
         }
 
-        $query = User::query()->where('email', 'not like', '%'.User::SYSTEM_RESERVED_EMAIL_DOMAIN);
-        $departmentsQuery = User::query()->where('email', 'not like', '%'.User::SYSTEM_RESERVED_EMAIL_DOMAIN);
+        $query = User::query();
+        $departmentsQuery = User::query();
+
+        $this->excludeSystemReservedEmails($query);
+        $this->excludeSystemReservedEmails($departmentsQuery);
 
         $this->applyVisibilityScope($query, $currentUser);
         $this->applyVisibilityScope($departmentsQuery, $currentUser);
@@ -176,6 +179,14 @@ class UserDirectoryService
     private function manageableRolesForAdmin(): array
     {
         return User::USER_MANAGEMENT_CLIENT_ONLY_ROLES;
+    }
+
+    private function excludeSystemReservedEmails(Builder $query): void
+    {
+        $query->where(function (Builder $builder) {
+            $builder->whereNull('email')
+                ->orWhere('email', 'not like', '%'.User::SYSTEM_RESERVED_EMAIL_DOMAIN);
+        });
     }
 
     private function applyVisibilityScope(Builder $query, User $currentUser): void
