@@ -168,4 +168,33 @@
             </div>
         </div>
     </div>
+
+    <div class="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+        <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 class="text-sm font-semibold text-slate-900">Operational KPIs</h3>
+                <p class="text-xs text-slate-500">Current workload and urgent queue snapshot.</p>
+            </div>
+            <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Live system view
+            </span>
+        </div>
+        <div class="grid gap-3 md:grid-cols-3">
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Open Tickets</p>
+                <p class="mt-1 text-2xl font-semibold text-emerald-900">{{ $stats['open_tickets'] ?? 0 }}</p>
+                <p class="mt-1 text-xs text-emerald-700">Current active queue</p>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Unassigned Open</p>
+                <p class="mt-1 text-2xl font-semibold text-amber-900">{{ $stats['unassigned_open_tickets'] ?? 0 }}</p>
+                <p class="mt-1 text-xs text-amber-700">Needs routing attention</p>
+            </div>
+            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-rose-700">Severity 1 Open</p>
+                <p class="mt-1 text-2xl font-semibold text-rose-900">{{ $stats['severity_one_open_tickets'] ?? 0 }}</p>
+                <p class="mt-1 text-xs text-rose-700">Priority incidents in progress</p>
+            </div>
+        </div>
+    </div>
 </div>

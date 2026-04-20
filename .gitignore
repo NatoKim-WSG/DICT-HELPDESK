@@ -27,6 +27,8 @@
 !/storage/app/private/imports/.gitignore
 /storage/app/private/backups/*
 !/storage/app/private/backups/.gitignore
+/storage/app/cleanup-local/*
+!/storage/app/cleanup-local/.gitignore
 /bootstrap/cache/*.php
 /vendor
 .env

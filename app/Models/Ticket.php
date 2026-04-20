@@ -378,9 +378,9 @@ class Ticket extends Model
     private function resolvePriorityBadgeClasses(string $defaultClasses): string
     {
         return match (strtolower(trim((string) $this->priority))) {
-            'severity_1' => 'bg-red-100 text-red-800',
+            'severity_1' => 'bg-emerald-100 text-emerald-800',
             'severity_2' => 'bg-amber-100 text-amber-800',
-            'severity_3' => 'bg-emerald-100 text-emerald-800',
+            'severity_3' => 'bg-red-100 text-red-800',
             default => $defaultClasses,
         };
     }

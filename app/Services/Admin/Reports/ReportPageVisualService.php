@@ -230,9 +230,9 @@ class ReportPageVisualService
     {
         $priorityPalette = [
             'pending review' => '#64748b',
-            'severity 1' => '#ef4444',
+            'severity 1' => '#10b981',
             'severity 2' => '#f59e0b',
-            'severity 3' => '#10b981',
+            'severity 3' => '#ef4444',
         ];
 
         return collect($priorityBreakdownBuckets)

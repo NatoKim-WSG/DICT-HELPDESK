@@ -71,9 +71,13 @@ class AdminReportsPageTest extends TestCase
         $response->assertSee('Reports');
         $response->assertSee('Total Tickets');
         $response->assertSee('Resolution Rate');
-        $response->assertSee('Category Breakdown');
-        $response->assertSee('Top Technical Users');
+        $response->assertSee('Operational KPIs');
+        $response->assertSee('Detailed Report Scope');
+        $response->assertSee('Daily Ticket Statistics');
         $response->assertSee('Monthly Performance (Last 12 Months)');
+        $response->assertDontSee('Details Filter');
+        $response->assertDontSee('Top Technical Users');
+        $response->assertDontSee('Category Breakdown (All Time)');
         $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
             return ($overview['label'] ?? null) === 'All Time';
         });
@@ -764,7 +768,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewMissing('detailClearParams');
     }
 
-    public function test_details_filter_applies_scope_to_breakdown_daily_kpis_and_top_technical_users(): void
+    public function test_details_filter_applies_scope_to_breakdown_daily_statistics_and_kpis(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -857,10 +861,6 @@ class AdminReportsPageTest extends TestCase
             return (int) $stats['total_tickets'] === 2
                 && (int) $stats['open_tickets'] === 1
                 && (int) $stats['severity_one_open_tickets'] === 1;
-        });
-        $response->assertViewHas('topTechnicians', function ($rows) {
-            return collect($rows)->pluck('name')->contains('Scoped Tech')
-                && ! collect($rows)->pluck('name')->contains('Other Tech');
         });
     }
 
@@ -987,53 +987,54 @@ class AdminReportsPageTest extends TestCase
         $this->assertStringContainsString('ticket-monthly-report-', (string) $response->headers->get('content-disposition'));
     }
 
-    public function test_reports_top_technical_users_hides_shadow_account(): void
+    public function test_reports_page_uses_updated_severity_colors(): void
     {
         config(['legal.require_acceptance' => false]);
 
-        $superUser = $this->createUser('Reports Viewer', 'reports-viewer@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Reports Client', 'reports-shadow-client@example.com', User::ROLE_CLIENT, 'iOne');
-        $shadow = $this->createUser('Shadow Hidden', 'shadow-hidden@example.com', User::ROLE_SHADOW);
-        $technical = $this->createUser('Visible Technical', 'visible-technical@example.com', User::ROLE_TECHNICAL);
+        $superUser = $this->createUser('Severity Viewer', 'severity-viewer@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Severity Client', 'severity-client@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
         Ticket::create([
-            'name' => 'Shadow Assigned',
+            'name' => 'Severity One Requester',
             'contact_number' => '09180000111',
-            'email' => 'shadow-assigned@example.com',
+            'email' => 'severity-one-requester@example.com',
             'province' => 'NCR',
             'municipality' => 'Pasig',
-            'subject' => 'Shadow assignee ticket',
-            'description' => 'Should not expose shadow in reports.',
+            'subject' => 'Severity one ticket',
+            'description' => 'Should render using the new green severity color.',
             'priority' => 'high',
-            'status' => 'resolved',
-            'resolved_at' => now(),
+            'status' => 'open',
             'user_id' => $client->id,
-            'assigned_to' => $shadow->id,
             'category_id' => $category->id,
         ]);
 
         Ticket::create([
-            'name' => 'Technical Assigned',
+            'name' => 'Severity Three Requester',
             'contact_number' => '09180000112',
-            'email' => 'technical-assigned@example.com',
+            'email' => 'severity-three-requester@example.com',
             'province' => 'NCR',
             'municipality' => 'Taguig',
-            'subject' => 'Visible technical ticket',
-            'description' => 'Should remain visible in reports.',
-            'priority' => 'medium',
-            'status' => 'resolved',
-            'resolved_at' => now(),
+            'subject' => 'Severity three ticket',
+            'description' => 'Should render using the new red severity color.',
+            'priority' => 'low',
+            'status' => 'open',
             'user_id' => $client->id,
-            'assigned_to' => $technical->id,
             'category_id' => $category->id,
         ]);
 
-        $response = $this->actingAs($superUser)->get(route('admin.reports.index'));
+        $severityOneTicket = Ticket::query()->where('subject', 'Severity one ticket')->firstOrFail();
+        $severityThreeTicket = Ticket::query()->where('subject', 'Severity three ticket')->firstOrFail();
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => 'all',
+        ]));
 
         $response->assertOk();
-        $response->assertDontSee('Shadow Hidden');
-        $response->assertSee('Visible Technical');
+        $response->assertSee('#10b981', false);
+        $response->assertSee('#ef4444', false);
+        $this->assertSame('bg-emerald-100 text-emerald-800', $severityOneTicket->priority_badge_class);
+        $this->assertSame('bg-red-100 text-red-800', $severityThreeTicket->priority_badge_class);
     }
 
     public function test_monthly_completed_and_open_counts_handle_closed_tickets_correctly(): void

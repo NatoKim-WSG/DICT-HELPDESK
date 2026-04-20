@@ -227,6 +227,25 @@ const initAdminReportsPage = () => {
         });
     };
 
+    const bindAutoSubmitControls = () => {
+        shell.querySelectorAll('select[data-auto-submit-change]').forEach((input) => {
+            input.addEventListener('change', () => {
+                const form = input.closest('form[data-reports-filter-form]');
+                if (!form) {
+                    return;
+                }
+
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+
+                    return;
+                }
+
+                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            });
+        });
+    };
+
     const bindClearLink = () => {
         shell.querySelectorAll('[data-admin-reports-clear]').forEach((link) => {
             link.addEventListener('click', (event) => {
@@ -238,6 +257,7 @@ const initAdminReportsPage = () => {
 
     bindVolumeModal();
     bindFilterForms();
+    bindAutoSubmitControls();
     bindClearLink();
 
     if (slaDetails) {
