@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\User;
 use App\Services\SystemLogService;
 use Illuminate\Http\UploadedFile;
+use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -130,8 +131,11 @@ class DepartmentManagementController extends Controller
         $extension = strtolower($logo->getClientOriginalExtension() ?: $logo->extension() ?: 'png');
         $filename = $slug.'-'.Str::lower(Str::random(8)).'.'.$extension;
 
-        Storage::disk('department-logos')->putFileAs('', $logo, $filename);
+        $storedPath = Storage::disk('department-logos')->putFileAs('', $logo, $filename);
+        if ($storedPath === false) {
+            throw new RuntimeException('Department logo upload failed.');
+        }
 
-        return 'images/departments/'.$filename;
+        return 'storage/department-logos/'.$storedPath;
     }
 }

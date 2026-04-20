@@ -25,10 +25,10 @@ return [
 
         'department-logos' => [
             'driver' => 'local',
-            'root' => public_path('images/departments'),
-            'url' => env('APP_URL').'/images/departments',
+            'root' => storage_path('app/public/department-logos'),
+            'url' => env('APP_URL').'/storage/department-logos',
             'visibility' => 'public',
-            'throw' => false,
+            'throw' => true,
             'report' => false,
         ],
 

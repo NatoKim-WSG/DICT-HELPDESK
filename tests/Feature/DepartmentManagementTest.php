@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Department;
 use App\Models\User;
+use Illuminate\Support\Facades\File;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -40,7 +41,7 @@ class DepartmentManagementTest extends TestCase
         $department = Department::query()->where('name', 'NEDA')->firstOrFail();
 
         $this->assertSame('neda', $department->slug);
-        $this->assertStringStartsWith('images/departments/neda-', (string) $department->logo_path);
+        $this->assertStringStartsWith('storage/department-logos/neda-', (string) $department->logo_path);
         Storage::disk('department-logos')->assertExists($department->managedLogoStoragePath());
 
         $createUserResponse = $this->actingAs($admin)->post(route('admin.users.store'), [
@@ -139,5 +140,28 @@ class DepartmentManagementTest extends TestCase
         $response = $this->actingAs($superUser)->get(route('admin.departments.index'));
 
         $response->assertForbidden();
+    }
+
+    public function test_department_resolved_logo_uses_public_storage_location_when_file_exists(): void
+    {
+        $directory = public_path('storage/department-logos');
+        File::ensureDirectoryExists($directory);
+
+        $filename = 'department-test-logo.txt';
+        $fullPath = $directory.DIRECTORY_SEPARATOR.$filename;
+        File::put($fullPath, 'logo');
+
+        try {
+            $department = Department::query()->create([
+                'name' => 'Logo Check',
+                'slug' => 'logo-check',
+                'logo_path' => 'storage/department-logos/'.$filename,
+            ]);
+
+            $this->assertSame('storage/department-logos/'.$filename, $department->resolved_logo_path);
+            $this->assertStringContainsString('/storage/department-logos/'.$filename, $department->logo_url);
+        } finally {
+            File::delete($fullPath);
+        }
     }
 }

@@ -12,6 +12,11 @@ class Department extends Model
 {
     use HasFactory;
 
+    private const MANAGED_LOGO_PREFIXES = [
+        'storage/department-logos/',
+        'images/departments/',
+    ];
+
     protected $fillable = [
         'name',
         'slug',
@@ -48,7 +53,13 @@ class Department extends Model
 
     public function usesManagedLogo(): bool
     {
-        return str_starts_with((string) $this->logo_path, 'images/departments/');
+        foreach (self::MANAGED_LOGO_PREFIXES as $prefix) {
+            if (str_starts_with((string) $this->logo_path, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function managedLogoStoragePath(): ?string
@@ -57,7 +68,13 @@ class Department extends Model
             return null;
         }
 
-        return Str::after((string) $this->logo_path, 'images/departments/');
+        foreach (self::MANAGED_LOGO_PREFIXES as $prefix) {
+            if (str_starts_with((string) $this->logo_path, $prefix)) {
+                return Str::after((string) $this->logo_path, $prefix);
+            }
+        }
+
+        return null;
     }
 
     public function deleteManagedLogoIfPresent(): void
