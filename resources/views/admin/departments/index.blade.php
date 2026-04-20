@@ -68,11 +68,12 @@
         <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-slate-200 px-5 py-4">
                 <h2 class="text-lg font-semibold text-slate-900">Department Directory</h2>
+                <p class="mt-1 text-sm text-slate-500">Scroll inside the directory to browse departments without stretching the full page.</p>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="max-h-[70vh] overflow-auto">
                 <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
+                    <thead class="sticky top-0 z-10 bg-slate-50">
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Department</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Users</th>
