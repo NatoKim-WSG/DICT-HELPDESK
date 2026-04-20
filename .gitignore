@@ -19,8 +19,7 @@
 !/storage/phpstan/.gitignore
 /storage/app/public/attachments/*
 !/storage/app/public/attachments/.gitignore
-/storage/app/public/department-logos/*
-!/storage/app/public/department-logos/.gitignore
+/storage/app/public/department-logos/
 /storage/app/private/attachments/*
 !/storage/app/private/attachments/.gitignore
 /storage/app/private/seeded-client-credentials/*
