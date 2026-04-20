@@ -34,7 +34,9 @@ class AdminClientNotesTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $response->assertRedirect(route('admin.users.clients', [
+            'search' => 'created.client.notes',
+        ]));
 
         $createdClient = User::where('email', 'created-client-notes@example.com')->firstOrFail();
         $this->assertSame('Create-time note for onboarding reminders.', $createdClient->client_notes);

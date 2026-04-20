@@ -81,7 +81,14 @@ class UserManagementController extends Controller
             ]
         );
 
-        return redirect()->route('admin.users.index')
+        $redirectRoute = $persistedRole === User::ROLE_CLIENT
+            ? 'admin.users.clients'
+            : 'admin.users.index';
+        $searchTerm = $createdUser->username ?: $createdUser->name;
+
+        return redirect()->route($redirectRoute, [
+            'search' => $searchTerm,
+        ])
             ->with('success', 'User created successfully.');
     }
 

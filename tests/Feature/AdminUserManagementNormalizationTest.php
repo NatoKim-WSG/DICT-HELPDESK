@@ -63,7 +63,9 @@ class AdminUserManagementNormalizationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $response->assertRedirect(route('admin.users.index', [
+            'search' => 'technical.user',
+        ]));
         $this->assertDatabaseHas('users', [
             'email' => 'technical-user@example.com',
             'role' => User::ROLE_TECHNICAL,
@@ -95,7 +97,9 @@ class AdminUserManagementNormalizationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $response->assertRedirect(route('admin.users.index', [
+            'search' => 'technical.agent',
+        ]));
         $this->assertDatabaseHas('users', [
             'username' => 'technical.agent',
             'name' => 'Technical Agent',
@@ -128,7 +132,9 @@ class AdminUserManagementNormalizationTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $response->assertRedirect(route('admin.users.clients', [
+            'search' => 'no.contact.user',
+        ]));
 
         $createdUser = User::query()->where('username', 'no.contact.user')->firstOrFail();
         $this->assertNull($createdUser->email);
