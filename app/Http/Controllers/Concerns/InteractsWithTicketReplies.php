@@ -12,27 +12,61 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
 trait InteractsWithTicketReplies
 {
+    /**
+     * @var array<int, array{disk: string, path: string}>
+     */
+    protected array $trackedAttachmentWrites = [];
+
     protected function persistAttachmentsFromRequest(Request $request, Ticket|TicketReply $attachable): void
     {
         if (! $request->hasFile('attachments')) {
             return;
         }
 
-        foreach ($request->file('attachments') as $file) {
-            $path = $file->store('attachments', (string) config('helpdesk.attachments_disk', 'local'));
+        $disk = (string) config('helpdesk.attachments_disk', 'local');
 
-            $attachable->attachments()->create([
-                'filename' => basename($path),
-                'original_filename' => $file->getClientOriginalName(),
-                'file_path' => $path,
-                'mime_type' => $file->getMimeType(),
-                'file_size' => $file->getSize(),
-            ]);
+        foreach ($request->file('attachments') as $file) {
+            $path = $file->store('attachments', $disk);
+
+            try {
+                $attachable->attachments()->create([
+                    'filename' => basename($path),
+                    'original_filename' => $file->getClientOriginalName(),
+                    'file_path' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                ]);
+            } catch (Throwable $exception) {
+                Storage::disk($disk)->delete($path);
+
+                throw $exception;
+            }
+
+            $this->trackedAttachmentWrites[] = [
+                'disk' => $disk,
+                'path' => $path,
+            ];
+        }
+    }
+
+    protected function withAttachmentWriteGuard(callable $callback): mixed
+    {
+        $baselineCount = count($this->trackedAttachmentWrites);
+
+        try {
+            return $callback();
+        } catch (Throwable $exception) {
+            $this->deleteTrackedAttachmentWrites(array_slice($this->trackedAttachmentWrites, $baselineCount));
+
+            throw $exception;
+        } finally {
+            $this->trackedAttachmentWrites = array_slice($this->trackedAttachmentWrites, 0, $baselineCount);
         }
     }
 
@@ -198,5 +232,15 @@ trait InteractsWithTicketReplies
     private function normalizedReplyFeedCursorValue(Carbon $timestamp): string
     {
         return $timestamp->copy()->utc()->toIso8601String();
+    }
+
+    /**
+     * @param  array<int, array{disk: string, path: string}>  $writes
+     */
+    private function deleteTrackedAttachmentWrites(array $writes): void
+    {
+        foreach (array_reverse($writes) as $write) {
+            Storage::disk($write['disk'])->delete($write['path']);
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Storage;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -12,6 +13,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        config(['helpdesk.attachments_disk' => 'attachments-testing']);
+        Storage::fake('attachments-testing');
         $this->withoutVite();
     }
 }

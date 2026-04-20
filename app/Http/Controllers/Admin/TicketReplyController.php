@@ -12,6 +12,7 @@ use App\Models\TicketReply;
 use App\Services\Admin\TicketStatusWorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TicketReplyController extends Controller
 {
@@ -49,20 +50,26 @@ class TicketReplyController extends Controller
 
         $isInternal = $request->boolean('is_internal') || (bool) optional($replyTarget)->is_internal;
 
-        $reply = TicketReply::create([
-            'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
-            'reply_to_id' => $replyToId,
-            'message' => trim($request->string('message')->toString()),
-            'is_internal' => $isInternal,
-        ]);
+        $reply = $this->withAttachmentWriteGuard(function () use ($request, $ticket, $replyToId, $isInternal) {
+            return DB::transaction(function () use ($request, $ticket, $replyToId, $isInternal) {
+                $reply = TicketReply::create([
+                    'ticket_id' => $ticket->id,
+                    'user_id' => auth()->id(),
+                    'reply_to_id' => $replyToId,
+                    'message' => trim($request->string('message')->toString()),
+                    'is_internal' => $isInternal,
+                ]);
 
-        $this->persistAttachmentsFromRequest($request, $reply);
+                $this->persistAttachmentsFromRequest($request, $reply);
 
-        if ($ticket->status === 'open' && ! $isInternal) {
-            $ticket->update(['status' => 'in_progress']);
-        }
-        $this->ticketStatusWorkflow->trackTicketHandlingAction($ticket);
+                if ($ticket->status === 'open' && ! $isInternal) {
+                    $ticket->update(['status' => 'in_progress']);
+                }
+                $this->ticketStatusWorkflow->trackTicketHandlingAction($ticket);
+
+                return $reply;
+            });
+        });
 
         if ($request->expectsJson()) {
             $reply->loadMissing(['user', 'attachments', 'replyTo']);

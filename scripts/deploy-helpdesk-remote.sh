@@ -16,18 +16,40 @@ if [[ ! -f artisan || ! -f composer.json ]]; then
 fi
 
 git fetch origin "$BRANCH"
+PREVIOUS_HEAD="$(git rev-parse HEAD)"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
 php ./scripts/check-php-platform.php
 composer install --no-dev --optimize-autoloader --no-interaction
-npm ci
-npm run build
-# The live app serves the generated assets from public/build, so keep the
-# deploy host tidy by removing the transient frontend toolchain afterward.
-rm -rf node_modules
+
+FRONTEND_CHANGED=0
+if [[ ! -f public/build/manifest.json ]]; then
+    FRONTEND_CHANGED=1
+elif ! git diff --quiet "$PREVIOUS_HEAD" HEAD -- \
+    package.json \
+    package-lock.json \
+    vite.config.js \
+    tailwind.config.js \
+    postcss.config.js \
+    eslint.config.js \
+    resources/js \
+    resources/css; then
+    FRONTEND_CHANGED=1
+fi
+
+if [[ "$FRONTEND_CHANGED" == "1" ]]; then
+    npm ci
+    npm run build
+    # The live app serves the generated assets from public/build, so keep the
+    # deploy host tidy by removing the transient frontend toolchain afterward.
+    rm -rf node_modules
+else
+    echo "Skipping frontend build; no tracked asset inputs changed."
+fi
 php artisan migrate --force
 php artisan optimize:clear
+php artisan helpdesk:cleanup-runtime
 php artisan optimize
 php artisan queue:restart || true
 

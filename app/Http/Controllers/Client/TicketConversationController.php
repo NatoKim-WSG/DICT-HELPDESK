@@ -13,6 +13,7 @@ use App\Models\TicketUserState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TicketConversationController extends Controller
 {
@@ -46,22 +47,28 @@ class TicketConversationController extends Controller
             return $errorResponse;
         }
 
-        $reply = TicketReply::create([
-            'ticket_id' => $ticket->id,
-            'user_id' => auth()->id(),
-            'reply_to_id' => $request->integer('reply_to_id') ?: null,
-            'message' => trim($request->string('message')->toString()),
-            'is_internal' => false,
-        ]);
+        $reply = $this->withAttachmentWriteGuard(function () use ($request, $ticket) {
+            return DB::transaction(function () use ($request, $ticket) {
+                $reply = TicketReply::create([
+                    'ticket_id' => $ticket->id,
+                    'user_id' => auth()->id(),
+                    'reply_to_id' => $request->integer('reply_to_id') ?: null,
+                    'message' => trim($request->string('message')->toString()),
+                    'is_internal' => false,
+                ]);
 
-        $this->persistAttachmentsFromRequest($request, $reply);
+                $this->persistAttachmentsFromRequest($request, $reply);
 
-        if (in_array($ticket->status, Ticket::CLOSED_STATUSES, true)) {
-            $ticket->update([
-                'status' => 'open',
-                ...Ticket::reopenedLifecycleResetAttributes(),
-            ]);
-        }
+                if (in_array($ticket->status, Ticket::CLOSED_STATUSES, true)) {
+                    $ticket->update([
+                        'status' => 'open',
+                        ...Ticket::reopenedLifecycleResetAttributes(),
+                    ]);
+                }
+
+                return $reply;
+            });
+        });
 
         if ($request->expectsJson()) {
             $reply->load(['user', 'attachments', 'replyTo']);

@@ -719,12 +719,15 @@ class AdminUserManagementNormalizationTest extends TestCase
         $revealResponse = $this->actingAs($shadow)->post(route('admin.users.password.reveal-temporary', $client));
         $revealResponse->assertRedirect(route('admin.users.show', $client));
         $revealResponse->assertSessionHas('managed_password_reveal');
+        $revealedPassword = $revealResponse->getSession()->get('managed_password_reveal');
 
         $handoff = CredentialHandoff::query()
             ->where('target_user_id', $client->id)
             ->first();
 
         $this->assertNotNull($handoff);
+        $this->assertIsString($revealedPassword);
+        $this->assertNotSame($revealedPassword, $handoff->temporary_password);
         $this->assertNotNull($handoff->consumed_at);
 
         $secondReveal = $this->actingAs($shadow)->post(route('admin.users.password.reveal-temporary', $client));

@@ -35,4 +35,12 @@ return [
     'ticket_import_path' => env('TICKET_IMPORT_PATH', 'imports'),
     'ticket_import_timezone' => env('TICKET_IMPORT_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
     'attachments_disk' => env('ATTACHMENTS_DISK', 'local'),
+    'cleanup' => [
+        'backup_path' => env('HELPDESK_BACKUP_PATH', 'backups'),
+        'backup_retention_days' => (int) env('HELPDESK_BACKUP_RETENTION_DAYS', 30),
+        'seeded_client_credentials_path' => env('HELPDESK_SEEDED_CLIENT_CREDENTIALS_PATH', env('SEED_CLIENT_CREDENTIALS_PATH', 'seeded-client-credentials')),
+        'seeded_client_credentials_retention_days' => (int) env('HELPDESK_SEEDED_CLIENT_CREDENTIAL_RETENTION_DAYS', 14),
+        'import_path' => env('HELPDESK_IMPORT_RETENTION_PATH', env('TICKET_IMPORT_PATH', 'imports')),
+        'import_retention_days' => (int) env('HELPDESK_IMPORT_RETENTION_DAYS', 7),
+    ],
 ];

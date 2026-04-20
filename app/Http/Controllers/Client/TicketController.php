@@ -12,6 +12,7 @@ use App\Services\SystemLogService;
 use App\Services\TicketEmailAlertService;
 use App\Support\LeadingUppercaseNormalizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
@@ -74,9 +75,15 @@ class TicketController extends Controller
             'consent_user_agent' => $request->userAgent(),
         ];
 
-        $ticket = Ticket::create($ticketData);
+        $ticket = $this->withAttachmentWriteGuard(function () use ($request, $ticketData) {
+            return DB::transaction(function () use ($request, $ticketData) {
+                $ticket = Ticket::create($ticketData);
+                $this->persistAttachmentsFromRequest($request, $ticket);
 
-        $this->persistAttachmentsFromRequest($request, $ticket);
+                return $ticket;
+            });
+        });
+
         $this->ticketEmailAlerts->notifySuperUsersAboutNewTicket($ticket);
         $this->systemLogs->record(
             'ticket.created',

@@ -15,6 +15,7 @@ use App\Services\TicketAcknowledgmentService;
 use App\Support\LeadingUppercaseNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
@@ -127,27 +128,34 @@ class TicketController extends Controller
 
     public function store(StoreTicketRequest $request)
     {
-        $ticket = Ticket::create([
-            'name' => $request->string('name')->toString(),
-            'contact_number' => $request->filled('contact_number')
-                ? $request->string('contact_number')->toString()
-                : null,
-            'email' => $request->filled('email')
-                ? $request->string('email')->toString()
-                : null,
-            'province' => LeadingUppercaseNormalizer::normalize($request->string('province')->toString()),
-            'municipality' => LeadingUppercaseNormalizer::normalize($request->string('municipality')->toString()),
-            'subject' => LeadingUppercaseNormalizer::normalize($request->string('subject')->toString()),
-            'description' => $request->string('description')->toString(),
-            'category_id' => $request->integer('category_id'),
-            'ticket_type' => $request->string('ticket_type')->toString(),
-            'priority' => null,
-            'status' => 'open',
-            'user_id' => $request->integer('user_id'),
-        ]);
+        $ticket = $this->withAttachmentWriteGuard(function () use ($request) {
+            return DB::transaction(function () use ($request) {
+                $ticket = Ticket::create([
+                    'name' => $request->string('name')->toString(),
+                    'contact_number' => $request->filled('contact_number')
+                        ? $request->string('contact_number')->toString()
+                        : null,
+                    'email' => $request->filled('email')
+                        ? $request->string('email')->toString()
+                        : null,
+                    'province' => LeadingUppercaseNormalizer::normalize($request->string('province')->toString()),
+                    'municipality' => LeadingUppercaseNormalizer::normalize($request->string('municipality')->toString()),
+                    'subject' => LeadingUppercaseNormalizer::normalize($request->string('subject')->toString()),
+                    'description' => $request->string('description')->toString(),
+                    'category_id' => $request->integer('category_id'),
+                    'ticket_type' => $request->string('ticket_type')->toString(),
+                    'priority' => null,
+                    'status' => 'open',
+                    'user_id' => $request->integer('user_id'),
+                ]);
 
-        $this->persistAttachmentsFromRequest($request, $ticket);
-        $this->ticketAcknowledgments->acknowledge($ticket, auth()->user());
+                $this->persistAttachmentsFromRequest($request, $ticket);
+                $this->ticketAcknowledgments->acknowledge($ticket, auth()->user());
+
+                return $ticket;
+            });
+        });
+
         $this->systemLogs->record(
             'ticket.created_by_super_user',
             'Created a ticket on behalf of a client.',
