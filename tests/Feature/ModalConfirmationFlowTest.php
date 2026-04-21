@@ -42,6 +42,17 @@ class ModalConfirmationFlowTest extends TestCase
         $response->assertSee('id="bulk-delete-confirm-submit" type="button" class="btn-danger disabled:cursor-not-allowed disabled:opacity-60" disabled', false);
     }
 
+    public function test_admin_ticket_index_single_delete_modal_requires_checkbox_before_submit(): void
+    {
+        [$supportUser] = $this->createSupportUserAndTicket();
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index'));
+
+        $response->assertOk();
+        $response->assertSee('id="delete-confirm-checkbox" type="checkbox"', false);
+        $response->assertSee('id="delete-confirm-submit" type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-60" disabled', false);
+    }
+
     public function test_admin_users_index_status_and_delete_modals_require_checkbox_before_submit(): void
     {
         config(['legal.require_acceptance' => false]);

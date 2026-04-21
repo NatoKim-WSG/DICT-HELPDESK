@@ -380,9 +380,13 @@
                     @method('DELETE')
                     <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                     <p class="text-sm text-slate-600">This action cannot be undone.</p>
+                    <label for="delete-confirm-checkbox" class="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+                        <input id="delete-confirm-checkbox" type="checkbox" class="ticket-checkbox mt-0.5" required>
+                        <span>I confirm that this ticket should be permanently deleted.</span>
+                    </label>
                     <div class="flex justify-end gap-2">
                         <button type="button" class="btn-secondary" data-modal-close="delete">Cancel</button>
-                        <button type="submit" class="btn-danger">Delete</button>
+                        <button id="delete-confirm-submit" type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-60" disabled>Delete</button>
                     </div>
                 </form>
             </div>

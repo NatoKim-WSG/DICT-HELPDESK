@@ -39,6 +39,8 @@ const initAdminTicketsIndexPage = () => {
     const deleteForm = document.getElementById('delete-ticket-form');
     const deleteModal = document.getElementById('delete-ticket-modal');
     const deleteTicketText = document.getElementById('delete-modal-ticket');
+    const deleteConfirmCheckbox = document.getElementById('delete-confirm-checkbox');
+    const deleteConfirmSubmit = document.getElementById('delete-confirm-submit');
     const bulkDeleteForm = document.getElementById('bulk-ticket-delete-form');
     const bulkDeleteButton = document.getElementById('bulk-delete-submit');
     const bulkSelectedIds = document.getElementById('bulk-selected-ids');
@@ -82,6 +84,13 @@ const initAdminTicketsIndexPage = () => {
         });
     };
 
+    const syncDeleteConfirmState = () => {
+        syncCheckboxControlledSubmitState({
+            checkbox: deleteConfirmCheckbox,
+            submitButton: deleteConfirmSubmit,
+        });
+    };
+
     const bulkSelection = createAdminTicketBulkSelection({
         pageRoot,
         bulkDeleteButton,
@@ -115,9 +124,23 @@ const initAdminTicketsIndexPage = () => {
         bulkDeleteConfirmCheckbox.addEventListener('change', syncBulkDeleteConfirmState);
     }
 
+    if (deleteConfirmCheckbox) {
+        deleteConfirmCheckbox.addEventListener('change', syncDeleteConfirmState);
+    }
+
     if (revertForm) {
         revertForm.addEventListener('submit', (event) => {
             if (!revertConfirmCheckbox || revertConfirmCheckbox.checked) {
+                return;
+            }
+
+            event.preventDefault();
+        });
+    }
+
+    if (deleteForm) {
+        deleteForm.addEventListener('submit', (event) => {
+            if (!deleteConfirmCheckbox || deleteConfirmCheckbox.checked) {
                 return;
             }
 
@@ -221,6 +244,10 @@ const initAdminTicketsIndexPage = () => {
             if (deleteTicketText) {
                 deleteTicketText.textContent = 'Ticket #' + (editDeleteButton.dataset.ticketNumber || '');
             }
+            if (deleteConfirmCheckbox) {
+                deleteConfirmCheckbox.checked = false;
+            }
+            syncDeleteConfirmState();
             if (editModalController) editModalController.close();
             if (deleteModalController) deleteModalController.open();
         });
@@ -279,6 +306,7 @@ const initAdminTicketsIndexPage = () => {
     resultsController.bind();
     syncEditStatusState();
     syncRevertSubmitState();
+    syncDeleteConfirmState();
     syncBulkDeleteConfirmState();
     bulkSelection.syncBulkSelection();
 };
