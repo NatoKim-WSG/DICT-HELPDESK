@@ -13,7 +13,6 @@
             </a>
             <div>
                 <h1 class="text-2xl font-semibold text-gray-900">Create New User</h1>
-                <p class="mt-1 text-sm text-gray-600">Add a new user to the system</p>
             </div>
         </div>
     </div>
@@ -97,12 +96,6 @@
                             </select>
                             <input type="hidden" id="department_hidden" name="department" value="" disabled>
                         </div>
-                        <p id="department-role-hint" class="mt-2 text-sm text-gray-500"></p>
-                        @if(auth()->user()->canManageStaffAccounts())
-                            <p class="mt-2 text-sm text-gray-500">
-                                Need a new department? <a href="{{ route('admin.departments.index') }}" class="font-medium text-blue-600 hover:text-blue-800">Manage departments</a>.
-                            </p>
-                        @endif
                         @error('department')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -127,15 +120,11 @@
                         @error('role')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
-                        @if(auth()->user()->isSuperAdmin())
-                            <p class="mt-2 text-sm text-gray-500">
-                                As an admin, you can create admin, super user, technical, and client users.
-                            </p>
-                        @else
+                        @unless(auth()->user()->isSuperAdmin())
                             <p class="mt-2 text-sm text-gray-500">
                                 You can create client users only.
                             </p>
-                        @endif
+                        @endunless
                     </div>
 
                     <!-- Password -->

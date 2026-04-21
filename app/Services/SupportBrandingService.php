@@ -156,7 +156,7 @@ class SupportBrandingService
         }
 
         return $this->departmentCache = Department::query()
-            ->orderByRaw("LOWER(name)")
+            ->orderByRaw('LOWER(name)')
             ->get(['id', 'name', 'slug', 'logo_path']);
     }
 

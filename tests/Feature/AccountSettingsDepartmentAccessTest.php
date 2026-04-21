@@ -161,8 +161,6 @@ class AccountSettingsDepartmentAccessTest extends TestCase
         $this->assertStringContainsString('Only admins can change account email addresses.', $superUserResponse->getContent());
         $this->assertStringContainsString('Only admins can change sign-in usernames for this account role.', $superUserResponse->getContent());
         $this->assertStringContainsString('Display Name', $superUserResponse->getContent());
-        $this->assertStringContainsString('Required when changing your username, email, or password.', $superUserResponse->getContent());
-
         $technical = User::create([
             'name' => 'Technical View',
             'username' => 'technical.view',

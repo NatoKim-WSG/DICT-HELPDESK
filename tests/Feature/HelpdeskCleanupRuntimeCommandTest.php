@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\Attachment;
+use App\Models\Category;
 use App\Models\CredentialHandoff;
 use App\Models\SystemLog;
 use App\Models\Ticket;

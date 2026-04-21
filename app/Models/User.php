@@ -397,7 +397,7 @@ class User extends Authenticatable
 
         if (Schema::hasTable('departments')) {
             $departments = Department::query()
-                ->orderByRaw("LOWER(name)")
+                ->orderByRaw('LOWER(name)')
                 ->pluck('name')
                 ->all();
 

@@ -88,9 +88,6 @@
                     </button>
                 </form>
 
-                <p class="mt-6 text-center text-sm text-slate-600">
-                    Account access is managed by your system administrator.
-                </p>
                 <p class="mt-3 text-center text-xs text-slate-500">
                     By signing in, you agree to the
                     <button type="button" @click="openLegalModal('terms')" class="app-menu-link border-0 bg-transparent p-0 font-semibold text-ione-blue-700 hover:text-ione-blue-900">Terms</button>,

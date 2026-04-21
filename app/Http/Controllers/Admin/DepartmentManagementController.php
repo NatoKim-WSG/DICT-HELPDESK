@@ -9,10 +9,10 @@ use App\Models\Department;
 use App\Models\User;
 use App\Services\SystemLogService;
 use Illuminate\Http\UploadedFile;
-use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class DepartmentManagementController extends Controller
 {
@@ -31,7 +31,7 @@ class DepartmentManagementController extends Controller
             ->pluck('aggregate', 'department');
 
         $departments = Department::query()
-            ->orderByRaw("LOWER(name)")
+            ->orderByRaw('LOWER(name)')
             ->get()
             ->map(function (Department $department) use ($userCounts) {
                 $department->setAttribute('user_count', (int) ($userCounts[$department->name] ?? 0));

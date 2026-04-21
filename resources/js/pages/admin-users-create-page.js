@@ -8,7 +8,6 @@ const initAdminUsersCreatePage = () => {
     const roleSelect = document.getElementById('role');
     const departmentSelect = document.getElementById('department');
     const departmentHidden = document.getElementById('department_hidden');
-    const hint = document.getElementById('department-role-hint');
     const clientNotesWrap = document.getElementById('client-notes-wrap');
     const clientNotesField = document.getElementById('client_notes');
     const supportDepartment = pageRoot.dataset.supportDepartment || '';
@@ -24,11 +23,11 @@ const initAdminUsersCreatePage = () => {
     };
 
     roleSelect.addEventListener('change', () => {
-        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
+        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, supportDepartment });
         syncClientNotesByRole();
     });
 
-    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
+    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, supportDepartment });
     syncClientNotesByRole();
 };
 

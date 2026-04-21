@@ -173,7 +173,6 @@
         <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h3 class="text-sm font-semibold text-slate-900">Operational KPIs</h3>
-                <p class="text-xs text-slate-500">Current workload and urgent queue snapshot.</p>
             </div>
             <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                 Live system view

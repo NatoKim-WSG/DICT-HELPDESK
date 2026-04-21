@@ -8,7 +8,6 @@ const initAdminUsersEditPage = () => {
     const roleSelect = document.getElementById('role');
     const departmentSelect = document.getElementById('department');
     const departmentHidden = document.getElementById('department_hidden');
-    const hint = document.getElementById('department-role-hint');
     const profileLockInput = document.getElementById('is_profile_locked');
     const profileLockToggle = document.getElementById('profile-lock-toggle');
     const profileLockStateLabel = document.getElementById('profile-lock-state-label');
@@ -73,12 +72,12 @@ const initAdminUsersEditPage = () => {
     profileLockToggle.addEventListener('click', () => {
         profileLockInput.value = profileLockInput.value === '1' ? '0' : '1';
         applyProfileLockState();
-        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
+        syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, supportDepartment });
     });
 
-    roleSelect.addEventListener('change', () => syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment }));
+    roleSelect.addEventListener('change', () => syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, supportDepartment }));
 
-    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment });
+    syncDepartmentByRole({ roleSelect, departmentSelect, departmentHidden, supportDepartment });
     applyProfileLockState();
 
     const revealTimers = new Map();

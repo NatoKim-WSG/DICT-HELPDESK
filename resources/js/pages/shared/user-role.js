@@ -2,7 +2,7 @@
 
 export const isInternalRole = (role) => INTERNAL_ROLES.has(String(role || '').trim());
 
-export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentHidden, hint, supportDepartment }) => {
+export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentHidden, supportDepartment }) => {
     if (!roleSelect || !departmentSelect || !departmentHidden) return;
 
     const internalDepartment = String(supportDepartment || '').trim() || 'iOne';
@@ -14,17 +14,10 @@ export const syncDepartmentByRole = ({ roleSelect, departmentSelect, departmentH
         departmentSelect.disabled = false;
         departmentHidden.value = '';
         departmentHidden.disabled = true;
-        if (hint) {
-            hint.textContent = `Choose the department for this staff account. Default support department is ${internalDepartment}.`;
-        }
-
         return;
     }
 
     departmentSelect.disabled = false;
     departmentHidden.value = '';
     departmentHidden.disabled = true;
-    if (hint) {
-        hint.textContent = 'Select the department for this client account.';
-    }
 };

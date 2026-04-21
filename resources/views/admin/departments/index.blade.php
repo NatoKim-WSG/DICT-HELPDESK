@@ -7,7 +7,6 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold text-gray-900">Departments</h1>
-            <p class="mt-1 text-sm text-gray-600">Create departments with their own logos for both client and staff accounts.</p>
         </div>
     </div>
 
@@ -53,7 +52,6 @@
                             class="block w-full text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-semibold file:text-slate-700 hover:file:bg-slate-200 @error('logo') text-red-600 @enderror"
                         >
                     </div>
-                    <p class="mt-2 text-xs text-slate-500">Accepted: PNG, JPG, JPEG, WEBP, SVG, BMP, GIF up to 2 MB.</p>
                     @error('logo')
                         <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                     @enderror
@@ -68,7 +66,6 @@
         <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-slate-200 px-5 py-4">
                 <h2 class="text-lg font-semibold text-slate-900">Department Directory</h2>
-                <p class="mt-1 text-sm text-slate-500">Scroll inside the directory to browse departments without stretching the full page.</p>
             </div>
 
             <div class="max-h-[70vh] overflow-auto">

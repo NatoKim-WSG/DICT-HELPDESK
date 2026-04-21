@@ -3,7 +3,6 @@
         <div class="grid grid-cols-1 gap-4">
             <div>
                 <h2 class="font-display text-lg font-semibold text-slate-900">Daily Ticket Statistics</h2>
-                <p class="mt-1 text-sm text-slate-500">Choose the month and day you want to inspect.</p>
             </div>
             <form
                 method="GET"
@@ -15,7 +14,6 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                     <div>
                         <h3 class="text-sm font-semibold text-slate-900">Daily View</h3>
-                        <p class="text-xs text-slate-500">Switch between a full month snapshot or a specific day.</p>
                     </div>
                     <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Snapshot

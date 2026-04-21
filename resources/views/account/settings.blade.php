@@ -191,7 +191,6 @@
                     {{ $isProfileLocked ? 'disabled' : '' }}
                     class="form-input @error('current_password') border-rose-300 focus:border-rose-400 focus:ring-rose-200 @enderror"
                 >
-                <p class="mt-1 text-xs text-slate-500">Required when changing your username, email, or password.</p>
                 @error('current_password')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
@@ -219,7 +218,6 @@
                         </svg>
                     </button>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">Leave blank to keep your current password.</p>
                 @error('password')
                     <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                 @enderror
