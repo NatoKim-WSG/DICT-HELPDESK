@@ -6,13 +6,8 @@
 
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
             <form method="GET" action="{{ route('admin.reports.index') }}" class="flex items-end gap-2" data-submit-feedback data-reports-filter-form>
-                @if($detailFilterApplied)
-                    <input type="hidden" name="apply_details_filter" value="1">
-                @endif
                 <input type="hidden" name="daily_month" value="{{ $dailyMonthKey }}">
                 <input type="hidden" name="daily_date" value="{{ $dailySelectedDateValue }}">
-                <input type="hidden" name="detail_month" value="{{ $detailMonthKey }}">
-                <input type="hidden" name="detail_date" value="{{ $detailDateValue }}">
                 <div>
                     <label for="month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reporting Period</label>
                     <select id="month" name="month" data-auto-submit-change class="form-input min-w-[190px] py-2 text-sm">

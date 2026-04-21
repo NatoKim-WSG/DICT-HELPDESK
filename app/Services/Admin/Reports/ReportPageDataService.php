@@ -31,25 +31,10 @@ class ReportPageDataService
         $selectedMonthRow = $selectedMonthContext['selectedMonthRow'];
         $selectedPeriodStart = $selectedMonthContext['selectedPeriodStart'];
         $selectedPeriodEnd = $selectedMonthContext['selectedPeriodEnd'];
-        $detailFilterApplied = $selectedMonthContext['detailFilterApplied'];
-
-        $detailScope = $this->scopeResolver->resolveDetailScope($request, $monthlyReportRows, $selectedMonthKey);
-        $detailMonthKey = $detailScope['detailMonthKey'];
-        $detailMonthRange = $detailScope['detailMonthRange'];
-        $detailDateOptions = $detailScope['detailDateOptions'];
-        $detailSelectedDate = $detailScope['detailSelectedDate'];
-        $detailDateValue = $detailScope['detailDateValue'];
-        $detailScopeStart = $detailScope['detailScopeStart'];
-        $detailScopeEnd = $detailScope['detailScopeEnd'];
-        $detailScopeLabel = $detailScope['detailScopeLabel'];
 
         $dailyScope = $this->scopeResolver->resolveDailyScope(
             $request,
             $monthlyReportRows,
-            $detailFilterApplied,
-            $detailMonthKey,
-            $detailMonthRange,
-            $detailSelectedDate
         );
         $dailyMonthKey = $dailyScope['dailyMonthKey'];
         $dailyMonthRange = $dailyScope['dailyMonthRange'];
@@ -58,12 +43,7 @@ class ReportPageDataService
         $dailySelectedDate = $dailyScope['dailySelectedDate'];
         $dailySelectedDateValue = $dailyScope['dailySelectedDateValue'];
 
-        $kpiScopedTickets = clone $scopedTickets;
-        if ($detailFilterApplied) {
-            $kpiScopedTickets->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
-        }
-
-        $kpiSummary = $this->reportStatistics->buildKpiSummary(clone $kpiScopedTickets);
+        $kpiSummary = $this->reportStatistics->buildKpiSummary(clone $scopedTickets);
         $totalTickets = (int) ($kpiSummary['total_tickets'] ?? 0);
         $stats = $this->insights->buildStats($kpiSummary);
 
@@ -90,13 +70,7 @@ class ReportPageDataService
             $backlogThisPeriod
         );
 
-        $mixBreakdownData = $this->insights->buildMixBreakdownData(
-            clone $scopedTickets,
-            $detailFilterApplied,
-            $detailScopeStart,
-            $detailScopeEnd,
-            $detailScopeLabel
-        );
+        $mixBreakdownData = $this->insights->buildMixBreakdownData(clone $scopedTickets);
         $ticketHistoryScope = $mixBreakdownData['ticketHistoryScope'];
         $ticketsBreakdownOverview = $mixBreakdownData['ticketsBreakdownOverview'];
         $categoryBreakdownBuckets = $mixBreakdownData['categoryBreakdownBuckets'];
@@ -122,29 +96,17 @@ class ReportPageDataService
             )
             : $this->reportStatistics->buildDailyTicketStatisticsForDate(clone $scopedTickets, $dailySelectedDate);
 
-        $slaScopeStart = $detailFilterApplied ? $detailScopeStart->copy() : $selectedPeriodStart->copy();
-        $slaScopeEnd = $detailFilterApplied ? $detailScopeEnd->copy() : $selectedPeriodEnd->copy();
-        $slaScopeLabel = $detailFilterApplied ? $detailScopeLabel : (string) $selectedMonthRange['label'];
-        $slaReport = $this->slaReports->build(clone $scopedTickets, $slaScopeStart, $slaScopeEnd, $slaScopeLabel);
-
-        $detailOverview = $this->insights->buildDetailOverview(
+        $slaReport = $this->slaReports->build(
             clone $scopedTickets,
-            $detailScopeStart,
-            $detailScopeEnd,
-            $detailScopeLabel,
-            $detailSelectedDate
+            $selectedPeriodStart->copy(),
+            $selectedPeriodEnd->copy(),
+            (string) $selectedMonthRange['label']
         );
 
         $monthlyPerformanceGraphPoints = $monthlyGraphPoints;
-        if ($detailFilterApplied) {
-            $monthlyPerformanceScopedTickets = (clone $scopedTickets)->whereBetween('created_at', [$detailScopeStart, $detailScopeEnd]);
-            [, $monthlyPerformanceGraphPoints] = $this->queryMetrics->monthlyDataset(clone $monthlyPerformanceScopedTickets);
-        }
-        $monthlyPerformanceFocusMonthKey = $detailFilterApplied
-            ? $detailMonthKey
-            : ($selectedMonthIsAllTime
-                ? $this->reportScopes->latestAvailableMonthKey($monthlyReportRows)
-                : $selectedMonthKey);
+        $monthlyPerformanceFocusMonthKey = $selectedMonthIsAllTime
+            ? $this->reportScopes->latestAvailableMonthKey($monthlyReportRows)
+            : $selectedMonthKey;
         $reportVisuals = $this->visuals->build(
             ($monthlyPerformanceGraphPoints ?? $monthlyGraphPoints)->values()->all(),
             (string) $monthlyPerformanceFocusMonthKey,
@@ -175,12 +137,6 @@ class ReportPageDataService
             ->values();
 
         $ticketTrend = $this->insights->buildTicketTrend(clone $scopedTickets);
-        $topTechnicians = $this->insights->buildTopTechnicians(
-            clone $scopedTickets,
-            $detailFilterApplied,
-            $detailScopeStart,
-            $detailScopeEnd
-        );
 
         return compact(
             'stats',
@@ -188,7 +144,6 @@ class ReportPageDataService
             'ticketsByPriority',
             'ticketsByCategory',
             'ticketTrend',
-            'topTechnicians',
             'monthlyReportRows',
             'monthlyGraphPoints',
             'monthlyPerformanceGraphPoints',
@@ -205,16 +160,11 @@ class ReportPageDataService
             'categoryBreakdownBuckets',
             'priorityBreakdownBuckets',
             'volumeSeries',
-            'detailFilterApplied',
             'ticketsBreakdownOverview',
             'dailyMonthKey',
             'dailySelectedDateValue',
             'dailyDateOptions',
             'dailySelectedStats',
-            'detailMonthKey',
-            'detailDateValue',
-            'detailDateOptions',
-            'detailOverview',
             'ticketHistoryScope',
             'reportVisuals',
             'slaReport'

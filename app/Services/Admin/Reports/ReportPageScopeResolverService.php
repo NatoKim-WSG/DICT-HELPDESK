@@ -37,49 +37,12 @@ class ReportPageScopeResolverService
             'selectedMonthRow' => $selectedMonthRow,
             'selectedPeriodStart' => $selectedMonthRange['start']->copy(),
             'selectedPeriodEnd' => $selectedMonthRange['end']->copy(),
-            'detailFilterApplied' => $request->boolean('apply_details_filter'),
-        ];
-    }
-
-    public function resolveDetailScope(Request $request, Collection $monthlyReportRows, string $selectedMonthKey): array
-    {
-        $detailMonthKey = $this->reportScopes->resolveSelectedMonthKey(
-            $request->query('detail_month'),
-            $monthlyReportRows,
-            $selectedMonthKey
-        );
-        $detailMonthRange = $this->reportScopes->monthRangeFromKey($detailMonthKey);
-        $detailDateOptions = $this->reportScopes->buildDateOptionsForRange($detailMonthRange['start'], $detailMonthRange['end']);
-        $detailSelectedDate = $this->reportScopes->resolveRequestedDate($request->query('detail_date'));
-        if (
-            $detailSelectedDate
-            && (
-                $detailSelectedDate->lt($detailMonthRange['start']->copy()->startOfDay())
-                || $detailSelectedDate->gt($detailMonthRange['end']->copy()->startOfDay())
-            )
-        ) {
-            $detailSelectedDate = null;
-        }
-
-        return [
-            'detailMonthKey' => $detailMonthKey,
-            'detailMonthRange' => $detailMonthRange,
-            'detailDateOptions' => $detailDateOptions,
-            'detailSelectedDate' => $detailSelectedDate,
-            'detailDateValue' => $detailSelectedDate?->toDateString(),
-            'detailScopeStart' => $detailSelectedDate?->copy()->startOfDay() ?? $detailMonthRange['start']->copy(),
-            'detailScopeEnd' => $detailSelectedDate?->copy()->endOfDay() ?? $detailMonthRange['end']->copy(),
-            'detailScopeLabel' => $detailSelectedDate?->format('M j, Y') ?? (string) $detailMonthRange['label'],
         ];
     }
 
     public function resolveDailyScope(
         Request $request,
         Collection $monthlyReportRows,
-        bool $detailFilterApplied,
-        string $detailMonthKey,
-        array $detailMonthRange,
-        ?Carbon $detailSelectedDate
     ): array {
         $dailyMonthKey = $this->reportScopes->resolveSelectedMonthKey(
             $request->query('daily_month'),
@@ -87,10 +50,6 @@ class ReportPageScopeResolverService
             now()->format('Y-m')
         );
         $dailyMonthRange = $this->reportScopes->monthRangeFromKey($dailyMonthKey);
-        if ($detailFilterApplied) {
-            $dailyMonthKey = $detailMonthKey;
-            $dailyMonthRange = $detailMonthRange;
-        }
 
         $dailyDateOptions = $this->reportScopes->buildDateOptionsForRange($dailyMonthRange['start'], $dailyMonthRange['end']);
         $requestedDailyDate = is_string($request->query('daily_date'))
@@ -100,10 +59,6 @@ class ReportPageScopeResolverService
         $dailySelectedDate = $dailyAllDaysSelected
             ? null
             : $this->reportScopes->resolveRequestedDate($request->query('daily_date'));
-        if ($detailFilterApplied && $detailSelectedDate) {
-            $dailySelectedDate = $detailSelectedDate->copy();
-            $dailyAllDaysSelected = false;
-        }
         if (
             ! $dailyAllDaysSelected
             && (

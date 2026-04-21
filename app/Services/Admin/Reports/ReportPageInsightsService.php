@@ -2,7 +2,6 @@
 
 namespace App\Services\Admin\Reports;
 
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -99,38 +98,7 @@ class ReportPageInsightsService
 
     public function buildMixBreakdownData(
         Builder $scopedTickets,
-        bool $detailFilterApplied,
-        Carbon $detailScopeStart,
-        Carbon $detailScopeEnd,
-        string $detailScopeLabel
     ): array {
-        if ($detailFilterApplied) {
-            $mixStatusSummary = $this->queryMetrics->statusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
-            $mixTotalCreated = $this->queryMetrics->createdTicketCountForRange(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
-
-            return [
-                'mixScopeLabel' => $detailScopeLabel,
-                'ticketHistoryScope' => [
-                    'created_from' => $detailScopeStart->toDateString(),
-                    'created_to' => $detailScopeEnd->toDateString(),
-                    'report_scope' => $detailScopeLabel,
-                ],
-                'ticketsBreakdownOverview' => [
-                    'label' => $detailScopeLabel,
-                    'start' => $detailScopeStart->toDateString(),
-                    'end' => $detailScopeEnd->toDateString(),
-                    'total_created' => $mixTotalCreated,
-                    'open' => (int) ($mixStatusSummary['open'] ?? 0),
-                    'in_progress' => (int) ($mixStatusSummary['in_progress'] ?? 0),
-                    'pending' => (int) ($mixStatusSummary['pending'] ?? 0),
-                    'resolved' => (int) ($mixStatusSummary['resolved'] ?? 0),
-                    'closed' => (int) ($mixStatusSummary['closed'] ?? 0),
-                ],
-                'categoryBreakdownBuckets' => $this->reportStatistics->buildCategoryBucketsForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd),
-                'priorityBreakdownBuckets' => $this->reportStatistics->buildPriorityBucketsForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd),
-            ];
-        }
-
         $mixStatusSummary = $this->queryMetrics->statusBreakdownForAllTime(clone $scopedTickets);
         $mixTotalCreated = $this->queryMetrics->ticketCount(clone $scopedTickets);
         $priorityCounts = $this->queryMetrics->priorityCountsForScope(clone $scopedTickets);
@@ -155,31 +123,6 @@ class ReportPageInsightsService
         ];
     }
 
-    public function buildDetailOverview(
-        Builder $scopedTickets,
-        Carbon $detailScopeStart,
-        Carbon $detailScopeEnd,
-        string $detailScopeLabel,
-        ?Carbon $detailSelectedDate
-    ): array {
-        $detailStatusSummary = $this->queryMetrics->statusBreakdownForPeriod(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
-        $detailTotalCreated = $this->queryMetrics->createdTicketCountForRange(clone $scopedTickets, $detailScopeStart, $detailScopeEnd);
-
-        return [
-            'label' => $detailScopeLabel,
-            'mode' => $detailSelectedDate ? 'day' : 'month',
-            'start' => $detailScopeStart->toDateString(),
-            'end' => $detailScopeEnd->toDateString(),
-            'total_created' => $detailTotalCreated,
-            'open' => (int) ($detailStatusSummary['open'] ?? 0),
-            'in_progress' => (int) ($detailStatusSummary['in_progress'] ?? 0),
-            'pending' => (int) ($detailStatusSummary['pending'] ?? 0),
-            'resolved' => (int) ($detailStatusSummary['resolved'] ?? 0),
-            'closed' => (int) ($detailStatusSummary['closed'] ?? 0),
-            'backlog_end' => $this->queryMetrics->openTicketCountAtCutoff(clone $scopedTickets, $detailScopeEnd),
-        ];
-    }
-
     public function buildTicketTrend(Builder $scopedTickets): Collection
     {
         $trendStart = Carbon::now()->startOfDay()->subDays(29);
@@ -199,38 +142,4 @@ class ReportPageInsightsService
         return $ticketTrend;
     }
 
-    public function buildTopTechnicians(
-        Builder $scopedTickets,
-        bool $detailFilterApplied,
-        Carbon $detailScopeStart,
-        Carbon $detailScopeEnd
-    ): Collection {
-        $topTechnicianScopedTickets = clone $scopedTickets;
-        if ($detailFilterApplied) {
-            $topTechnicianScopedTickets->whereBetween('tickets.created_at', [$detailScopeStart, $detailScopeEnd]);
-        }
-
-        $topTechnicianRows = (clone $topTechnicianScopedTickets)
-            ->join('ticket_assignments', 'tickets.id', '=', 'ticket_assignments.ticket_id')
-            ->join('users', 'ticket_assignments.user_id', '=', 'users.id')
-            ->where('users.role', '!=', User::ROLE_SHADOW)
-            ->selectRaw("ticket_assignments.user_id as technician_id, users.name as technician_name, COUNT(*) as total_tickets, SUM(CASE WHEN tickets.status IN ('resolved','closed') THEN 1 ELSE 0 END) as resolved_tickets")
-            ->groupBy('ticket_assignments.user_id', 'users.name')
-            ->orderByDesc('total_tickets')
-            ->take(5)
-            ->toBase()
-            ->get();
-
-        return $topTechnicianRows
-            ->map(function (object $row) {
-                $rowData = (array) $row;
-
-                return [
-                    'name' => (string) ($rowData['technician_name'] ?? 'Unknown technical user'),
-                    'total_tickets' => (int) ($rowData['total_tickets'] ?? 0),
-                    'resolved_tickets' => (int) ($rowData['resolved_tickets'] ?? 0),
-                ];
-            })
-            ->values();
-    }
 }
