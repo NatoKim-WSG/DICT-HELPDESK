@@ -37,7 +37,7 @@ return [
     'attachments_disk' => env('ATTACHMENTS_DISK', 'local'),
     'cleanup' => [
         'backup_path' => env('HELPDESK_BACKUP_PATH', 'backups'),
-        'backup_retention_days' => (int) env('HELPDESK_BACKUP_RETENTION_DAYS', 30),
+        'backup_retention_days' => (int) env('HELPDESK_BACKUP_RETENTION_DAYS', 14),
         'seeded_client_credentials_path' => env('HELPDESK_SEEDED_CLIENT_CREDENTIALS_PATH', env('SEED_CLIENT_CREDENTIALS_PATH', 'seeded-client-credentials')),
         'seeded_client_credentials_retention_days' => (int) env('HELPDESK_SEEDED_CLIENT_CREDENTIAL_RETENTION_DAYS', 14),
         'import_path' => env('HELPDESK_IMPORT_RETENTION_PATH', env('TICKET_IMPORT_PATH', 'imports')),
