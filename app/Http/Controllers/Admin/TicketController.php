@@ -13,8 +13,8 @@ use App\Services\Admin\TicketIndexService;
 use App\Services\SystemLogService;
 use App\Services\TicketAcknowledgmentService;
 use App\Support\LeadingUppercaseNormalizer;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
@@ -81,23 +81,34 @@ class TicketController extends Controller
             ]);
         }
 
-        $scopedTickets = $this->ticketIndex->scopedTicketQueryFor($currentUser);
-        $provinceOptions = $this->ticketIndex->distinctTicketColumnOptions('province', clone $scopedTickets);
-        $municipalityOptions = $this->ticketIndex->distinctTicketColumnOptions('municipality', clone $scopedTickets);
-        $accountOptions = $this->ticketIndex->accountOptionsFor($currentUser, clone $scopedTickets);
-        $monthOptions = $this->ticketIndex->monthOptionsFor(clone $scopedTickets);
-
-        $categories = Cache::remember('admin_ticket_active_categories_v1', now()->addSeconds(120), function () {
-            return Category::active()
-                ->orderBy('name')
-                ->get(['id', 'name']);
-        });
-        $assignees = $this->ticketIndex->activeAssignableAgents();
+        $provinceOptions = $this->ticketIndex->distinctTicketColumnOptions(
+            'province',
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['province'])
+        );
+        $municipalityOptions = $this->ticketIndex->distinctTicketColumnOptions(
+            'municipality',
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['municipality'])
+        );
+        $accountOptions = $this->ticketIndex->accountOptionsFor(
+            $currentUser,
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['account'])
+        );
+        $monthOptions = $this->ticketIndex->monthOptionsFor(
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['month'])
+        );
+        $categories = $this->ticketIndex->categoryOptionsFor(
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['category'])
+        );
+        $filterAssignees = $this->ticketIndex->assignedAgentOptionsFor(
+            $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['assigned_to'])
+        );
+        $assignmentAssignees = $this->ticketIndex->activeAssignableAgents();
 
         return view('admin.tickets.index', compact(
             'tickets',
             'categories',
-            'assignees',
+            'filterAssignees',
+            'assignmentAssignees',
             'provinceOptions',
             'municipalityOptions',
             'accountOptions',
@@ -197,5 +208,20 @@ class TicketController extends Controller
     private function authorizeTicketAccess(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
+    }
+
+    private function buildFilterOptionQuery(
+        Request $request,
+        ?User $currentUser,
+        string $activeTab,
+        string $selectedStatus,
+        ?array $createdDateRange,
+        array $excludedFilters = [],
+    ): Builder {
+        $query = $this->ticketIndex->scopedTicketQueryFor($currentUser);
+        $this->ticketIndex->applyTabScope($query, $activeTab);
+        $this->ticketIndex->applyFiltersExcept($query, $request, $selectedStatus, $createdDateRange, $excludedFilters);
+
+        return $query;
     }
 }

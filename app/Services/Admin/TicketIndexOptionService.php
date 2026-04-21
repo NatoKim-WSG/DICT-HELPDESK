@@ -2,13 +2,14 @@
 
 namespace App\Services\Admin;
 
+use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class TicketIndexOptionService
 {
@@ -30,28 +31,19 @@ class TicketIndexOptionService
 
     public function accountOptionsFor(?User $currentUser, Builder $scopedTickets): Collection
     {
-        if ($currentUser && $currentUser->isTechnician()) {
-            $visibleClientIds = (clone $scopedTickets)
-                ->whereNotNull('user_id')
-                ->select('user_id')
-                ->distinct()
-                ->pluck('user_id');
+        $visibleClientIds = (clone $scopedTickets)
+            ->whereNotNull('user_id')
+            ->select('user_id')
+            ->distinct()
+            ->pluck('user_id');
 
-            return User::where('role', User::ROLE_CLIENT)
-                ->where('is_active', true)
-                ->whereIn('id', $visibleClientIds)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->values();
-        }
-
-        return Cache::remember('admin_ticket_account_options_active_clients_v1', now()->addSeconds(60), function () {
-            return User::where('role', User::ROLE_CLIENT)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->values();
-        });
+        return User::query()
+            ->where('role', User::ROLE_CLIENT)
+            ->where('is_active', true)
+            ->whereIn('id', $visibleClientIds)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->values();
     }
 
     public function monthOptionsFor(Builder $scopedTickets): Collection
@@ -76,15 +68,63 @@ class TicketIndexOptionService
             ->values();
     }
 
+    public function categoryOptionsFor(Builder $scopedTickets): Collection
+    {
+        $visibleCategoryIds = (clone $scopedTickets)
+            ->whereNotNull('category_id')
+            ->select('category_id')
+            ->distinct()
+            ->pluck('category_id');
+
+        return Category::active()
+            ->whereIn('id', $visibleCategoryIds)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->values();
+    }
+
+    public function assignedAgentOptionsFor(Builder $scopedTickets): Collection
+    {
+        $visiblePrimaryAssigneeIds = (clone $scopedTickets)
+            ->whereNotNull('assigned_to')
+            ->select('assigned_to')
+            ->distinct()
+            ->pluck('assigned_to');
+
+        $visibleAssignmentIds = DB::table('ticket_assignments')
+            ->whereIn('ticket_id', (clone $scopedTickets)->select('tickets.id'))
+            ->distinct()
+            ->pluck('user_id');
+
+        $visibleAssigneeIds = $visiblePrimaryAssigneeIds
+            ->merge($visibleAssignmentIds)
+            ->map(fn (mixed $id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($visibleAssigneeIds->isEmpty()) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
+            ->visibleDirectory()
+            ->where('is_active', true)
+            ->whereIn('id', $visibleAssigneeIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'role'])
+            ->values();
+    }
+
     public function activeAssignableAgents(): Collection
     {
-        return Cache::remember('admin_ticket_active_agents_v2', now()->addSeconds(45), function () {
-            return User::whereIn('role', User::TICKET_CONSOLE_ROLES)
-                ->visibleDirectory()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'role']);
-        });
+        return User::query()
+            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
+            ->visibleDirectory()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
     }
 
     private function monthKeyExpression(string $column, Builder $query): string

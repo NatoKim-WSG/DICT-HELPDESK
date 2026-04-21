@@ -138,7 +138,7 @@
                         <select id="assigned_to" name="assigned_to" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                             <option value="all">All assigned users</option>
                             <option value="0" {{ request('assigned_to') === '0' ? 'selected' : '' }}>Unassigned</option>
-                            @foreach($assignees as $assignee)
+                            @foreach($filterAssignees as $assignee)
                                 <option value="{{ $assignee->id }}" {{ (string) request('assigned_to') === (string) $assignee->id ? 'selected' : '' }}>
                                     {{ $assignee->publicDisplayName() }}
                                 </option>
@@ -240,7 +240,7 @@
                         data-enhanced-multiselect="1"
                         data-placeholder="Select technicians"
                     >
-                        @foreach($assignees as $assignee)
+                        @foreach($assignmentAssignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach
                     </select>
@@ -301,7 +301,7 @@
                         data-enhanced-multiselect="1"
                         data-placeholder="Select technicians"
                     >
-                        @foreach($assignees as $assignee)
+                        @foreach($assignmentAssignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
                         @endforeach
                     </select>

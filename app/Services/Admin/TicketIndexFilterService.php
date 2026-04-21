@@ -58,14 +58,53 @@ class TicketIndexFilterService
         string $selectedStatus,
         ?array $createdDateRange = null,
     ): void {
-        $this->applyStatusFilter($query, $selectedStatus);
-        $this->applyPriorityFilter($query, $request);
-        $this->applyCategoryFilters($query, $request);
-        $this->applyLocationFilters($query, $request);
-        $this->applyAccountFilters($query, $request);
-        $this->applyAssignmentFilter($query, $request);
-        $this->applySearchFilter($query, $request);
-        $this->applyCreatedDateRangeFilter($query, $createdDateRange);
+        $this->applyFiltersExcept($query, $request, $selectedStatus, $createdDateRange);
+    }
+
+    public function applyFiltersExcept(
+        Builder $query,
+        Request $request,
+        string $selectedStatus,
+        ?array $createdDateRange = null,
+        array $excludedFilters = [],
+    ): void {
+        $excluded = collect($excludedFilters)
+            ->map(fn (mixed $value) => strtolower(trim((string) $value)))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (! in_array('status', $excluded, true)) {
+            $this->applyStatusFilter($query, $selectedStatus);
+        }
+
+        if (! in_array('priority', $excluded, true)) {
+            $this->applyPriorityFilter($query, $request);
+        }
+
+        if (! in_array('category', $excluded, true)) {
+            $this->applyCategoryFilters($query, $request);
+        }
+
+        if (! in_array('province', $excluded, true) || ! in_array('municipality', $excluded, true)) {
+            $this->applyLocationFilters($query, $request, $excluded);
+        }
+
+        if (! in_array('account', $excluded, true)) {
+            $this->applyAccountFilters($query, $request);
+        }
+
+        if (! in_array('assigned_to', $excluded, true)) {
+            $this->applyAssignmentFilter($query, $request);
+        }
+
+        if (! in_array('search', $excluded, true)) {
+            $this->applySearchFilter($query, $request);
+        }
+
+        if (! in_array('created_date', $excluded, true) && ! in_array('month', $excluded, true)) {
+            $this->applyCreatedDateRangeFilter($query, $createdDateRange);
+        }
     }
 
     private function applyStatusFilter(Builder $query, string $selectedStatus): void
@@ -117,13 +156,13 @@ class TicketIndexFilterService
         $this->applyCategoryBucketFilter($query, $bucket);
     }
 
-    private function applyLocationFilters(Builder $query, Request $request): void
+    private function applyLocationFilters(Builder $query, Request $request, array $excluded = []): void
     {
-        if ($request->filled('province') && $request->province !== 'all') {
+        if (! in_array('province', $excluded, true) && $request->filled('province') && $request->province !== 'all') {
             $this->applyCaseInsensitiveExactMatch($query, 'province', (string) $request->province);
         }
 
-        if ($request->filled('municipality') && $request->municipality !== 'all') {
+        if (! in_array('municipality', $excluded, true) && $request->filled('municipality') && $request->municipality !== 'all') {
             $this->applyCaseInsensitiveExactMatch($query, 'municipality', (string) $request->municipality);
         }
     }

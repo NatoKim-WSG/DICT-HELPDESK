@@ -51,6 +51,16 @@ class TicketIndexService
         $this->filters->applyFilters($query, $request, $selectedStatus, $createdDateRange);
     }
 
+    public function applyFiltersExcept(
+        Builder $query,
+        Request $request,
+        string $selectedStatus,
+        ?array $createdDateRange = null,
+        array $excludedFilters = [],
+    ): void {
+        $this->filters->applyFiltersExcept($query, $request, $selectedStatus, $createdDateRange, $excludedFilters);
+    }
+
     public function buildTicketListSnapshotToken(Builder $query): string
     {
         return $this->snapshots->buildTicketListSnapshotToken($query);
@@ -74,6 +84,16 @@ class TicketIndexService
     public function accountOptionsFor(?User $currentUser, Builder $scopedTickets): Collection
     {
         return $this->options->accountOptionsFor($currentUser, $scopedTickets);
+    }
+
+    public function categoryOptionsFor(Builder $scopedTickets): Collection
+    {
+        return $this->options->categoryOptionsFor($scopedTickets);
+    }
+
+    public function assignedAgentOptionsFor(Builder $scopedTickets): Collection
+    {
+        return $this->options->assignedAgentOptionsFor($scopedTickets);
     }
 
     public function monthOptionsFor(Builder $scopedTickets): Collection

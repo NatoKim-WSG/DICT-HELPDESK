@@ -443,6 +443,79 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $this->assertStringContainsString('data-admin-tickets-results', $payload['html']);
     }
 
+    public function test_history_filter_options_only_show_applicable_ticket_entries(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $historyCategory = Category::create([
+            'name' => 'History Only Category',
+            'description' => 'Closed history category',
+            'color' => '#0f8d88',
+            'is_active' => true,
+        ]);
+        $openCategory = Category::create([
+            'name' => 'Open Only Category',
+            'description' => 'Open ticket category',
+            'color' => '#f97316',
+            'is_active' => true,
+        ]);
+        $historyClient = $this->createClient('History Client', 'history-client@example.com');
+        $openClient = $this->createClient('Open Client', 'open-client@example.com');
+
+        $closedTicket = Ticket::create([
+            'name' => 'History Requester',
+            'contact_number' => '09110000151',
+            'email' => 'history-requester@example.com',
+            'province' => 'History Province',
+            'municipality' => 'History Town',
+            'subject' => 'Closed history ticket',
+            'description' => 'Visible in history.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'resolved_at' => now()->subDay(),
+            'closed_at' => now(),
+            'user_id' => $historyClient->id,
+            'category_id' => $historyCategory->id,
+        ]);
+        Ticket::query()->whereKey($closedTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 10, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 10, 9, 0, 0),
+        ]);
+
+        $openTicket = Ticket::create([
+            'name' => 'Open Requester',
+            'contact_number' => '09110000152',
+            'email' => 'open-requester@example.com',
+            'province' => 'Open Province',
+            'municipality' => 'Open Town',
+            'subject' => 'Open active ticket',
+            'description' => 'Not visible in history.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $openClient->id,
+            'category_id' => $openCategory->id,
+        ]);
+        Ticket::query()->whereKey($openTicket->id)->update([
+            'created_at' => Carbon::create(2026, 1, 12, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 1, 12, 9, 0, 0),
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('<option value="'.$historyCategory->id.'"', false);
+        $response->assertDontSee('<option value="'.$openCategory->id.'"', false);
+        $response->assertSee('<option value="'.$historyClient->id.'"', false);
+        $response->assertDontSee('<option value="'.$openClient->id.'"', false);
+        $response->assertSee('<option value="History Province"', false);
+        $response->assertDontSee('<option value="Open Province"', false);
+        $response->assertSee('<option value="History Town"', false);
+        $response->assertDontSee('<option value="Open Town"', false);
+        $response->assertSee('<option value="2026-02"', false);
+        $response->assertDontSee('<option value="2026-01"', false);
+    }
+
     public function test_admin_ticket_heartbeat_keeps_same_page_token_for_off_page_changes(): void
     {
         $supportUser = $this->createSupportUser();
