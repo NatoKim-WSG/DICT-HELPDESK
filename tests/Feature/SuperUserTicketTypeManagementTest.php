@@ -49,23 +49,24 @@ class SuperUserTicketTypeManagementTest extends TestCase
     public function test_super_user_can_open_admin_ticket_create_screen_and_create_internal_ticket(): void
     {
         $superUser = $this->createUser('Super Creator', 'super-creator@example.com', User::ROLE_SUPER_USER);
-        $client = $this->createUser('Ticket Client', 'ticket-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $technicalRequester = $this->createUser('Ticket Technical Requester', 'ticket-technical-requester@example.com', User::ROLE_TECHNICAL);
         $category = $this->createCategory();
 
         $createResponse = $this->actingAs($superUser)->get(route('admin.tickets.create'));
         $createResponse->assertOk();
-        $createResponse->assertSeeText('Create Ticket for Client');
+        $createResponse->assertSeeText('Create Support Ticket');
+        $createResponse->assertSeeText('Requester Account');
         $createResponse->assertSee('name="ticket_type"', false);
 
         $storeResponse = $this->actingAs($superUser)->post(route('admin.tickets.store'), [
-            'user_id' => $client->id,
-            'name' => 'Ticket Client',
+            'user_id' => $technicalRequester->id,
+            'name' => 'Ticket Technical Requester',
             'contact_number' => '09170000002',
-            'email' => 'ticket-client@example.com',
+            'email' => 'ticket-technical-requester@example.com',
             'province' => 'NCR',
             'municipality' => 'Taguig',
-            'subject' => 'Superuser logged direct contact',
-            'description' => 'Client contacted the technician directly.',
+            'subject' => 'Superuser logged internal request',
+            'description' => 'Support staff contacted another support staff directly.',
             'category_id' => $category->id,
             'ticket_type' => Ticket::TYPE_INTERNAL,
         ]);
@@ -74,7 +75,7 @@ class SuperUserTicketTypeManagementTest extends TestCase
 
         $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
-        $this->assertSame($client->id, (int) $ticket->user_id);
+        $this->assertSame($technicalRequester->id, (int) $ticket->user_id);
     }
 
     public function test_super_user_can_create_ticket_without_contact_number_and_email(): void
@@ -111,7 +112,8 @@ class SuperUserTicketTypeManagementTest extends TestCase
 
         $createResponse = $this->actingAs($technical)->get(route('admin.tickets.create'));
         $createResponse->assertOk();
-        $createResponse->assertSeeText('Create Ticket for Client');
+        $createResponse->assertSeeText('Create Support Ticket');
+        $createResponse->assertSeeText('Requester Account');
         $createResponse->assertSee('name="ticket_type"', false);
 
         $storeResponse = $this->actingAs($technical)->post(route('admin.tickets.store'), [
@@ -132,6 +134,57 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_EXTERNAL, $ticket->ticket_type);
         $this->assertSame($client->id, (int) $ticket->user_id);
+    }
+
+    public function test_technical_user_can_create_internal_ticket_for_support_staff_requester(): void
+    {
+        $technical = $this->createUser('Internal Technical Creator', 'internal-technical-creator@example.com', User::ROLE_TECHNICAL);
+        $superUser = $this->createUser('Internal Super Requester', 'internal-super-requester@example.com', User::ROLE_SUPER_USER);
+        $category = $this->createCategory();
+
+        $response = $this->actingAs($technical)->post(route('admin.tickets.store'), [
+            'user_id' => $superUser->id,
+            'name' => 'Internal Super Requester',
+            'contact_number' => '09170000013',
+            'email' => 'internal-super-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Internal support request',
+            'description' => 'Technical staff is logging a request for another support staff requester.',
+            'category_id' => $category->id,
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+        ]);
+
+        $ticket = Ticket::query()->latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('admin.tickets.show', $ticket));
+        $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
+        $this->assertSame($superUser->id, (int) $ticket->user_id);
+    }
+
+    public function test_external_ticket_creation_rejects_support_staff_requester_account(): void
+    {
+        $technical = $this->createUser('External Validation Technical', 'external-validation-technical@example.com', User::ROLE_TECHNICAL);
+        $superUser = $this->createUser('External Validation Super', 'external-validation-super@example.com', User::ROLE_SUPER_USER);
+        $category = $this->createCategory();
+
+        $response = $this->actingAs($technical)
+            ->from(route('admin.tickets.create'))
+            ->post(route('admin.tickets.store'), [
+                'user_id' => $superUser->id,
+                'name' => 'External Validation Super',
+                'contact_number' => '09170000014',
+                'email' => 'external-validation-super@example.com',
+                'province' => 'NCR',
+                'municipality' => 'Pasig',
+                'subject' => 'Invalid external requester',
+                'description' => 'External tickets should stay tied to client accounts.',
+                'category_id' => $category->id,
+                'ticket_type' => Ticket::TYPE_EXTERNAL,
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.create'));
+        $response->assertSessionHasErrors('user_id');
     }
 
     public function test_admin_cannot_access_super_user_ticket_create_flow(): void

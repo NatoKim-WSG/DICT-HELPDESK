@@ -133,8 +133,13 @@ class TicketController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'department']);
+        $supportAccounts = User::query()
+            ->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'phone', 'department', 'role']);
 
-        return view('admin.tickets.create', compact('categories', 'clientAccounts'));
+        return view('admin.tickets.create', compact('categories', 'clientAccounts', 'supportAccounts'));
     }
 
     public function store(StoreTicketRequest $request)
@@ -169,7 +174,7 @@ class TicketController extends Controller
 
         $this->systemLogs->record(
             'ticket.created_by_support_user',
-            'Created a ticket on behalf of a client.',
+            'Created a ticket on behalf of a requester account.',
             [
                 'category' => 'ticket',
                 'target_type' => Ticket::class,
@@ -178,7 +183,7 @@ class TicketController extends Controller
                     'actor_role' => auth()->user()?->normalizedRole(),
                     'ticket_number' => $ticket->ticket_number,
                     'ticket_type' => $ticket->ticket_type,
-                    'client_user_id' => (int) $ticket->user_id,
+                    'requester_user_id' => (int) $ticket->user_id,
                     'category_id' => (int) $ticket->category_id,
                 ],
                 'request' => $request,

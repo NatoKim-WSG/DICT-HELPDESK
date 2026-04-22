@@ -16,11 +16,16 @@ class StoreTicketRequest extends FormRequest
 
     public function rules(): array
     {
+        $ticketType = Ticket::normalizeTicketTypeValue($this->input('ticket_type'));
+        $requesterRoles = $ticketType === Ticket::TYPE_INTERNAL
+            ? User::TICKET_ASSIGNABLE_ROLES
+            : [User::ROLE_CLIENT];
+
         return [
             'user_id' => [
                 'required',
                 Rule::exists('users', 'id')->where(fn ($query) => $query
-                    ->where('role', User::ROLE_CLIENT)
+                    ->whereIn('role', $requesterRoles)
                     ->where('is_active', true)),
             ],
             'name' => ['required', 'string', 'max:255'],

@@ -3,7 +3,11 @@
 @section('title', 'Create Ticket - ' . config('app.name'))
 
 @section('content')
-<div class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8" data-admin-ticket-create-page>
+<div
+    class="mx-auto max-w-[1460px] px-4 sm:px-6 lg:px-8"
+    data-admin-ticket-create-page
+    data-current-support-user-id="{{ in_array(auth()->user()?->normalizedRole(), \App\Models\User::TICKET_ASSIGNABLE_ROLES, true) ? (int) auth()->id() : '' }}"
+>
     <div class="mb-8">
         <nav class="flex" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-4">
@@ -39,9 +43,9 @@
     <div class="rounded-lg bg-white shadow sm:rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <div class="mb-6">
-                <h3 class="mb-2 text-lg font-medium leading-6 text-gray-900">Create Ticket for Client</h3>
-                <p class="text-sm text-slate-600">
-                    Use this form when a client contacts support directly and the ticket needs to be logged by a support user.
+                <h3 class="mb-2 text-lg font-medium leading-6 text-gray-900">Create Support Ticket</h3>
+                <p class="text-sm text-slate-600" data-ticket-create-description>
+                    Use this form to log tickets on behalf of a client or support staff requester.
                 </p>
             </div>
 
@@ -50,7 +54,7 @@
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <div class="xl:col-span-2">
-                        <label for="user_id" class="form-label">Client Account <span class="text-red-600">*</span></label>
+                        <label for="user_id" class="form-label" data-requester-account-label>Requester Account <span class="text-red-600">*</span></label>
                         <select
                             name="user_id"
                             id="user_id"
@@ -58,19 +62,40 @@
                             class="form-input @error('user_id') border-red-500 @enderror"
                             data-client-account-select
                         >
-                            <option value="">Select a client account</option>
-                            @foreach($clientAccounts as $clientAccount)
-                                <option
-                                    value="{{ $clientAccount->id }}"
-                                    data-name="{{ $clientAccount->name }}"
-                                    data-email="{{ $clientAccount->email }}"
-                                    data-phone="{{ $clientAccount->phone }}"
-                                    {{ old('user_id') == $clientAccount->id ? 'selected' : '' }}
-                                >
-                                    {{ $clientAccount->name }}
-                                </option>
-                            @endforeach
+                            <option value="" data-placeholder-option>Select a requester account</option>
+                            <optgroup label="Client Accounts">
+                                @foreach($clientAccounts as $clientAccount)
+                                    <option
+                                        value="{{ $clientAccount->id }}"
+                                        data-name="{{ $clientAccount->name }}"
+                                        data-email="{{ $clientAccount->email }}"
+                                        data-phone="{{ $clientAccount->phone }}"
+                                        data-account-group="client"
+                                        {{ old('user_id') == $clientAccount->id ? 'selected' : '' }}
+                                    >
+                                        {{ $clientAccount->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            <optgroup label="Support Staff Accounts">
+                                @foreach($supportAccounts as $supportAccount)
+                                    <option
+                                        value="{{ $supportAccount->id }}"
+                                        data-name="{{ $supportAccount->name }}"
+                                        data-email="{{ $supportAccount->email }}"
+                                        data-phone="{{ $supportAccount->phone }}"
+                                        data-role="{{ $supportAccount->role }}"
+                                        data-account-group="support"
+                                        {{ old('user_id') == $supportAccount->id ? 'selected' : '' }}
+                                    >
+                                        {{ $supportAccount->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
                         </select>
+                        <p class="mt-1 text-sm text-slate-500" data-requester-account-help>
+                            External tickets use client accounts. Internal tickets use support staff accounts.
+                        </p>
                         @error('user_id')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -81,7 +106,7 @@
                         <input type="text" name="name" id="name" required
                                class="form-input @error('name') border-red-500 @enderror"
                                value="{{ old('name') }}"
-                               placeholder="Client full name">
+                               placeholder="Requester full name">
                         @error('name')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -112,8 +137,8 @@
                     </div>
 
                     <div class="xl:col-span-2">
-                        <p class="inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                            This ticket will be linked to the selected client account, while the contact details below capture the request snapshot used for support follow-up.
+                        <p class="inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-requester-snapshot-note>
+                            This ticket will be linked to the selected requester account, while the contact details below capture the request snapshot used for support follow-up.
                         </p>
                     </div>
 
