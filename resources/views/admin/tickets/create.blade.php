@@ -41,7 +41,7 @@
             <div class="mb-6">
                 <h3 class="mb-2 text-lg font-medium leading-6 text-gray-900">Create Ticket for Client</h3>
                 <p class="text-sm text-slate-600">
-                    Use this form when a client contacts a technician directly and the ticket needs to be logged by a superuser.
+                    Use this form when a client contacts support directly and the ticket needs to be logged by a support user.
                 </p>
             </div>
 
@@ -68,7 +68,7 @@
                                     data-department="{{ $clientAccount->department }}"
                                     {{ old('user_id') == $clientAccount->id ? 'selected' : '' }}
                                 >
-                                    {{ $clientAccount->name }}{{ $clientAccount->department ? ' - ' . $clientAccount->department : '' }}
+                                    {{ $clientAccount->name }}
                                 </option>
                             @endforeach
                         </select>

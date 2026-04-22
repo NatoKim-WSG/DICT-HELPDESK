@@ -103,6 +103,37 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $this->assertNull($ticket->email);
     }
 
+    public function test_technical_user_can_open_admin_ticket_create_screen_and_create_ticket(): void
+    {
+        $technical = $this->createUser('Technical Creator', 'technical-creator@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Technical Client', 'technical-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $createResponse = $this->actingAs($technical)->get(route('admin.tickets.create'));
+        $createResponse->assertOk();
+        $createResponse->assertSeeText('Create Ticket for Client');
+        $createResponse->assertSee('name="ticket_type"', false);
+
+        $storeResponse = $this->actingAs($technical)->post(route('admin.tickets.store'), [
+            'user_id' => $client->id,
+            'name' => 'Technical Client',
+            'contact_number' => '09170000012',
+            'email' => 'technical-client@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Technical logged direct contact',
+            'description' => 'Client contacted technical support directly.',
+            'category_id' => $category->id,
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+        ]);
+
+        $ticket = Ticket::query()->latest('id')->firstOrFail();
+
+        $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
+        $this->assertSame(Ticket::TYPE_EXTERNAL, $ticket->ticket_type);
+        $this->assertSame($client->id, (int) $ticket->user_id);
+    }
+
     public function test_admin_cannot_access_super_user_ticket_create_flow(): void
     {
         $admin = $this->createUser('Admin Viewer', 'admin-viewer@example.com', User::ROLE_ADMIN);

@@ -168,13 +168,14 @@ class TicketController extends Controller
         });
 
         $this->systemLogs->record(
-            'ticket.created_by_super_user',
+            'ticket.created_by_support_user',
             'Created a ticket on behalf of a client.',
             [
                 'category' => 'ticket',
                 'target_type' => Ticket::class,
                 'target_id' => $ticket->id,
                 'metadata' => [
+                    'actor_role' => auth()->user()?->normalizedRole(),
                     'ticket_number' => $ticket->ticket_number,
                     'ticket_type' => $ticket->ticket_type,
                     'client_user_id' => (int) $ticket->user_id,

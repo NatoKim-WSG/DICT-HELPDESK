@@ -103,10 +103,10 @@ Route::middleware(['auth', 'active', 'consent.accepted', 'role:super_user,admin,
 
     Route::get('/tickets', [AdminTicketController::class, 'index'])->name('tickets.index');
     Route::get('/tickets/create', [AdminTicketController::class, 'create'])
-        ->middleware('role:super_user')
+        ->middleware('role:super_user,technical')
         ->name('tickets.create');
     Route::post('/tickets', [AdminTicketController::class, 'store'])
-        ->middleware(['throttle:20,1', 'role:super_user'])
+        ->middleware(['throttle:20,1', 'role:super_user,technical'])
         ->name('tickets.store');
     Route::get('/tickets/{ticket}', [AdminTicketController::class, 'show'])->name('tickets.show');
     Route::get('/tickets/{ticket}/replies', [AdminTicketReplyController::class, 'replies'])->name('tickets.replies.feed');

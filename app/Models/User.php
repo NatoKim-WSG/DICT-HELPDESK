@@ -196,7 +196,10 @@ class User extends Authenticatable
 
     public function canCreateClientTickets(): bool
     {
-        return $this->normalizedRole() === self::ROLE_SUPER_USER;
+        return in_array($this->normalizedRole(), [
+            self::ROLE_SUPER_USER,
+            self::ROLE_TECHNICAL,
+        ], true);
     }
 
     public function canManageTicketType(): bool
