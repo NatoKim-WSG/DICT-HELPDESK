@@ -45,17 +45,13 @@ class TicketEmailAlertService
         return $sentCount;
     }
 
-    public function notifyTechnicalAssigneeAboutAssignment(Ticket $ticket, ?array $assigneeIds = null): bool
+    public function notifyAssignedSupportUsersAboutAssignment(Ticket $ticket, ?array $assigneeIds = null): bool
     {
         if ($ticket->isClosed()) {
             return false;
         }
 
-        $ticket->loadMissing('assignedUsers');
-        $assignees = $ticket->assignedUsers
-            ->when($assigneeIds !== null, fn (Collection $users) => $users->whereIn('id', $assigneeIds))
-            ->filter(fn (User $assignee) => $assignee->isTechnician() && $assignee->is_active && ! empty($assignee->email))
-            ->values();
+        $assignees = $this->activeAssignmentRecipientsForTicket($ticket, $assigneeIds);
 
         if ($assignees->isEmpty()) {
             return false;
@@ -91,7 +87,7 @@ class TicketEmailAlertService
         return [
             'unchecked_for_super_users' => $this->sendUncheckedTicketRemindersToSuperUsers(),
             'unassigned_sla_for_super_users' => $this->sendUnassignedSlaRemindersToSuperUsers(),
-            'assigned_sla_for_technical_users' => $this->sendAssignedTechnicalSlaReminders(),
+            'assigned_sla_for_support_users' => $this->sendAssignedSupportSlaReminders(),
         ];
     }
 
@@ -124,7 +120,7 @@ class TicketEmailAlertService
                 $superRecipients,
                 $ticket,
                 'Unchecked Ticket Alert (50 Minutes): '.$ticket->ticket_number,
-                'A ticket has not been checked by a super user for 50 minutes.',
+                'A ticket has not been checked by a support reviewer for 50 minutes.',
                 'Please acknowledge this ticket now to avoid missing the 4-hour response target.',
                 [
                     'Ticket Number' => $ticket->ticket_number,
@@ -155,8 +151,10 @@ class TicketEmailAlertService
         $cutoff = now()->subHours(3)->subMinutes(30);
 
         $tickets = Ticket::query()
-            ->whereIn('status', Ticket::OPEN_STATUSES)
-            ->whereNull('assigned_to')
+            ->whereIn('status', Ticket::OPEN_STATUSES);
+        Ticket::applyUnassignedConstraint($tickets);
+
+        $tickets = $tickets
             ->whereNull('super_users_notified_unassigned_sla_at')
             ->with([
                 'user',
@@ -187,7 +185,7 @@ class TicketEmailAlertService
                 $ticket,
                 '4-Hour SLA Reminder (Unassigned): '.$ticket->ticket_number,
                 'This unassigned ticket is nearing the 4-hour resolution target.',
-                'The ticket was acknowledged by a super user 3 hours and 30 minutes ago but is still unresolved and unassigned.',
+                'The ticket was acknowledged by a support reviewer 3 hours and 30 minutes ago but is still unresolved and unassigned.',
                 [
                     'Ticket Number' => $ticket->ticket_number,
                     'Subject' => $ticket->subject,
@@ -207,25 +205,25 @@ class TicketEmailAlertService
         return $notifiedTickets;
     }
 
-    private function sendAssignedTechnicalSlaReminders(): int
+    private function sendAssignedSupportSlaReminders(): int
     {
         $cutoff = now()->subHours(3)->subMinutes(30);
 
         $tickets = Ticket::query()
             ->whereIn('status', Ticket::OPEN_STATUSES)
-            ->whereNotNull('assigned_to')
             ->whereNotNull('assigned_at')
             ->where('assigned_at', '<=', $cutoff)
-            ->whereNull('technical_user_notified_sla_at')
-            ->with(['assignedUsers'])
+            ->whereNull('technical_user_notified_sla_at');
+        Ticket::applyAssignedConstraint($tickets);
+
+        $tickets = $tickets
+            ->with('assignedUsers:id,name,email,role,is_active')
             ->get();
 
         $notifiedTickets = 0;
 
         foreach ($tickets as $ticket) {
-            $assignees = $ticket->assignedUsers
-                ->filter(fn (User $assignee) => $assignee->isTechnician() && $assignee->is_active && ! empty($assignee->email))
-                ->values();
+            $assignees = $this->activeAssignmentRecipientsForTicket($ticket);
 
             if ($assignees->isEmpty()) {
                 continue;
@@ -274,6 +272,66 @@ class TicketEmailAlertService
             ->whereNotNull('email')
             ->where('email', '!=', '')
             ->get(['id', 'name', 'email', 'role', 'is_active']);
+    }
+
+    private function activeAssignmentRecipientsForTicket(Ticket $ticket, ?array $assigneeIds = null): Collection
+    {
+        $normalizedAssigneeIds = $assigneeIds !== null
+            ? Ticket::normalizeAssignedUserIds($assigneeIds)
+            : null;
+
+        if ($ticket->relationLoaded('assignedUsers')) {
+            $assignedUsers = $ticket->assignedUsers
+                ->filter(function (User $user) use ($normalizedAssigneeIds): bool {
+                    if (! in_array($user->role, User::TICKET_ASSIGNABLE_ROLES, true)) {
+                        return false;
+                    }
+
+                    if (! $user->is_active || ! is_string($user->email) || trim($user->email) === '') {
+                        return false;
+                    }
+
+                    if ($normalizedAssigneeIds === null) {
+                        return true;
+                    }
+
+                    return in_array((int) $user->id, $normalizedAssigneeIds, true);
+                })
+                ->values();
+
+            if ($ticket->assigned_to) {
+                $primaryAssignedUser = $assignedUsers->first(fn (User $user) => (int) $user->id === (int) $ticket->assigned_to);
+                if ($primaryAssignedUser) {
+                    return $assignedUsers
+                        ->sortBy(fn (User $user) => (int) $user->id === (int) $primaryAssignedUser->id ? 0 : 1)
+                        ->values();
+                }
+            }
+
+            return $assignedUsers;
+        }
+
+        $assignedUserIds = collect($ticket->assigned_user_ids)
+            ->map(fn ($userId) => (int) $userId)
+            ->filter(fn (int $userId) => $userId > 0);
+
+        if ($normalizedAssigneeIds !== null) {
+            $assignedUserIds = $assignedUserIds->intersect($normalizedAssigneeIds);
+        }
+
+        $assignedUserIds = $assignedUserIds->unique()->values();
+        if ($assignedUserIds->isEmpty()) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereIn('id', $assignedUserIds->all())
+            ->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
+            ->where('is_active', true)
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->get(['id', 'name', 'email', 'role', 'is_active'])
+            ->values();
     }
 
     private function sendAlertToUsers(

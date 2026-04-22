@@ -222,4 +222,92 @@ class LegacyTicketImportCommandTest extends TestCase
         $this->assertSame('First import row', $ticket->subject);
         $this->assertDatabaseCount('tickets', 1);
     }
+
+    public function test_import_command_update_existing_resyncs_assignment_pivot_to_latest_assignee(): void
+    {
+        $requester = User::create([
+            'name' => 'Legacy Import Reassign User',
+            'username' => 'legacy.import.reassign',
+            'email' => 'legacy-import-reassign@example.com',
+            'department' => 'iOne',
+            'phone' => '09171234571',
+            'role' => User::ROLE_CLIENT,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+        Category::create([
+            'name' => 'Other',
+            'description' => 'General import category',
+            'color' => '#6B7280',
+            'is_active' => true,
+        ]);
+        $oldTechnical = User::create([
+            'name' => 'Legacy Old Tech',
+            'username' => 'legacy.old.tech',
+            'email' => 'legacy-old-tech@example.com',
+            'department' => 'iOne',
+            'phone' => '09171230011',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+        $newTechnical = User::create([
+            'name' => 'Legacy New Tech',
+            'username' => 'legacy.new.tech',
+            'email' => 'legacy-new-tech@example.com',
+            'department' => 'iOne',
+            'phone' => '09171230012',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => 'password',
+            'is_active' => true,
+        ]);
+
+        $ticket = Ticket::create([
+            'ticket_number' => 'TK-LEGACY-3001',
+            'name' => 'Legacy Requester',
+            'contact_number' => '09170000088',
+            'email' => 'legacy-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Legacy assigned ticket',
+            'description' => 'Existing legacy assignment.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'assigned_to' => $oldTechnical->id,
+            'assigned_at' => Carbon::parse('2025-06-24 15:04:43', 'Asia/Manila')->utc(),
+            'user_id' => $requester->id,
+            'category_id' => Category::query()->where('name', 'Other')->value('id'),
+            'created_at' => Carbon::parse('2025-06-24 15:04:43', 'Asia/Manila')->utc(),
+            'updated_at' => Carbon::parse('2025-06-24 15:04:43', 'Asia/Manila')->utc(),
+        ]);
+        $ticket->assignedUsers()->sync([$oldTechnical->id]);
+
+        $importPath = storage_path('app/private/imports/reassign-existing.csv');
+        File::ensureDirectoryExists(dirname($importPath));
+        File::put($importPath, implode(PHP_EOL, [
+            'ticket_number,subject,description,created_at,category,assigned_to_email',
+            '"TK-LEGACY-3001","Reassigned imported ticket","Updated assignment from import","2025-06-24 16:04:43","Other","legacy-new-tech@example.com"',
+            '',
+        ]));
+
+        $this->artisan('tickets:import-csv', [
+            'path' => 'reassign-existing.csv',
+            '--default-user' => (string) $requester->id,
+            '--source-timezone' => 'Asia/Manila',
+            '--update-existing' => true,
+        ])->assertSuccessful();
+
+        $ticket->refresh();
+
+        $this->assertSame($newTechnical->id, (int) $ticket->assigned_to);
+        $this->assertEqualsCanonicalizing([$newTechnical->id], $ticket->assigned_user_ids);
+        $this->assertDatabaseMissing('ticket_assignments', [
+            'ticket_id' => $ticket->id,
+            'user_id' => $oldTechnical->id,
+        ]);
+        $this->assertDatabaseHas('ticket_assignments', [
+            'ticket_id' => $ticket->id,
+            'user_id' => $newTechnical->id,
+        ]);
+    }
 }

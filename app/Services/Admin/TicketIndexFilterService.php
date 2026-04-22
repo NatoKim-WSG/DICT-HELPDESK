@@ -194,7 +194,7 @@ class TicketIndexFilterService
         }
 
         if ((string) $request->assigned_to === '0') {
-            $query->whereDoesntHave('assignedUsers');
+            Ticket::applyUnassignedConstraint($query);
 
             return;
         }

@@ -385,6 +385,53 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $response->assertDontSee(route('admin.tickets.show', $otherTicket), false);
     }
 
+    public function test_unassigned_filter_does_not_treat_primary_assignee_without_pivot_row_as_unassigned(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $assignedUser = $this->createAssignedSupportUser('Stale Primary Support', 'stale-primary-support@example.com');
+        $category = $this->createCategory();
+        $client = $this->createClient('Stale Assignment Client', 'stale-assignment-client@example.com');
+
+        $staleAssignedTicket = Ticket::create([
+            'name' => 'Stale Assigned Requester',
+            'contact_number' => '09110000133',
+            'email' => 'stale-assigned-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Primary assignee only ticket',
+            'description' => 'Should still count as assigned.',
+            'priority' => 'medium',
+            'status' => 'in_progress',
+            'assigned_to' => $assignedUser->id,
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        $staleAssignedTicket->assignedUsers()->sync([]);
+
+        $trulyUnassignedTicket = Ticket::create([
+            'name' => 'Truly Unassigned Requester',
+            'contact_number' => '09110000134',
+            'email' => 'truly-unassigned-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Actually unassigned ticket',
+            'description' => 'Should be the only result in the unassigned filter.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'assigned_to' => '0',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.tickets.show', $trulyUnassignedTicket), false);
+        $response->assertDontSee(route('admin.tickets.show', $staleAssignedTicket), false);
+    }
+
     public function test_admin_ticket_partial_filter_response_returns_rendered_results_html(): void
     {
         $supportUser = $this->createSupportUser();

@@ -47,7 +47,7 @@ class E2eSmokeSeeder extends Seeder
             ]
         );
 
-        Ticket::updateOrCreate(
+        $ticket = Ticket::updateOrCreate(
             ['ticket_number' => 'TK-E2E-SMOKE-001'],
             [
                 'name' => 'E2E Requester',
@@ -67,5 +67,7 @@ class E2eSmokeSeeder extends Seeder
                 'category_id' => $category->id,
             ]
         );
+
+        $ticket->assignedUsers()->sync([$superUser->id]);
     }
 }

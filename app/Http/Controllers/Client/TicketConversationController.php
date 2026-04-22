@@ -64,6 +64,7 @@ class TicketConversationController extends Controller
                         'status' => 'open',
                         ...Ticket::reopenedLifecycleResetAttributes(),
                     ]);
+                    TicketUserState::clearAcknowledgmentsForReopenedTicket($ticket);
                 }
 
                 return $reply;

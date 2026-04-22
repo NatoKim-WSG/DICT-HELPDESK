@@ -108,8 +108,7 @@ class TicketIndexOptionService
         }
 
         return User::query()
-            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->visibleDirectory()
+            ->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
             ->where('is_active', true)
             ->whereIn('id', $visibleAssigneeIds)
             ->orderBy('name')
@@ -120,8 +119,7 @@ class TicketIndexOptionService
     public function activeAssignableAgents(): Collection
     {
         return User::query()
-            ->whereIn('role', User::TICKET_CONSOLE_ROLES)
-            ->visibleDirectory()
+            ->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'role']);

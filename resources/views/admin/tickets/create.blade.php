@@ -65,7 +65,6 @@
                                     data-name="{{ $clientAccount->name }}"
                                     data-email="{{ $clientAccount->email }}"
                                     data-phone="{{ $clientAccount->phone }}"
-                                    data-department="{{ $clientAccount->department }}"
                                     {{ old('user_id') == $clientAccount->id ? 'selected' : '' }}
                                 >
                                     {{ $clientAccount->name }}

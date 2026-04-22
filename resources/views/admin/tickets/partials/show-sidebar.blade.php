@@ -68,7 +68,7 @@
                     </dd>
                 </div>
                 <div>
-                    <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
+                    <dt class="text-sm font-medium text-gray-500">Assigned Staff</dt>
                     <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
                 </div>
                 @if($ticket->resolved_at)
@@ -135,14 +135,14 @@
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 @php($selectedAssignedIds = collect(old('assigned_to', $ticket->assigned_user_ids))->map(fn ($id) => (string) $id)->all())
                 <div>
-                    <span class="form-label">Assign To</span>
+                    <span class="form-label">Assign Staff</span>
                     <select
                         name="assigned_to[]"
                         id="assigned_to"
                         class="form-input"
                         multiple
                         data-enhanced-multiselect="1"
-                        data-placeholder="Select technicians"
+                        data-placeholder="Select support staff"
                     >
                         @foreach($assignees as $assignee)
                             <option

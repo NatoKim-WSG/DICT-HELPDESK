@@ -26,12 +26,7 @@ class TicketAssignmentService
 
     public function normalizedAssigneeIdsFromRequest(Request $request): array
     {
-        return collect($request->input('assigned_to', []))
-            ->map(fn ($userId) => (int) $userId)
-            ->filter(fn (int $userId) => $userId > 0)
-            ->unique()
-            ->values()
-            ->all();
+        return Ticket::normalizeAssignedUserIds((array) $request->input('assigned_to', []));
     }
 
     public function assignTicket(Request $request, Ticket $ticket): bool
@@ -77,6 +72,10 @@ class TicketAssignmentService
 
         $tickets->each(function (Ticket $ticket) use ($newAssignedIds, $newAssignedTo): void {
             $previousAssignedIds = $ticket->assigned_user_ids;
+            if ($previousAssignedIds === $newAssignedIds) {
+                return;
+            }
+
             $ticket->update([
                 'assigned_to' => $newAssignedTo,
                 ...$this->assignmentMetadataForChange($previousAssignedIds, $newAssignedIds),
@@ -163,7 +162,7 @@ class TicketAssignmentService
 
     public function primaryAssigneeId(array $assigneeIds): ?int
     {
-        return $assigneeIds[0] ?? null;
+        return Ticket::primaryAssignedUserId($assigneeIds);
     }
 
     private function trackTicketAcknowledgment(Ticket $ticket): void
@@ -179,7 +178,7 @@ class TicketAssignmentService
             return;
         }
 
-        $this->ticketEmailAlerts->notifyTechnicalAssigneeAboutAssignment(
+        $this->ticketEmailAlerts->notifyAssignedSupportUsersAboutAssignment(
             $ticket->fresh(['assignedUser', 'assignedUsers']),
             $newlyAssignedIds
         );

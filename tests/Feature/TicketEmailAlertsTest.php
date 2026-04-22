@@ -171,6 +171,43 @@ class TicketEmailAlertsTest extends TestCase
         });
     }
 
+    public function test_super_user_and_technical_users_receive_assignment_email_when_jointly_assigned(): void
+    {
+        Mail::fake();
+
+        $assigningSuperUser = $this->createUser('Super Joint Assigner', 'super-joint-assigner@example.com', User::ROLE_SUPER_USER);
+        $assignedSuperUser = $this->createUser('Assigned Super User', 'assigned-super-user@example.com', User::ROLE_SUPER_USER);
+        $technical = $this->createUser('Joint Tech Alerts', 'joint-tech-alerts@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Joint Client', 'joint-client@example.com', User::ROLE_CLIENT, 'iOne');
+        $category = $this->createCategory();
+        $ticket = $this->createTicket($client, $category);
+
+        $response = $this->actingAs($assigningSuperUser)->post(route('admin.tickets.assign', $ticket), [
+            'assigned_to' => [$assignedSuperUser->id, $technical->id],
+        ]);
+
+        $response->assertRedirect();
+
+        $ticket->refresh();
+        $this->assertSame($assignedSuperUser->id, (int) $ticket->assigned_to);
+        $this->assertEqualsCanonicalizing(
+            [$assignedSuperUser->id, $technical->id],
+            $ticket->assigned_user_ids
+        );
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser, $ticket) {
+            return $mail->hasTo($assignedSuperUser->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
+                && $mail->ticket->is($ticket);
+        });
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
+            return $mail->hasTo($technical->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
+                && $mail->ticket->is($ticket);
+        });
+    }
+
     public function test_command_sends_50_minute_unchecked_ticket_alert_to_super_users(): void
     {
         Mail::fake();
@@ -269,6 +306,40 @@ class TicketEmailAlertsTest extends TestCase
 
         $ticket->refresh();
         $this->assertNotNull($ticket->technical_user_notified_sla_at);
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
+            return $mail->hasTo($technical->email)
+                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):')
+                && $mail->ticket->is($ticket);
+        });
+    }
+
+    public function test_command_sends_assigned_sla_warning_to_all_assigned_support_users(): void
+    {
+        Mail::fake();
+
+        $assignedSuperUser = $this->createUser('Assigned SLA Super', 'assigned-sla-super@example.com', User::ROLE_SUPER_USER);
+        $technical = $this->createUser('Assigned SLA Tech', 'assigned-sla-tech@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Assigned SLA Client', 'assigned-sla-client@example.com', User::ROLE_CLIENT, 'iOne');
+        $category = $this->createCategory();
+
+        $ticket = $this->createTicket($client, $category, [
+            'assigned_to' => $assignedSuperUser->id,
+            'assigned_at' => now()->subHours(3)->subMinutes(31),
+            'status' => 'in_progress',
+        ]);
+        $ticket->assignedUsers()->sync([$assignedSuperUser->id, $technical->id]);
+
+        $this->artisan('tickets:send-alert-emails')->assertSuccessful();
+
+        $ticket->refresh();
+        $this->assertNotNull($ticket->technical_user_notified_sla_at);
+
+        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser, $ticket) {
+            return $mail->hasTo($assignedSuperUser->email)
+                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):')
+                && $mail->ticket->is($ticket);
+        });
 
         Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
             return $mail->hasTo($technical->email)

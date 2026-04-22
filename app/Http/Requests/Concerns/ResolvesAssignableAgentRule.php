@@ -11,8 +11,7 @@ trait ResolvesAssignableAgentRule
     protected function assignableAgentRule(): Exists
     {
         return Rule::exists('users', 'id')->where(function ($query) {
-            $query->whereIn('role', User::TICKET_CONSOLE_ROLES)
-                ->where('role', '!=', User::ROLE_SHADOW)
+            $query->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
                 ->where('is_active', true);
         });
     }

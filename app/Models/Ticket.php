@@ -223,10 +223,60 @@ class Ticket extends Model
     {
         return $query->where(function (Builder $builder) use ($userId) {
             $builder->where('assigned_to', $userId)
-                ->orWhereHas('assignedUsers', function (Builder $assignmentQuery) use ($userId) {
-                    $assignmentQuery->where('users.id', $userId);
+                ->orWhereExists(function ($assignmentQuery) use ($userId) {
+                    self::configureAssignmentExistsQuery($assignmentQuery, $userId);
                 });
         });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
+    public static function applyAssignedConstraint(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder) {
+            $builder->whereNotNull('assigned_to')
+                ->orWhereExists(function ($assignmentQuery) {
+                    self::configureAssignmentExistsQuery($assignmentQuery);
+                });
+        });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
+    public static function applyUnassignedConstraint(Builder $query): Builder
+    {
+        return $query->whereNull('assigned_to')
+            ->whereNotExists(function ($assignmentQuery) {
+                self::configureAssignmentExistsQuery($assignmentQuery);
+            });
+    }
+
+    public static function normalizeAssignedUserIds(array $userIds, ?int $primaryAssignedTo = null): array
+    {
+        $normalizedIds = collect($userIds)
+            ->map(fn ($userId) => (int) $userId)
+            ->filter(fn (int $userId) => $userId > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($primaryAssignedTo === null || $primaryAssignedTo <= 0) {
+            return $normalizedIds;
+        }
+
+        return array_values(array_unique([
+            $primaryAssignedTo,
+            ...$normalizedIds,
+        ]));
+    }
+
+    public static function primaryAssignedUserId(array $userIds, ?int $primaryAssignedTo = null): ?int
+    {
+        return self::normalizeAssignedUserIds($userIds, $primaryAssignedTo)[0] ?? null;
     }
 
     public function scopeOpen(Builder $query): Builder
@@ -316,15 +366,10 @@ class Ticket extends Model
             ? $this->assignedUsers->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
             : $this->assignedUsers()->pluck('users.id')->map(fn ($id) => (int) $id)->values()->all();
 
-        $primaryAssignedTo = $this->assigned_to ? (int) $this->assigned_to : null;
-        if ($primaryAssignedTo === null) {
-            return $assignedUserIds;
-        }
-
-        return array_values(array_unique([
-            $primaryAssignedTo,
-            ...$assignedUserIds,
-        ]));
+        return self::normalizeAssignedUserIds(
+            $assignedUserIds,
+            $this->assigned_to ? (int) $this->assigned_to : null
+        );
     }
 
     public function getAssignedUsersLabelAttribute(): string
@@ -468,8 +513,20 @@ class Ticket extends Model
             'closed_by' => null,
             'satisfaction_rating' => null,
             'satisfaction_comment' => null,
+            'super_users_notified_unchecked_at' => null,
             'super_users_notified_unassigned_sla_at' => null,
             'technical_user_notified_sla_at' => null,
         ];
+    }
+
+    private static function configureAssignmentExistsQuery(mixed $assignmentQuery, ?int $userId = null): void
+    {
+        $assignmentQuery->selectRaw('1')
+            ->from('ticket_assignments')
+            ->whereColumn('ticket_assignments.ticket_id', 'tickets.id');
+
+        if ($userId !== null) {
+            $assignmentQuery->where('ticket_assignments.user_id', $userId);
+        }
     }
 }

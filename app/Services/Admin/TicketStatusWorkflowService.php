@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\Ticket;
 use App\Models\TicketReply;
+use App\Models\TicketUserState;
 use App\Services\SystemLogService;
 use App\Services\TicketAcknowledgmentService;
 use Illuminate\Database\Eloquent\Collection;
@@ -67,7 +68,10 @@ class TicketStatusWorkflowService
         if ($previousAssignedIds !== $newAssignedIds) {
             $this->ticketAssignments->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds);
         }
-        $this->trackTicketAcknowledgment($ticket);
+        $this->resetReopenedTicketReviewState($ticket, $previousStatus, $nextStatus);
+        if ($this->shouldTrackAcknowledgmentAfterStatusChange($previousStatus, $nextStatus)) {
+            $this->trackTicketAcknowledgment($ticket);
+        }
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
         $this->systemLogs->record(
             'ticket.status.updated',
@@ -125,7 +129,10 @@ class TicketStatusWorkflowService
 
         $ticket->update($updateData);
         $this->ticketAssignments->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds, notifyNewAssignees: true);
-        $this->trackTicketAcknowledgment($ticket);
+        $this->resetReopenedTicketReviewState($ticket, $previousStatus, $nextStatus);
+        if ($this->shouldTrackAcknowledgmentAfterStatusChange($previousStatus, $nextStatus)) {
+            $this->trackTicketAcknowledgment($ticket);
+        }
         $this->recordStatusClosureReason($ticket, $previousStatus, $nextStatus, $request->string('close_reason')->toString());
         $this->systemLogs->record(
             'ticket.quick_update',
@@ -177,7 +184,10 @@ class TicketStatusWorkflowService
             }
 
             $ticket->update($updateData);
-            $this->trackTicketAcknowledgment($ticket);
+            $this->resetReopenedTicketReviewState($ticket, $previousStatus, $newStatus);
+            if ($this->shouldTrackAcknowledgmentAfterStatusChange($previousStatus, $newStatus)) {
+                $this->trackTicketAcknowledgment($ticket);
+            }
 
             if ($previousAssignedIds !== $newAssignedIds) {
                 $this->ticketAssignments->syncAssignmentState($ticket, $previousAssignedIds, $newAssignedIds);
@@ -281,5 +291,26 @@ class TicketStatusWorkflowService
             'message' => "Ticket was closed by {$actorName}.\nReason: {$reason}",
             'is_internal' => true,
         ]);
+    }
+
+    private function resetReopenedTicketReviewState(Ticket $ticket, string $previousStatus, string $nextStatus): void
+    {
+        if (! in_array($previousStatus, Ticket::CLOSED_STATUSES, true)) {
+            return;
+        }
+
+        if (! in_array($nextStatus, Ticket::OPEN_STATUSES, true)) {
+            return;
+        }
+
+        TicketUserState::clearAcknowledgmentsForReopenedTicket($ticket);
+    }
+
+    private function shouldTrackAcknowledgmentAfterStatusChange(string $previousStatus, string $nextStatus): bool
+    {
+        return ! (
+            in_array($previousStatus, Ticket::CLOSED_STATUSES, true)
+            && in_array($nextStatus, Ticket::OPEN_STATUSES, true)
+        );
     }
 }

@@ -123,7 +123,7 @@ class TicketBulkActionController extends Controller
     {
         $newAssignedIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
         if ($newAssignedIds === []) {
-            return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose a technical user.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Please choose at least one support assignee.');
         }
 
         $this->ticketAssignments->bulkAssignTickets($request, $tickets, $selectedIds->all());
@@ -171,7 +171,7 @@ class TicketBulkActionController extends Controller
     private function handleBulkMerge(BulkTicketActionRequest $request, EloquentCollection $tickets, Collection $selectedIds)
     {
         if (! $this->canRunDestructiveAction()) {
-            return $this->redirectBackOrReturnTo($request)->with('error', 'Only super users or admins can run merge actions.');
+            return $this->redirectBackOrReturnTo($request)->with('error', 'Only admin-level staff can run merge actions.');
         }
 
         if ($selectedIds->count() < 2) {

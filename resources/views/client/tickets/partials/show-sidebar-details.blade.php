@@ -59,7 +59,7 @@
                 </dd>
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500">Assigned To</dt>
+                <dt class="text-sm font-medium text-gray-500">Assigned Staff</dt>
                 <dd class="text-sm text-gray-900">{{ $ticket->assigned_users_label }}</dd>
             </div>
             @if($ticket->resolved_at)

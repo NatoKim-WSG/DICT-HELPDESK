@@ -16,10 +16,10 @@ class SendTicketAlertEmails extends Command
         $summary = $alerts->sendScheduledReminders();
 
         $this->info(sprintf(
-            'Ticket alerts sent. unchecked=%d, super_sla=%d, technical_sla=%d',
+            'Ticket alerts sent. unchecked=%d, super_sla=%d, support_sla=%d',
             $summary['unchecked_for_super_users'] ?? 0,
             $summary['unassigned_sla_for_super_users'] ?? 0,
-            $summary['assigned_sla_for_technical_users'] ?? 0,
+            $summary['assigned_sla_for_support_users'] ?? 0,
         ));
 
         return self::SUCCESS;

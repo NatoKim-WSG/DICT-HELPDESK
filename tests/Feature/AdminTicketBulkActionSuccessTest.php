@@ -39,6 +39,45 @@ class AdminTicketBulkActionSuccessTest extends TestCase
         ]);
     }
 
+    public function test_super_user_can_bulk_assign_tickets_to_multiple_support_users(): void
+    {
+        [$superUser, , $technical, $ticketOne, $ticketTwo] = $this->seedBulkActionContext();
+        $secondarySuperUser = User::create([
+            'name' => 'Bulk Secondary Super User',
+            'email' => 'bulk-secondary-super-user@example.com',
+            'phone' => '09130000006',
+            'department' => 'iOne',
+            'role' => User::ROLE_SUPER_USER,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($superUser)
+            ->from(route('admin.tickets.index'))
+            ->post(route('admin.tickets.bulk-action'), [
+                'action' => 'assign',
+                'selected_ids' => [$ticketOne->id, $ticketTwo->id],
+                'assigned_to' => [$secondarySuperUser->id, $technical->id],
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.index'));
+        $response->assertSessionHas('success');
+
+        $ticketOne->refresh();
+        $ticketTwo->refresh();
+
+        $this->assertSame($secondarySuperUser->id, (int) $ticketOne->assigned_to);
+        $this->assertSame($secondarySuperUser->id, (int) $ticketTwo->assigned_to);
+        $this->assertEqualsCanonicalizing(
+            [$secondarySuperUser->id, $technical->id],
+            $ticketOne->assigned_user_ids
+        );
+        $this->assertEqualsCanonicalizing(
+            [$secondarySuperUser->id, $technical->id],
+            $ticketTwo->assigned_user_ids
+        );
+    }
+
     public function test_super_user_can_bulk_close_tickets_with_reason(): void
     {
         [$superUser, , , $ticketOne, $ticketTwo] = $this->seedBulkActionContext();

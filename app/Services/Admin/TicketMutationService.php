@@ -47,14 +47,17 @@ class TicketMutationService
             ->unique()
             ->values()
             ->all();
-        $combinedAssignedIds = array_values(array_unique([
+        $combinedAssignedIds = Ticket::normalizeAssignedUserIds([
             ...$primaryAssignedIds,
             ...$mergedAssignedIds,
-        ]));
+        ], $primary->assigned_to ? (int) $primary->assigned_to : null);
 
         if ($combinedAssignedIds !== $primaryAssignedIds) {
             $updateData = [];
-            $nextPrimaryAssignee = $primary->assigned_to ? (int) $primary->assigned_to : ($combinedAssignedIds[0] ?? null);
+            $nextPrimaryAssignee = Ticket::primaryAssignedUserId(
+                $combinedAssignedIds,
+                $primary->assigned_to ? (int) $primary->assigned_to : null
+            );
 
             if ((int) ($primary->assigned_to ?? 0) !== (int) ($nextPrimaryAssignee ?? 0)) {
                 $updateData['assigned_to'] = $nextPrimaryAssignee;

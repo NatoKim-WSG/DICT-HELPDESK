@@ -47,6 +47,12 @@ class User extends Authenticatable
         self::ROLE_SUPER_USER,
     ];
 
+    public const TICKET_ASSIGNABLE_ROLES = [
+        self::ROLE_ADMIN,
+        self::ROLE_SUPER_USER,
+        self::ROLE_TECHNICAL,
+    ];
+
     public const USER_MANAGEMENT_CLIENT_ONLY_ROLES = [
         self::ROLE_CLIENT,
     ];

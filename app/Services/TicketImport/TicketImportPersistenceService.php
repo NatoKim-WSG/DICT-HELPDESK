@@ -115,6 +115,7 @@ class TicketImportPersistenceService
         $ticket->timestamps = false;
         $ticket->forceFill($attributes);
         $ticket->save();
+        $this->syncImportedAssignmentState($ticket, $attributes);
         $this->importedTickets->syncImportedReviewState($ticket);
 
         return $ticket;
@@ -128,9 +129,29 @@ class TicketImportPersistenceService
         $ticket->timestamps = false;
         $ticket->forceFill($attributes);
         $ticket->save();
+        $this->syncImportedAssignmentState($ticket, $attributes);
         $this->importedTickets->syncImportedReviewState($ticket);
 
         return $ticket;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function syncImportedAssignmentState(Ticket $ticket, array $attributes): void
+    {
+        $assignedUserIds = Ticket::normalizeAssignedUserIds([
+            isset($attributes['assigned_to']) ? (int) $attributes['assigned_to'] : 0,
+        ]);
+        $assignedTo = Ticket::primaryAssignedUserId($assignedUserIds);
+
+        if ((int) ($ticket->assigned_to ?? 0) !== (int) ($assignedTo ?? 0)) {
+            $ticket->forceFill([
+                'assigned_to' => $assignedTo,
+            ])->save();
+        }
+
+        $ticket->assignedUsers()->sync($assignedUserIds);
     }
 
     /**

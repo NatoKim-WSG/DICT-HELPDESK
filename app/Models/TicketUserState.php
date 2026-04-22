@@ -117,6 +117,25 @@ class TicketUserState extends Model
         return $state;
     }
 
+    public static function clearAcknowledgmentsForReopenedTicket(Ticket $ticket): void
+    {
+        static::query()
+            ->where('ticket_id', $ticket->id)
+            ->whereHas('user', function ($query) {
+                $query->whereIn('role', [
+                    User::ROLE_SUPER_USER,
+                    User::ROLE_ADMIN,
+                    User::ROLE_SHADOW,
+                ]);
+            })
+            ->whereNotNull('acknowledged_at')
+            ->update([
+                'acknowledged_at' => null,
+            ]);
+
+        static::forgetHeaderNotificationCachesForTicket($ticket);
+    }
+
     public function hasViewedActivity(Carbon $activityAt): bool
     {
         return $this->last_seen_at !== null && $this->last_seen_at->gte($activityAt);
