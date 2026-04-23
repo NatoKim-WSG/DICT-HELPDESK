@@ -69,6 +69,8 @@ class TicketController extends Controller
             'ticket_type' => Ticket::TYPE_EXTERNAL,
             'priority' => null,
             'user_id' => auth()->id(),
+            'created_by_user_id' => auth()->id(),
+            'creation_source' => Ticket::CREATION_SOURCE_CLIENT_SELF_SERVICE,
             'consent_accepted_at' => now(),
             'consent_version' => (string) config('legal.ticket_consent_version'),
             'consent_ip_address' => $request->ip(),

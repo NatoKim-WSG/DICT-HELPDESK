@@ -147,7 +147,7 @@ trait InteractsWithTicketReplies
 
     protected function loadTicketWithVisibleReplies(Ticket $ticket, bool $includeInternal = true): void
     {
-        $ticket->load(['user', 'category', 'assignedUser', 'assignedUsers', 'closedBy', 'attachments']);
+        $ticket->load(['user', 'createdByUser', 'category', 'assignedUser', 'assignedUsers', 'closedBy', 'attachments']);
         $ticket->setRelation('replies', $this->visibleRepliesRelationForTicket($ticket, $includeInternal));
     }
 

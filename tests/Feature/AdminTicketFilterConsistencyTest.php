@@ -627,6 +627,83 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $clientResponse->assertDontSee(route('admin.tickets.show', $staffHistoryTicket), false);
     }
 
+    public function test_history_results_show_requester_and_creation_path_context(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $staffCreator = $this->createAssignedSupportUser('History Staff Creator', 'history-staff-creator@example.com');
+        $staffRequester = $this->createAssignedSupportUser('History Staff Requester Display', 'history-staff-requester-display@example.com');
+        $category = $this->createCategory();
+        $client = $this->createClient('History Display Client', 'history-display-client@example.com');
+
+        Ticket::create([
+            'name' => 'Client Self Requester',
+            'contact_number' => '09110000155',
+            'email' => 'client-self-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Client self-submitted history ticket',
+            'description' => 'Client submitted directly.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_CLIENT_SELF_SERVICE,
+            'created_by_user_id' => $client->id,
+            'resolved_at' => now()->subDay(),
+            'closed_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::create([
+            'name' => 'Client Staff Logged Requester',
+            'contact_number' => '09110000156',
+            'email' => 'client-staff-logged-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Staff logged client history ticket',
+            'description' => 'Staff created for client.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT,
+            'created_by_user_id' => $staffCreator->id,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        Ticket::create([
+            'name' => 'Staff Logged Staff Requester',
+            'contact_number' => '09110000157',
+            'email' => 'staff-logged-staff-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Staff logged internal history ticket',
+            'description' => 'Staff created for staff.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_STAFF,
+            'created_by_user_id' => $staffCreator->id,
+            'resolved_at' => now()->subDays(3),
+            'closed_at' => now()->subDays(2),
+            'user_id' => $staffRequester->id,
+            'category_id' => $category->id,
+        ]);
+
+        $response = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+        ]));
+
+        $response->assertOk();
+        $response->assertSeeText('Requester: History Display Client');
+        $response->assertSeeText('Submitted directly by client');
+        $response->assertSeeText('Logged by History Staff Creator for client');
+        $response->assertSeeText('Requester: History Staff Requester Display');
+        $response->assertSeeText('Logged by History Staff Creator for staff');
+    }
+
     public function test_admin_ticket_heartbeat_keeps_same_page_token_for_off_page_changes(): void
     {
         $supportUser = $this->createSupportUser();

@@ -44,6 +44,8 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $ticket = Ticket::query()->latest('id')->firstOrFail();
 
         $this->assertSame(Ticket::TYPE_EXTERNAL, $ticket->ticket_type);
+        $this->assertSame($client->id, (int) $ticket->created_by_user_id);
+        $this->assertSame(Ticket::CREATION_SOURCE_CLIENT_SELF_SERVICE, $ticket->creation_source);
     }
 
     public function test_super_user_can_open_admin_ticket_create_screen_and_create_internal_ticket(): void
@@ -79,7 +81,9 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
         $this->assertSame($technicalRequester->id, (int) $ticket->user_id);
+        $this->assertSame($superUser->id, (int) $ticket->created_by_user_id);
         $this->assertSame($superUser->id, (int) $ticket->assigned_to);
+        $this->assertSame(Ticket::CREATION_SOURCE_STAFF_FOR_STAFF, $ticket->creation_source);
         $this->assertSame([$superUser->id], $ticket->assigned_user_ids);
     }
 
@@ -141,6 +145,8 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_EXTERNAL, $ticket->ticket_type);
         $this->assertSame($client->id, (int) $ticket->user_id);
+        $this->assertSame($technical->id, (int) $ticket->created_by_user_id);
+        $this->assertSame(Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT, $ticket->creation_source);
     }
 
     public function test_technical_user_can_create_internal_ticket_for_support_staff_requester(): void
@@ -168,7 +174,9 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $response->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
         $this->assertSame($superUser->id, (int) $ticket->user_id);
+        $this->assertSame($technical->id, (int) $ticket->created_by_user_id);
         $this->assertSame($technical->id, (int) $ticket->assigned_to);
+        $this->assertSame(Ticket::CREATION_SOURCE_STAFF_FOR_STAFF, $ticket->creation_source);
         $this->assertSame([$technical->id], $ticket->assigned_user_ids);
     }
 

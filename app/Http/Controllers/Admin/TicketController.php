@@ -56,7 +56,7 @@ class TicketController extends Controller
         }
 
         $tickets = (clone $filteredQuery)
-            ->with(['user', 'category', 'assignedUser', 'assignedUsers', 'closedBy'])
+            ->with(['user', 'createdByUser', 'category', 'assignedUser', 'assignedUsers', 'closedBy'])
             ->latest()
             ->paginate($perPage, ['*'], 'page', $currentPage);
         $pageSnapshotToken = $this->ticketIndex->buildTicketListPageSnapshotTokenForTickets($tickets);
@@ -171,8 +171,12 @@ class TicketController extends Controller
                     'priority' => null,
                     'status' => 'open',
                     'user_id' => $request->integer('user_id'),
+                    'created_by_user_id' => (int) auth()->id(),
                     'assigned_to' => $assignedTo,
                     'assigned_at' => $assignedTo !== null ? now() : null,
+                    'creation_source' => $request->string('ticket_type')->toString() === Ticket::TYPE_INTERNAL
+                        ? Ticket::CREATION_SOURCE_STAFF_FOR_STAFF
+                        : Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT,
                 ]);
 
                 $this->persistAttachmentsFromRequest($request, $ticket);

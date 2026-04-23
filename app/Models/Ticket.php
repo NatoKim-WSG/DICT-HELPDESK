@@ -16,10 +16,12 @@ use Illuminate\Support\Str;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $created_by_user_id
  * @property int|null $assigned_to
  * @property int|null $category_id
  * @property string $ticket_number
  * @property string $ticket_type
+ * @property string|null $creation_source
  * @property string $subject
  * @property string|null $priority
  * @property string $status
@@ -29,6 +31,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $resolved_at
  * @property Carbon|null $closed_at
  * @property-read User $user
+ * @property-read User|null $createdByUser
  * @property-read User|null $assignedUser
  * @property-read Collection<int, User> $assignedUsers
  * @property-read User|null $closedBy
@@ -55,6 +58,21 @@ class Ticket extends Model
     public const TYPES = [
         self::TYPE_INTERNAL,
         self::TYPE_EXTERNAL,
+    ];
+
+    public const CREATION_SOURCE_CLIENT_SELF_SERVICE = 'client_self_service';
+
+    public const CREATION_SOURCE_STAFF_FOR_CLIENT = 'staff_for_client';
+
+    public const CREATION_SOURCE_STAFF_FOR_STAFF = 'staff_for_staff';
+
+    public const CREATION_SOURCE_IMPORTED = 'imported';
+
+    public const CREATION_SOURCES = [
+        self::CREATION_SOURCE_CLIENT_SELF_SERVICE,
+        self::CREATION_SOURCE_STAFF_FOR_CLIENT,
+        self::CREATION_SOURCE_STAFF_FOR_STAFF,
+        self::CREATION_SOURCE_IMPORTED,
     ];
 
     public const PRIORITY_ALIASES = [
@@ -91,11 +109,13 @@ class Ticket extends Model
         'priority',
         'status',
         'user_id',
+        'created_by_user_id',
         'assigned_to',
         'assigned_at',
         'is_imported',
         'category_id',
         'ticket_type',
+        'creation_source',
         'resolved_at',
         'closed_at',
         'closed_by',
@@ -170,6 +190,12 @@ class Ticket extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function createdByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /** @return BelongsTo<User, $this> */
@@ -370,6 +396,24 @@ class Ticket extends Model
         $this->attributes['ticket_type'] = self::normalizeTicketTypeValue($value);
     }
 
+    public static function normalizeCreationSourceValue(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($value));
+
+        return in_array($normalized, self::CREATION_SOURCES, true)
+            ? $normalized
+            : null;
+    }
+
+    public function setCreationSourceAttribute(mixed $value): void
+    {
+        $this->attributes['creation_source'] = self::normalizeCreationSourceValue($value);
+    }
+
     public function hasAssignedUser(int $userId): bool
     {
         if ($this->relationLoaded('assignedUsers')) {
@@ -438,6 +482,50 @@ class Ticket extends Model
             ->implode(', ');
 
         return $label !== '' ? $label : 'Unassigned';
+    }
+
+    public function getRequesterDisplayLabelAttribute(): string
+    {
+        if ($this->relationLoaded('user') && $this->user) {
+            return $this->user->publicDisplayName();
+        }
+
+        if ($this->user_id) {
+            $requester = $this->user()->first();
+            if ($requester instanceof User) {
+                return $requester->publicDisplayName();
+            }
+        }
+
+        return (string) ($this->name ?: 'Unknown requester');
+    }
+
+    public function getCreationSourceLabelAttribute(): string
+    {
+        return match ($this->resolvedCreationSource()) {
+            self::CREATION_SOURCE_CLIENT_SELF_SERVICE => 'Client Submitted',
+            self::CREATION_SOURCE_STAFF_FOR_CLIENT => 'Staff Logged for Client',
+            self::CREATION_SOURCE_STAFF_FOR_STAFF => 'Staff Logged for Staff',
+            self::CREATION_SOURCE_IMPORTED => 'Imported',
+            default => 'Requester Linked',
+        };
+    }
+
+    public function getCreationSourceSummaryAttribute(): string
+    {
+        $creatorName = $this->creatorDisplayName();
+
+        return match ($this->resolvedCreationSource()) {
+            self::CREATION_SOURCE_CLIENT_SELF_SERVICE => 'Submitted directly by client',
+            self::CREATION_SOURCE_STAFF_FOR_CLIENT => $creatorName
+                ? "Logged by {$creatorName} for client"
+                : 'Logged by staff for client',
+            self::CREATION_SOURCE_STAFF_FOR_STAFF => $creatorName
+                ? "Logged by {$creatorName} for staff"
+                : 'Logged by staff for staff',
+            self::CREATION_SOURCE_IMPORTED => 'Imported from legacy records',
+            default => $this->resolvedRequesterSourceSummary(),
+        };
     }
 
     public function getPriorityColorAttribute(): string
@@ -558,5 +646,42 @@ class Ticket extends Model
         if ($userId !== null) {
             $assignmentQuery->where('ticket_assignments.user_id', $userId);
         }
+    }
+
+    private function resolvedCreationSource(): ?string
+    {
+        if ($this->is_imported) {
+            return self::CREATION_SOURCE_IMPORTED;
+        }
+
+        return self::normalizeCreationSourceValue($this->creation_source);
+    }
+
+    private function creatorDisplayName(): ?string
+    {
+        /** @var User|null $creator */
+        $creator = $this->relationLoaded('createdByUser')
+            ? $this->createdByUser
+            : ($this->created_by_user_id ? $this->createdByUser()->first() : null);
+
+        return $creator?->publicDisplayName();
+    }
+
+    private function resolvedRequesterSourceSummary(): string
+    {
+        /** @var User|null $requester */
+        $requester = $this->relationLoaded('user')
+            ? $this->user
+            : ($this->user_id ? $this->user()->first() : null);
+
+        if ($requester?->isClient()) {
+            return 'Requester account: client';
+        }
+
+        if ($requester instanceof User) {
+            return 'Requester account: staff';
+        }
+
+        return 'Requester account linked';
     }
 }

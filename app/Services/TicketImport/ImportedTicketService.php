@@ -20,6 +20,8 @@ class ImportedTicketService
     public function applyImportMetadata(array $attributes): array
     {
         $attributes['is_imported'] = true;
+        $attributes['creation_source'] = Ticket::CREATION_SOURCE_IMPORTED;
+        $attributes['created_by_user_id'] = null;
 
         return $attributes;
     }

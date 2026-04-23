@@ -21,6 +21,8 @@
                 $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
                     ? $ticket->created_at->diffForHumans()
                     : $ticket->created_at->format('M j, Y');
+                $requesterLabel = $ticket->requester_display_label;
+                $creationSourceSummary = $ticket->creation_source_summary;
                 $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
                 $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
                     && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
@@ -40,7 +42,8 @@
                 @endif
                 <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
                     <p class="text-sm font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
-                    <p class="mt-1 text-xs text-[#af9257]">{{ $ticket->category->name }} - {{ $ticket->user->name }}</p>
+                    <p class="mt-1 text-xs text-[#af9257]">{{ $ticket->category->name }} - Requester: {{ $requesterLabel }}</p>
+                    <p class="mt-1 text-[11px] font-medium text-slate-500">{{ $creationSourceSummary }}</p>
                     <p class="mt-1 flex items-center gap-2 text-xs text-slate-500">
                         <span>Created {{ $createdLabel }}</span>
                         @if($isNew)
@@ -178,6 +181,8 @@
                         $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
                             ? $ticket->created_at->diffForHumans()
                             : $ticket->created_at->format('M j, Y');
+                        $requesterLabel = $ticket->requester_display_label;
+                        $creationSourceSummary = $ticket->creation_source_summary;
                         $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
                         $isNew = $ticket->created_at->greaterThanOrEqualTo(now()->subDay())
                             && (!$lastSeenTs || $lastSeenTs < $ticket->created_at->timestamp);
@@ -196,7 +201,8 @@
                         <td class="px-6 py-5 align-top">
                             <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
                                 <p class="truncate text-base font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
-                                <p class="mt-0.5 text-sm text-[#af9257]">{{ $ticket->category->name }} - {{ $ticket->user->name }}</p>
+                                <p class="mt-0.5 text-sm text-[#af9257]">{{ $ticket->category->name }} - Requester: {{ $requesterLabel }}</p>
+                                <p class="mt-1 text-xs font-medium text-slate-500">{{ $creationSourceSummary }}</p>
                                 <p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
                                     <span>Created {{ $createdLabel }}</span>
                                     @if($isNew)
