@@ -38,7 +38,7 @@ class TicketController extends Controller
         $currentPage = max(1, $request->integer('page', 1));
         $perPage = 15;
 
-        $filteredQuery = $this->ticketIndex->scopedTicketQueryFor($currentUser);
+        $filteredQuery = $this->ticketIndex->scopedTicketQueryFor($currentUser, $activeTab);
         $this->ticketIndex->applyTabScope($filteredQuery, $activeTab);
         $this->ticketIndex->applyFilters($filteredQuery, $request, $selectedStatus, $createdDateRange);
 
@@ -253,7 +253,7 @@ class TicketController extends Controller
         ?array $createdDateRange,
         array $excludedFilters = [],
     ): Builder {
-        $query = $this->ticketIndex->scopedTicketQueryFor($currentUser);
+        $query = $this->ticketIndex->scopedTicketQueryFor($currentUser, $activeTab);
         $this->ticketIndex->applyTabScope($query, $activeTab);
         $this->ticketIndex->applyFiltersExcept($query, $request, $selectedStatus, $createdDateRange, $excludedFilters);
 

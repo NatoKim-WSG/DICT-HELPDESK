@@ -148,6 +148,75 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
         $response->assertSeeText('Good job');
     }
 
+    public function test_technical_history_includes_own_closed_internal_requests_only(): void
+    {
+        [$technical, $client, $category] = $this->seedActorData();
+        $assignedTechnical = User::create([
+            'name' => 'History Assignee',
+            'email' => 'history-assignee@example.com',
+            'phone' => '09130000007',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $closedInternalTicket = Ticket::create([
+            'name' => 'Internal Requester',
+            'contact_number' => '09130000008',
+            'email' => 'internal-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed internal history ticket',
+            'description' => 'Should appear in the requester history tab.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'user_id' => $technical->id,
+            'assigned_to' => $assignedTechnical->id,
+            'category_id' => $category->id,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+        ]);
+
+        $openInternalTicket = Ticket::create([
+            'name' => 'Internal Requester',
+            'contact_number' => '09130000009',
+            'email' => 'internal-requester-open@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Open internal ticket',
+            'description' => 'Should stay out of requester history.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'user_id' => $technical->id,
+            'assigned_to' => $assignedTechnical->id,
+            'category_id' => $category->id,
+        ]);
+
+        $historyResponse = $this->actingAs($technical)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+        ]));
+
+        $historyResponse->assertOk();
+        $historyResponse->assertSee(route('admin.tickets.show', $closedInternalTicket), false);
+        $historyResponse->assertDontSee(route('admin.tickets.show', $openInternalTicket), false);
+
+        $allResponse = $this->actingAs($technical)->get(route('admin.tickets.index', [
+            'tab' => 'all',
+        ]));
+
+        $allResponse->assertOk();
+        $allResponse->assertDontSee(route('admin.tickets.show', $closedInternalTicket), false);
+
+        $showClosedResponse = $this->actingAs($technical)->get(route('admin.tickets.show', $closedInternalTicket));
+        $showClosedResponse->assertOk();
+
+        $showOpenResponse = $this->actingAs($technical)->get(route('admin.tickets.show', $openInternalTicket));
+        $showOpenResponse->assertForbidden();
+    }
+
     private function seedActorData(): array
     {
         $technical = User::create([

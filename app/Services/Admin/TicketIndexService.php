@@ -32,9 +32,9 @@ class TicketIndexService
         return $this->filters->resolveCreatedDateRange($request);
     }
 
-    public function scopedTicketQueryFor(?User $user): Builder
+    public function scopedTicketQueryFor(?User $user, ?string $activeTab = null): Builder
     {
-        return $this->scopes->scopedTicketQueryFor($user);
+        return $this->scopes->scopedTicketQueryFor($user, $activeTab);
     }
 
     public function applyTabScope(Builder $query, string $activeTab): void

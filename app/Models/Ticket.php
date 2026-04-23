@@ -233,6 +233,17 @@ class Ticket extends Model
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
      */
+    public static function applyClosedInternalRequesterConstraint(Builder $query, int $userId): Builder
+    {
+        return $query->where('ticket_type', self::TYPE_INTERNAL)
+            ->where('user_id', $userId)
+            ->whereIn('status', self::CLOSED_STATUSES);
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     public static function applyAssignedConstraint(Builder $query): Builder
     {
         return $query->where(function (Builder $builder) {
@@ -358,6 +369,13 @@ class Ticket extends Model
         }
 
         return $this->assignedUsers()->where('users.id', $userId)->exists();
+    }
+
+    public function isClosedInternalRequesterTicketFor(int $userId): bool
+    {
+        return $this->ticket_type === self::TYPE_INTERNAL
+            && (int) $this->user_id === $userId
+            && $this->isClosed();
     }
 
     public function getAssignedUserIdsAttribute(): array

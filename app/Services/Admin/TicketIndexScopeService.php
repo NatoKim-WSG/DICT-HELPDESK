@@ -35,12 +35,21 @@ class TicketIndexScopeService
             : 'all';
     }
 
-    public function scopedTicketQueryFor(?User $user): Builder
+    public function scopedTicketQueryFor(?User $user, ?string $activeTab = null): Builder
     {
         $query = Ticket::query();
 
         if ($user && $user->isTechnician()) {
-            Ticket::applyAssignedToConstraint($query, (int) $user->id);
+            if ($activeTab === 'history') {
+                $query->where(function (Builder $builder) use ($user) {
+                    Ticket::applyAssignedToConstraint($builder, (int) $user->id)
+                        ->orWhere(function (Builder $historyBuilder) use ($user) {
+                            Ticket::applyClosedInternalRequesterConstraint($historyBuilder, (int) $user->id);
+                        });
+                });
+            } else {
+                Ticket::applyAssignedToConstraint($query, (int) $user->id);
+            }
         }
 
         return $query;

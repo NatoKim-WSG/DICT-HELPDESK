@@ -14,7 +14,8 @@ class TicketPolicy
         }
 
         if ($user->isTechnician()) {
-            return $ticket->hasAssignedUser((int) $user->id);
+            return $ticket->hasAssignedUser((int) $user->id)
+                || $ticket->isClosedInternalRequesterTicketFor((int) $user->id);
         }
 
         return $user->canAccessAdminTickets();
