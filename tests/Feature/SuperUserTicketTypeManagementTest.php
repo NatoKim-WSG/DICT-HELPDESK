@@ -55,7 +55,9 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $createResponse = $this->actingAs($superUser)->get(route('admin.tickets.create'));
         $createResponse->assertOk();
         $createResponse->assertSeeText('Create Support Ticket');
-        $createResponse->assertSeeText('Requester Account');
+        $createResponse->assertSeeText('Client Ticket');
+        $createResponse->assertSeeText('Staff Ticket');
+        $createResponse->assertSeeText('Client Requester Account');
         $createResponse->assertSee('name="ticket_type"', false);
 
         $storeResponse = $this->actingAs($superUser)->post(route('admin.tickets.store'), [
@@ -113,7 +115,9 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $createResponse = $this->actingAs($technical)->get(route('admin.tickets.create'));
         $createResponse->assertOk();
         $createResponse->assertSeeText('Create Support Ticket');
-        $createResponse->assertSeeText('Requester Account');
+        $createResponse->assertSeeText('Client Ticket');
+        $createResponse->assertSeeText('Staff Ticket');
+        $createResponse->assertSeeText('Client Requester Account');
         $createResponse->assertSee('name="ticket_type"', false);
 
         $storeResponse = $this->actingAs($technical)->post(route('admin.tickets.store'), [
@@ -181,6 +185,31 @@ class SuperUserTicketTypeManagementTest extends TestCase
                 'description' => 'External tickets should stay tied to client accounts.',
                 'category_id' => $category->id,
                 'ticket_type' => Ticket::TYPE_EXTERNAL,
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.create'));
+        $response->assertSessionHasErrors('user_id');
+    }
+
+    public function test_internal_ticket_creation_rejects_client_requester_account(): void
+    {
+        $technical = $this->createUser('Internal Validation Technical', 'internal-validation-technical@example.com', User::ROLE_TECHNICAL);
+        $client = $this->createUser('Internal Validation Client', 'internal-validation-client@example.com', User::ROLE_CLIENT, 'DICT');
+        $category = $this->createCategory();
+
+        $response = $this->actingAs($technical)
+            ->from(route('admin.tickets.create'))
+            ->post(route('admin.tickets.store'), [
+                'user_id' => $client->id,
+                'name' => 'Internal Validation Client',
+                'contact_number' => '09170000015',
+                'email' => 'internal-validation-client@example.com',
+                'province' => 'NCR',
+                'municipality' => 'Pasig',
+                'subject' => 'Invalid internal requester',
+                'description' => 'Internal staff tickets should stay tied to staff requester accounts.',
+                'category_id' => $category->id,
+                'ticket_type' => Ticket::TYPE_INTERNAL,
             ]);
 
         $response->assertRedirect(route('admin.tickets.create'));

@@ -45,16 +45,88 @@
             <div class="mb-6">
                 <h3 class="mb-2 text-lg font-medium leading-6 text-gray-900">Create Support Ticket</h3>
                 <p class="text-sm text-slate-600" data-ticket-create-description>
-                    Use this form to log tickets on behalf of a client or support staff requester.
+                    Use this form when a client contacts support directly and the ticket needs to be logged by a staff user.
                 </p>
             </div>
 
             <form id="admin-ticket-create-form" action="{{ route('admin.tickets.store') }}" method="POST" enctype="multipart/form-data" data-submit-feedback>
                 @csrf
+                @php
+                    $errors = $errors ?? new \Illuminate\Support\ViewErrorBag();
+                    $selectedTicketType = old('ticket_type', \App\Models\Ticket::TYPE_EXTERNAL);
+                    $selectedRequesterGroup = $selectedTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'support' : 'client';
+                    $isStaffTicket = $selectedTicketType === \App\Models\Ticket::TYPE_INTERNAL;
+                    $requesterAccounts = [
+                        'client' => $clientAccounts->map(fn ($account) => [
+                            'value' => (string) $account->id,
+                            'label' => $account->name,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'phone' => $account->phone,
+                            'group' => 'client',
+                            'role' => null,
+                        ])->values()->all(),
+                        'support' => $supportAccounts->map(fn ($account) => [
+                            'value' => (string) $account->id,
+                            'label' => $account->name,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'phone' => $account->phone,
+                            'group' => 'support',
+                            'role' => $account->role,
+                        ])->values()->all(),
+                    ];
+                    $initialRequesterAccounts = $requesterAccounts[$selectedRequesterGroup];
+                @endphp
+                <script type="application/json" data-requester-accounts>@json($requesterAccounts)</script>
 
                 <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <div class="xl:col-span-2">
-                        <label for="user_id" class="form-label" data-requester-account-label>Requester Account <span class="text-red-600">*</span></label>
+                        <fieldset>
+                            <legend class="form-label">Ticket Type <span class="text-red-600">*</span></legend>
+                            <div class="mt-2 inline-grid w-full max-w-md grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                                <div class="min-w-0">
+                                    <input
+                                        type="radio"
+                                        name="ticket_type"
+                                        id="ticket_type_external"
+                                        value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}"
+                                        class="peer sr-only"
+                                        data-ticket-type-input
+                                        {{ $selectedTicketType === \App\Models\Ticket::TYPE_EXTERNAL ? 'checked' : '' }}
+                                    >
+                                    <label
+                                        for="ticket_type_external"
+                                        class="flex h-10 items-center justify-center rounded-lg px-3 text-center text-sm font-semibold text-slate-600 transition hover:text-slate-900 peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm"
+                                    >
+                                        <span>Client Ticket</span>
+                                    </label>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <input
+                                        type="radio"
+                                        name="ticket_type"
+                                        id="ticket_type_internal"
+                                        value="{{ \App\Models\Ticket::TYPE_INTERNAL }}"
+                                        class="peer sr-only"
+                                        data-ticket-type-input
+                                        {{ $selectedTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'checked' : '' }}
+                                    >
+                                    <label
+                                        for="ticket_type_internal"
+                                        class="flex h-10 items-center justify-center rounded-lg px-3 text-center text-sm font-semibold text-slate-600 transition hover:text-slate-900 peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm"
+                                    >
+                                        <span>Staff Ticket</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </fieldset>
+                        @error('ticket_type')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+
+                        <label for="user_id" class="form-label mt-4" data-requester-account-label>{{ $isStaffTicket ? 'Staff Requester Account' : 'Client Requester Account' }} <span class="text-red-600">*</span></label>
                         <select
                             name="user_id"
                             id="user_id"
@@ -62,39 +134,23 @@
                             class="form-input @error('user_id') border-red-500 @enderror"
                             data-client-account-select
                         >
-                            <option value="" data-placeholder-option>Select a requester account</option>
-                            <optgroup label="Client Accounts">
-                                @foreach($clientAccounts as $clientAccount)
-                                    <option
-                                        value="{{ $clientAccount->id }}"
-                                        data-name="{{ $clientAccount->name }}"
-                                        data-email="{{ $clientAccount->email }}"
-                                        data-phone="{{ $clientAccount->phone }}"
-                                        data-account-group="client"
-                                        {{ old('user_id') == $clientAccount->id ? 'selected' : '' }}
-                                    >
-                                        {{ $clientAccount->name }}
-                                    </option>
-                                @endforeach
-                            </optgroup>
-                            <optgroup label="Support Staff Accounts">
-                                @foreach($supportAccounts as $supportAccount)
-                                    <option
-                                        value="{{ $supportAccount->id }}"
-                                        data-name="{{ $supportAccount->name }}"
-                                        data-email="{{ $supportAccount->email }}"
-                                        data-phone="{{ $supportAccount->phone }}"
-                                        data-role="{{ $supportAccount->role }}"
-                                        data-account-group="support"
-                                        {{ old('user_id') == $supportAccount->id ? 'selected' : '' }}
-                                    >
-                                        {{ $supportAccount->name }}
-                                    </option>
-                                @endforeach
-                            </optgroup>
+                            <option value="" data-placeholder-option>{{ $isStaffTicket ? 'Select a staff requester account' : 'Select a client requester account' }}</option>
+                            @foreach($initialRequesterAccounts as $requesterAccount)
+                                <option
+                                    value="{{ $requesterAccount['value'] }}"
+                                    data-name="{{ $requesterAccount['name'] }}"
+                                    data-email="{{ $requesterAccount['email'] }}"
+                                    data-phone="{{ $requesterAccount['phone'] }}"
+                                    data-role="{{ $requesterAccount['role'] }}"
+                                    data-account-group="{{ $requesterAccount['group'] }}"
+                                    {{ old('user_id') == $requesterAccount['value'] ? 'selected' : '' }}
+                                >
+                                    {{ $requesterAccount['label'] }}
+                                </option>
+                            @endforeach
                         </select>
                         <p class="mt-1 text-sm text-slate-500" data-requester-account-help>
-                            External tickets use client accounts. Internal tickets use support staff accounts.
+                            {{ $isStaffTicket ? 'Staff tickets show only active support staff requester accounts.' : 'Client tickets show only active client requester accounts.' }}
                         </p>
                         @error('user_id')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -138,7 +194,9 @@
 
                     <div class="xl:col-span-2">
                         <p class="inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-requester-snapshot-note>
-                            This ticket will be linked to the selected requester account, while the contact details below capture the request snapshot used for support follow-up.
+                            {{ $isStaffTicket
+                                ? 'This staff ticket will be linked to the selected support staff account, while the contact details below capture the request snapshot used for follow-up.'
+                                : 'This ticket will be linked to the selected client account, while the contact details below capture the request snapshot used for support follow-up.' }}
                         </p>
                     </div>
 
@@ -189,18 +247,6 @@
                             @endforeach
                         </select>
                         @error('category_id')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <label for="ticket_type" class="form-label">Ticket Type <span class="text-red-600">*</span></label>
-                        <select name="ticket_type" id="ticket_type" required
-                                class="form-input @error('ticket_type') border-red-500 @enderror">
-                            <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}" {{ old('ticket_type', \App\Models\Ticket::TYPE_EXTERNAL) === \App\Models\Ticket::TYPE_EXTERNAL ? 'selected' : '' }}>External</option>
-                            <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}" {{ old('ticket_type') === \App\Models\Ticket::TYPE_INTERNAL ? 'selected' : '' }}>Internal</option>
-                        </select>
-                        @error('ticket_type')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>

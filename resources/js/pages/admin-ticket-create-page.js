@@ -5,8 +5,10 @@ const initAdminTicketCreatePage = () => {
     if (!pageRoot) return;
 
     const form = document.getElementById('admin-ticket-create-form');
-    const clientSelect = pageRoot.querySelector('[data-client-account-select]');
-    const ticketTypeSelect = document.getElementById('ticket_type');
+    const requesterSelect = pageRoot.querySelector('[data-client-account-select]');
+    const ticketTypeInputs = Array.from(pageRoot.querySelectorAll('[data-ticket-type-input]'))
+        .filter((input) => input instanceof HTMLInputElement);
+    const requesterAccountsElement = pageRoot.querySelector('[data-requester-accounts]');
     const requesterAccountLabel = pageRoot.querySelector('[data-requester-account-label]');
     const requesterAccountHelp = pageRoot.querySelector('[data-requester-account-help]');
     const requesterSnapshotNote = pageRoot.querySelector('[data-requester-snapshot-note]');
@@ -17,19 +19,17 @@ const initAdminTicketCreatePage = () => {
     if (!form) return;
 
     const currentSupportUserId = String(pageRoot.dataset.currentSupportUserId || '').trim();
-    const accountOptions = clientSelect instanceof HTMLSelectElement
-        ? Array.from(clientSelect.querySelectorAll('option'))
-            .filter((option) => option.value !== '')
-            .map((option) => ({
-                value: option.value,
-                label: option.textContent || '',
-                name: option.dataset.name || '',
-                email: option.dataset.email || '',
-                phone: option.dataset.phone || '',
-                group: option.dataset.accountGroup || 'client',
-                role: option.dataset.role || '',
-            }))
-        : [];
+    let accountOptions = [];
+    if (requesterAccountsElement instanceof HTMLScriptElement) {
+        try {
+            const parsedAccounts = JSON.parse(requesterAccountsElement.textContent || '{}');
+            accountOptions = ['client', 'support'].flatMap((group) => (
+                Array.isArray(parsedAccounts[group]) ? parsedAccounts[group] : []
+            ));
+        } catch {
+            accountOptions = [];
+        }
+    }
 
     const fields = [
         document.getElementById('province'),
@@ -47,15 +47,20 @@ const initAdminTicketCreatePage = () => {
         field.value = normalizeLeadingUppercase(field.value);
     };
 
+    const activeTicketType = () => {
+        const checkedInput = ticketTypeInputs.find((input) => input.checked);
+        return checkedInput ? checkedInput.value : 'external';
+    };
+
     const activeRequesterGroup = () => (
-        ticketTypeSelect instanceof HTMLSelectElement && ticketTypeSelect.value === 'internal'
+        activeTicketType() === 'internal'
             ? 'support'
             : 'client'
     );
 
     const selectedAccountRecord = () => {
-        if (!(clientSelect instanceof HTMLSelectElement)) return null;
-        const selectedValue = String(clientSelect.value || '').trim();
+        if (!(requesterSelect instanceof HTMLSelectElement)) return null;
+        const selectedValue = String(requesterSelect.value || '').trim();
         return accountOptions.find((option) => option.value === selectedValue) || null;
     };
 
@@ -63,29 +68,29 @@ const initAdminTicketCreatePage = () => {
         const isInternal = activeRequesterGroup() === 'support';
 
         if (requesterAccountLabel) {
-            requesterAccountLabel.innerHTML = `${isInternal ? 'Support Staff Account' : 'Client Account'} <span class="text-red-600">*</span>`;
+            requesterAccountLabel.innerHTML = `${isInternal ? 'Staff Requester Account' : 'Client Requester Account'} <span class="text-red-600">*</span>`;
         }
 
         if (requesterAccountHelp) {
             requesterAccountHelp.textContent = isInternal
-                ? 'Internal tickets use support staff accounts and default to your account for faster staff-to-staff requests.'
-                : 'External tickets use client accounts.';
+                ? 'Staff tickets show only active support staff requester accounts.'
+                : 'Client tickets show only active client requester accounts.';
         }
 
         if (requesterSnapshotNote) {
             requesterSnapshotNote.textContent = isInternal
-                ? 'This internal ticket will be linked to the selected support staff account, while the contact details below capture the request snapshot used for follow-up.'
+                ? 'This staff ticket will be linked to the selected support staff account, while the contact details below capture the request snapshot used for follow-up.'
                 : 'This ticket will be linked to the selected client account, while the contact details below capture the request snapshot used for support follow-up.';
         }
 
         if (descriptionCopy) {
             descriptionCopy.textContent = isInternal
-                ? 'Use this form to log an internal support request on behalf of a support staff requester.'
+                ? 'Use this form to log an internal staff-to-staff support request.'
                 : 'Use this form when a client contacts support directly and the ticket needs to be logged by a support user.';
         }
 
         if (nameInput) {
-            nameInput.placeholder = isInternal ? 'Support staff full name' : 'Client full name';
+            nameInput.placeholder = isInternal ? 'Staff full name' : 'Client full name';
         }
 
         if (emailInput) {
@@ -94,11 +99,11 @@ const initAdminTicketCreatePage = () => {
     };
 
     const rebuildRequesterOptions = ({ forceSelection = false } = {}) => {
-        if (!(clientSelect instanceof HTMLSelectElement)) return;
+        if (!(requesterSelect instanceof HTMLSelectElement)) return;
 
         const isInternal = activeRequesterGroup() === 'support';
         const group = isInternal ? 'support' : 'client';
-        const previousValue = String(clientSelect.value || '').trim();
+        const previousValue = String(requesterSelect.value || '').trim();
         const availableOptions = accountOptions.filter((option) => option.group === group);
         let nextValue = previousValue;
 
@@ -116,14 +121,14 @@ const initAdminTicketCreatePage = () => {
             nextValue = availableOptions[0].value;
         }
 
-        clientSelect.innerHTML = '';
+        requesterSelect.innerHTML = '';
 
         const placeholderOption = document.createElement('option');
         placeholderOption.value = '';
         placeholderOption.textContent = isInternal
-            ? 'Select a support staff account'
-            : 'Select a client account';
-        clientSelect.appendChild(placeholderOption);
+            ? 'Select a staff requester account'
+            : 'Select a client requester account';
+        requesterSelect.appendChild(placeholderOption);
 
         availableOptions.forEach((account) => {
             const option = document.createElement('option');
@@ -137,14 +142,14 @@ const initAdminTicketCreatePage = () => {
             if (account.value === nextValue) {
                 option.selected = true;
             }
-            clientSelect.appendChild(option);
+            requesterSelect.appendChild(option);
         });
 
-        clientSelect.value = nextValue;
+        requesterSelect.value = nextValue;
     };
 
     const syncSelectedClientDetails = ({ force = false } = {}) => {
-        if (!(clientSelect instanceof HTMLSelectElement)) return;
+        if (!(requesterSelect instanceof HTMLSelectElement)) return;
 
         const option = selectedAccountRecord();
         if (!option || option.value === '') return;
@@ -168,8 +173,8 @@ const initAdminTicketCreatePage = () => {
         });
     });
 
-    if (clientSelect instanceof HTMLSelectElement) {
-        clientSelect.addEventListener('change', () => {
+    if (requesterSelect instanceof HTMLSelectElement) {
+        requesterSelect.addEventListener('change', () => {
             syncSelectedClientDetails({ force: true });
         });
 
@@ -178,11 +183,13 @@ const initAdminTicketCreatePage = () => {
         syncSelectedClientDetails();
     }
 
-    if (ticketTypeSelect instanceof HTMLSelectElement) {
-        ticketTypeSelect.addEventListener('change', () => {
-            rebuildRequesterOptions({ forceSelection: true });
-            updateRequesterCopy();
-            syncSelectedClientDetails({ force: true });
+    if (ticketTypeInputs.length > 0) {
+        ticketTypeInputs.forEach((input) => {
+            input.addEventListener('change', () => {
+                rebuildRequesterOptions({ forceSelection: true });
+                updateRequesterCopy();
+                syncSelectedClientDetails({ force: true });
+            });
         });
     }
 
