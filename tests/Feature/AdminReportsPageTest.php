@@ -341,6 +341,86 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewHas('monthlyPerformanceFocusMonthKey', '2026-02');
     }
 
+    public function test_internal_staff_tickets_are_excluded_from_reports_kpis_and_monthly_stats(): void
+    {
+        config(['legal.require_acceptance' => false]);
+
+        $superUser = $this->createUser('Internal Scope Super', 'internal-scope-super@example.com', User::ROLE_SUPER_USER);
+        $client = $this->createUser('Internal Scope Client', 'internal-scope-client@example.com', User::ROLE_CLIENT, 'iOne');
+        $technicalRequester = $this->createUser('Internal Scope Technical', 'internal-scope-technical@example.com', User::ROLE_TECHNICAL);
+        $assignedTechnical = $this->createUser('Internal Scope Assignee', 'internal-scope-assignee@example.com', User::ROLE_TECHNICAL);
+        $category = $this->createCategory();
+
+        $externalTicket = Ticket::create([
+            'name' => 'External Requester',
+            'contact_number' => '09180001007',
+            'email' => 'external-report-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'External report ticket',
+            'description' => 'Should count in reports.',
+            'priority' => 'medium',
+            'status' => 'resolved',
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+            'resolved_at' => Carbon::create(2026, 2, 18, 12, 0, 0),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($externalTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 18, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 18, 12, 0, 0),
+        ]);
+
+        $internalTicket = Ticket::create([
+            'name' => 'Internal Requester',
+            'contact_number' => '09180001008',
+            'email' => 'internal-report-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Internal report ticket',
+            'description' => 'Should stay out of reports.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'resolved_at' => Carbon::create(2026, 2, 19, 16, 0, 0),
+            'closed_at' => Carbon::create(2026, 2, 19, 16, 0, 0),
+            'user_id' => $technicalRequester->id,
+            'assigned_to' => $assignedTechnical->id,
+            'assigned_at' => Carbon::create(2026, 2, 19, 9, 30, 0),
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($internalTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 19, 9, 0, 0),
+            'updated_at' => Carbon::create(2026, 2, 19, 16, 0, 0),
+        ]);
+
+        $response = $this->actingAs($superUser)->get(route('admin.reports.index', [
+            'month' => '2026-02',
+        ]));
+
+        $response->assertOk();
+        $response->assertViewHas('stats', function (array $stats) {
+            return (int) ($stats['total_tickets'] ?? 0) === 1
+                && (int) ($stats['open_tickets'] ?? 0) === 0
+                && (int) ($stats['closed_tickets'] ?? 0) === 1
+                && (float) ($stats['resolution_rate'] ?? 0) === 100.0;
+        });
+        $response->assertViewHas('selectedMonthRow', function (array $row) {
+            return (int) ($row['received'] ?? 0) === 1
+                && (int) ($row['resolved'] ?? 0) === 1
+                && (int) ($row['completed_in_period'] ?? 0) === 1
+                && (float) ($row['resolution_rate'] ?? 0) === 100.0;
+        });
+        $response->assertViewHas('slaReport', function (array $slaReport) {
+            return (int) ($slaReport['total_tickets'] ?? 0) === 1;
+        });
+        $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
+            return (int) ($overview['total_created'] ?? 0) === 1
+                && (int) ($overview['closed'] ?? 0) === 0
+                && (int) ($overview['resolved'] ?? 0) === 1;
+        });
+    }
+
     public function test_reports_page_shows_daily_received_in_progress_and_resolved_statistics_for_selected_date(): void
     {
         config(['legal.require_acceptance' => false]);

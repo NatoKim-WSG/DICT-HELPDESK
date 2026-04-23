@@ -210,6 +210,7 @@ class ReportPageDataService
     private function scopedTicketQueryForUser(User $user): Builder
     {
         $query = Ticket::query();
+        Ticket::applyReportableConstraint($query);
 
         if ($user->isTechnician()) {
             Ticket::applyAssignedToConstraint($query, (int) $user->id);

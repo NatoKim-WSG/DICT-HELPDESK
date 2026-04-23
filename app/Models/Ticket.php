@@ -244,6 +244,18 @@ class Ticket extends Model
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
      */
+    public static function applyReportableConstraint(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder) {
+            $builder->whereNull('ticket_type')
+                ->orWhere('ticket_type', '!=', self::TYPE_INTERNAL);
+        });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     public static function applyAssignedConstraint(Builder $query): Builder
     {
         return $query->where(function (Builder $builder) {
