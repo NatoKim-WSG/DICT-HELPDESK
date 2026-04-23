@@ -270,6 +270,28 @@ class Ticket extends Model
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
      */
+    public static function applyHistoryClientRequesterConstraint(Builder $query): Builder
+    {
+        return $query->whereHas('user', function (Builder $userQuery) {
+            $userQuery->where('role', User::ROLE_CLIENT);
+        });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
+    public static function applyHistoryStaffRequesterConstraint(Builder $query): Builder
+    {
+        return $query->whereHas('user', function (Builder $userQuery) {
+            $userQuery->where('role', '!=', User::ROLE_CLIENT);
+        });
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     public static function applyReportableConstraint(Builder $query): Builder
     {
         return $query->where(function (Builder $builder) {

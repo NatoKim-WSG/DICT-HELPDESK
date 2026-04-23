@@ -180,8 +180,8 @@
                             <label for="ticket_type" class="sr-only">Ticket type</label>
                             <select id="ticket_type" name="ticket_type" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                                 <option value="all" {{ $selectedHistoryTicketType === 'all' ? 'selected' : '' }}>All ticket types</option>
-                                <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_EXTERNAL ? 'selected' : '' }}>Client tickets</option>
-                                <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'selected' : '' }}>Staff tickets</option>
+                                <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_EXTERNAL ? 'selected' : '' }}>Client requester tickets</option>
+                                <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'selected' : '' }}>Staff requester tickets</option>
                             </select>
                         </div>
                     @endif

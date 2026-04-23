@@ -150,6 +150,22 @@ class TicketIndexFilterService
 
         $ticketType = trim($request->string('ticket_type')->toString());
 
+        if ($request->string('tab')->toString() === 'history') {
+            if ($ticketType === Ticket::TYPE_INTERNAL) {
+                Ticket::applyHistoryStaffRequesterConstraint($query);
+
+                return;
+            }
+
+            if ($ticketType === Ticket::TYPE_EXTERNAL) {
+                Ticket::applyHistoryClientRequesterConstraint($query);
+
+                return;
+            }
+
+            return;
+        }
+
         if ($ticketType === Ticket::TYPE_INTERNAL) {
             $query->where('ticket_type', Ticket::TYPE_INTERNAL);
 

@@ -566,6 +566,7 @@ class AdminTicketFilterConsistencyTest extends TestCase
     public function test_history_ticket_type_filter_separates_client_and_staff_tickets(): void
     {
         $supportUser = $this->createSupportUser();
+        $staffCreator = $this->createAssignedSupportUser('History Staff Creator Filter', 'history-staff-creator-filter@example.com');
         $staffRequester = $this->createAssignedSupportUser('History Staff Requester', 'history-staff-requester@example.com');
         $staffAssignee = $this->createAssignedSupportUser('History Staff Assignee', 'history-staff-assignee@example.com');
         $category = $this->createCategory();
@@ -585,6 +586,26 @@ class AdminTicketFilterConsistencyTest extends TestCase
             'resolved_at' => now()->subDay(),
             'closed_at' => now(),
             'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $staffLoggedClientHistoryTicket = Ticket::create([
+            'name' => 'Staff Logged Client Requester',
+            'contact_number' => '09110000158',
+            'email' => 'staff-logged-client-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Quezon City',
+            'subject' => 'Closed client-requester internal history ticket',
+            'description' => 'Client requester ticket logged by staff.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT,
+            'created_by_user_id' => $staffCreator->id,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+            'user_id' => $client->id,
+            'assigned_to' => $staffAssignee->id,
             'category_id' => $category->id,
         ]);
 
@@ -614,6 +635,7 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $staffResponse->assertOk();
         $staffResponse->assertSee(route('admin.tickets.show', $staffHistoryTicket), false);
         $staffResponse->assertDontSee(route('admin.tickets.show', $clientHistoryTicket), false);
+        $staffResponse->assertDontSee(route('admin.tickets.show', $staffLoggedClientHistoryTicket), false);
         $staffResponse->assertSee('name="ticket_type"', false);
         $staffResponse->assertSee('<option value="'.Ticket::TYPE_INTERNAL.'" selected', false);
 
@@ -624,6 +646,7 @@ class AdminTicketFilterConsistencyTest extends TestCase
 
         $clientResponse->assertOk();
         $clientResponse->assertSee(route('admin.tickets.show', $clientHistoryTicket), false);
+        $clientResponse->assertSee(route('admin.tickets.show', $staffLoggedClientHistoryTicket), false);
         $clientResponse->assertDontSee(route('admin.tickets.show', $staffHistoryTicket), false);
     }
 
