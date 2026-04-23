@@ -341,7 +341,7 @@ class AdminReportsPageTest extends TestCase
         $response->assertViewHas('monthlyPerformanceFocusMonthKey', '2026-02');
     }
 
-    public function test_internal_staff_tickets_are_excluded_from_reports_kpis_and_monthly_stats(): void
+    public function test_reports_exclude_only_staff_to_staff_internal_tickets_and_keep_staff_logged_client_tickets(): void
     {
         config(['legal.require_acceptance' => false]);
 
@@ -371,6 +371,31 @@ class AdminReportsPageTest extends TestCase
             'updated_at' => Carbon::create(2026, 2, 18, 12, 0, 0),
         ]);
 
+        $staffLoggedClientTicket = Ticket::create([
+            'name' => 'Staff Logged Client Requester',
+            'contact_number' => '09180001009',
+            'email' => 'staff-logged-client-report-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Makati',
+            'subject' => 'Staff logged client report ticket',
+            'description' => 'Should count in reports even if marked internal.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT,
+            'created_by_user_id' => $superUser->id,
+            'resolved_at' => Carbon::create(2026, 2, 18, 17, 0, 0),
+            'closed_at' => Carbon::create(2026, 2, 18, 17, 0, 0),
+            'user_id' => $client->id,
+            'assigned_to' => $assignedTechnical->id,
+            'assigned_at' => Carbon::create(2026, 2, 18, 9, 15, 0),
+            'category_id' => $category->id,
+        ]);
+        Ticket::query()->whereKey($staffLoggedClientTicket->id)->update([
+            'created_at' => Carbon::create(2026, 2, 18, 9, 5, 0),
+            'updated_at' => Carbon::create(2026, 2, 18, 17, 0, 0),
+        ]);
+
         $internalTicket = Ticket::create([
             'name' => 'Internal Requester',
             'contact_number' => '09180001008',
@@ -382,6 +407,7 @@ class AdminReportsPageTest extends TestCase
             'priority' => 'medium',
             'status' => 'closed',
             'ticket_type' => Ticket::TYPE_INTERNAL,
+            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_STAFF,
             'resolved_at' => Carbon::create(2026, 2, 19, 16, 0, 0),
             'closed_at' => Carbon::create(2026, 2, 19, 16, 0, 0),
             'user_id' => $technicalRequester->id,
@@ -400,24 +426,24 @@ class AdminReportsPageTest extends TestCase
 
         $response->assertOk();
         $response->assertViewHas('stats', function (array $stats) {
-            return (int) ($stats['total_tickets'] ?? 0) === 1
+            return (int) ($stats['total_tickets'] ?? 0) === 2
                 && (int) ($stats['open_tickets'] ?? 0) === 0
-                && (int) ($stats['closed_tickets'] ?? 0) === 1
+                && (int) ($stats['closed_tickets'] ?? 0) === 2
                 && (float) ($stats['resolution_rate'] ?? 0) === 100.0;
         });
         $response->assertViewHas('selectedMonthRow', function (array $row) {
-            return (int) ($row['received'] ?? 0) === 1
-                && (int) ($row['resolved'] ?? 0) === 1
-                && (int) ($row['completed_in_period'] ?? 0) === 1
+            return (int) ($row['received'] ?? 0) === 2
+                && (int) ($row['resolved'] ?? 0) === 2
+                && (int) ($row['completed_in_period'] ?? 0) === 2
                 && (float) ($row['resolution_rate'] ?? 0) === 100.0;
         });
         $response->assertViewHas('slaReport', function (array $slaReport) {
-            return (int) ($slaReport['total_tickets'] ?? 0) === 1;
+            return (int) ($slaReport['total_tickets'] ?? 0) === 2;
         });
         $response->assertViewHas('ticketsBreakdownOverview', function (array $overview) {
-            return (int) ($overview['total_created'] ?? 0) === 1
-                && (int) ($overview['closed'] ?? 0) === 0
-                && (int) ($overview['resolved'] ?? 0) === 1;
+            return (int) ($overview['total_created'] ?? 0) === 2
+                && (int) ($overview['closed'] ?? 0) === 1
+                && (int) ($overview['resolved'] ?? 0) === 2;
         });
     }
 

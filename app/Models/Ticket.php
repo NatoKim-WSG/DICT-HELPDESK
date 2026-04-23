@@ -305,8 +305,16 @@ class Ticket extends Model
     public static function applyReportableConstraint(Builder $query): Builder
     {
         return $query->where(function (Builder $builder) {
-            $builder->whereNull('ticket_type')
-                ->orWhere('ticket_type', '!=', self::TYPE_INTERNAL);
+            $builder->where(function (Builder $creationSourceQuery) {
+                $creationSourceQuery->whereNull('creation_source')
+                    ->orWhere('creation_source', '!=', self::CREATION_SOURCE_STAFF_FOR_STAFF);
+            })->where(function (Builder $ticketTypeQuery) {
+                $ticketTypeQuery->whereNull('ticket_type')
+                    ->orWhere('ticket_type', '!=', self::TYPE_INTERNAL)
+                    ->orWhereHas('user', function (Builder $userQuery) {
+                        $userQuery->where('role', User::ROLE_CLIENT);
+                    });
+            });
         });
     }
 
