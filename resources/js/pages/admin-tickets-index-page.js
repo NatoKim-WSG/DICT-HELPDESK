@@ -108,6 +108,7 @@ const initAdminTicketsIndexPage = () => {
             'select[name="province"]',
             'select[name="municipality"]',
             'select[name="month"]',
+            'select[name="ticket_type"]',
             'select[name="assigned_to"]',
             'select[name="account_id"]',
         ],

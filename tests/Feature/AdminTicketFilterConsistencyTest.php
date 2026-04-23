@@ -563,6 +563,70 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $response->assertDontSee('<option value="2026-01"', false);
     }
 
+    public function test_history_ticket_type_filter_separates_client_and_staff_tickets(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $staffRequester = $this->createAssignedSupportUser('History Staff Requester', 'history-staff-requester@example.com');
+        $staffAssignee = $this->createAssignedSupportUser('History Staff Assignee', 'history-staff-assignee@example.com');
+        $category = $this->createCategory();
+        $client = $this->createClient('History External Client', 'history-external-client@example.com');
+
+        $clientHistoryTicket = Ticket::create([
+            'name' => 'Client History Requester',
+            'contact_number' => '09110000153',
+            'email' => 'client-history-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Closed client history ticket',
+            'description' => 'Client ticket in history.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+            'resolved_at' => now()->subDay(),
+            'closed_at' => now(),
+            'user_id' => $client->id,
+            'category_id' => $category->id,
+        ]);
+
+        $staffHistoryTicket = Ticket::create([
+            'name' => 'Staff History Requester',
+            'contact_number' => '09110000154',
+            'email' => 'staff-history-requester@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Closed staff history ticket',
+            'description' => 'Staff ticket in history.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+            'user_id' => $staffRequester->id,
+            'assigned_to' => $staffAssignee->id,
+            'category_id' => $category->id,
+        ]);
+
+        $staffResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+        ]));
+
+        $staffResponse->assertOk();
+        $staffResponse->assertSee(route('admin.tickets.show', $staffHistoryTicket), false);
+        $staffResponse->assertDontSee(route('admin.tickets.show', $clientHistoryTicket), false);
+        $staffResponse->assertSee('name="ticket_type"', false);
+        $staffResponse->assertSee('<option value="'.Ticket::TYPE_INTERNAL.'" selected', false);
+
+        $clientResponse = $this->actingAs($supportUser)->get(route('admin.tickets.index', [
+            'tab' => 'history',
+            'ticket_type' => Ticket::TYPE_EXTERNAL,
+        ]));
+
+        $clientResponse->assertOk();
+        $clientResponse->assertSee(route('admin.tickets.show', $clientHistoryTicket), false);
+        $clientResponse->assertDontSee(route('admin.tickets.show', $staffHistoryTicket), false);
+    }
+
     public function test_admin_ticket_heartbeat_keeps_same_page_token_for_off_page_changes(): void
     {
         $supportUser = $this->createSupportUser();

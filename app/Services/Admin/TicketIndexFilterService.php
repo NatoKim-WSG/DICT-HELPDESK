@@ -82,6 +82,10 @@ class TicketIndexFilterService
             $this->applyPriorityFilter($query, $request);
         }
 
+        if (! in_array('ticket_type', $excluded, true)) {
+            $this->applyTicketTypeFilter($query, $request);
+        }
+
         if (! in_array('category', $excluded, true)) {
             $this->applyCategoryFilters($query, $request);
         }
@@ -136,6 +140,30 @@ class TicketIndexFilterService
         }
 
         $query->where('priority', $normalizedPriority);
+    }
+
+    private function applyTicketTypeFilter(Builder $query, Request $request): void
+    {
+        if (! $request->filled('ticket_type') || $request->ticket_type === 'all') {
+            return;
+        }
+
+        $ticketType = trim($request->string('ticket_type')->toString());
+
+        if ($ticketType === Ticket::TYPE_INTERNAL) {
+            $query->where('ticket_type', Ticket::TYPE_INTERNAL);
+
+            return;
+        }
+
+        if ($ticketType !== Ticket::TYPE_EXTERNAL) {
+            return;
+        }
+
+        $query->where(function (Builder $builder) {
+            $builder->whereNull('ticket_type')
+                ->orWhere('ticket_type', Ticket::TYPE_EXTERNAL);
+        });
     }
 
     private function applyCategoryFilters(Builder $query, Request $request): void

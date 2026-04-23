@@ -12,7 +12,10 @@
     $canManageTicketType = auth()->user()->canManageTicketType();
     $showAttentionTab = !auth()->user()->isTechnician();
     $selectedPriority = \App\Models\Ticket::normalizePriorityValue(request('priority'));
-    $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority']);
+    $selectedHistoryTicketType = in_array(request('ticket_type'), ['all', \App\Models\Ticket::TYPE_EXTERNAL, \App\Models\Ticket::TYPE_INTERNAL], true)
+        ? request('ticket_type')
+        : 'all';
+    $baseQuery = request()->except(['page', 'tab', 'selected_ids', 'action', 'status', 'priority', 'ticket_type']);
     $tabAllUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'all']));
     $tabTicketsUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'tickets']));
     $tabHistoryUrl = route('admin.tickets.index', array_merge($baseQuery, ['tab' => 'history']));
@@ -172,6 +175,17 @@
                         </select>
                     </div>
 
+                    @if($isHistoryTab)
+                        <div>
+                            <label for="ticket_type" class="sr-only">Ticket type</label>
+                            <select id="ticket_type" name="ticket_type" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
+                                <option value="all" {{ $selectedHistoryTicketType === 'all' ? 'selected' : '' }}>All ticket types</option>
+                                <option value="{{ \App\Models\Ticket::TYPE_EXTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_EXTERNAL ? 'selected' : '' }}>Client tickets</option>
+                                <option value="{{ \App\Models\Ticket::TYPE_INTERNAL }}" {{ $selectedHistoryTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'selected' : '' }}>Staff tickets</option>
+                            </select>
+                        </div>
+                    @endif
+
                     <div>
                         <label for="province" class="sr-only">Province</label>
                         <select id="province" name="province" data-text-transform="capitalize" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20 capitalize">
@@ -196,7 +210,7 @@
                         </select>
                     </div>
 
-                    <div class="flex items-center gap-2 xl:col-span-3 xl:justify-end">
+                    <div class="flex items-center gap-2 {{ $isHistoryTab ? 'xl:col-span-2' : 'xl:col-span-3' }} xl:justify-end">
                         @if($canDeleteTickets)
                             <button id="bulk-delete-submit" type="button" class="btn-danger h-10 px-4" disabled>Delete</button>
                         @endif
