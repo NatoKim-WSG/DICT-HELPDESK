@@ -270,6 +270,16 @@ class Ticket extends Model
      * @param  Builder<Ticket>  $query
      * @return Builder<Ticket>
      */
+    public static function applyInternalRequesterConstraint(Builder $query, int $userId): Builder
+    {
+        return $query->where('ticket_type', self::TYPE_INTERNAL)
+            ->where('user_id', $userId);
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     public static function applyHistoryClientRequesterConstraint(Builder $query): Builder
     {
         return $query->whereHas('user', function (Builder $userQuery) {
