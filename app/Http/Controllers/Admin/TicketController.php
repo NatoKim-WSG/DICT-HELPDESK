@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Models\TicketUserState;
 use App\Models\User;
+use App\Services\Admin\TicketAssignmentService;
 use App\Services\Admin\TicketIndexService;
 use App\Services\SystemLogService;
 use App\Services\TicketAcknowledgmentService;
@@ -25,6 +26,7 @@ class TicketController extends Controller
         private TicketAcknowledgmentService $ticketAcknowledgments,
         private SystemLogService $systemLogs,
         private TicketIndexService $ticketIndex,
+        private TicketAssignmentService $ticketAssignments,
     ) {}
 
     public function index(Request $request)
@@ -138,14 +140,20 @@ class TicketController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'department', 'role']);
+        $assignmentAssignees = $this->ticketIndex->activeAssignableAgents();
 
-        return view('admin.tickets.create', compact('categories', 'clientAccounts', 'supportAccounts'));
+        return view('admin.tickets.create', compact('categories', 'clientAccounts', 'supportAccounts', 'assignmentAssignees'));
     }
 
     public function store(StoreTicketRequest $request)
     {
+        $assignedUserIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
+        $assignedTo = $this->ticketAssignments->primaryAssigneeId($assignedUserIds);
+
         $ticket = $this->withAttachmentWriteGuard(function () use ($request) {
             return DB::transaction(function () use ($request) {
+                $assignedUserIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
+                $assignedTo = $this->ticketAssignments->primaryAssigneeId($assignedUserIds);
                 $ticket = Ticket::create([
                     'name' => $request->string('name')->toString(),
                     'contact_number' => $request->filled('contact_number')
@@ -163,9 +171,14 @@ class TicketController extends Controller
                     'priority' => null,
                     'status' => 'open',
                     'user_id' => $request->integer('user_id'),
+                    'assigned_to' => $assignedTo,
+                    'assigned_at' => $assignedTo !== null ? now() : null,
                 ]);
 
                 $this->persistAttachmentsFromRequest($request, $ticket);
+                if ($assignedUserIds !== []) {
+                    $this->ticketAssignments->syncAssignmentState($ticket, [], $assignedUserIds, notifyNewAssignees: true);
+                }
                 $this->ticketAcknowledgments->acknowledge($ticket, auth()->user());
 
                 return $ticket;
@@ -185,10 +198,26 @@ class TicketController extends Controller
                     'ticket_type' => $ticket->ticket_type,
                     'requester_user_id' => (int) $ticket->user_id,
                     'category_id' => (int) $ticket->category_id,
+                    'assigned_to' => $assignedTo,
+                    'assigned_user_ids' => $assignedUserIds,
                 ],
                 'request' => $request,
             ]
         );
+
+        if ($assignedUserIds !== []) {
+            $this->systemLogs->record(
+                'ticket.assignment.updated',
+                'Assigned ticket during creation.',
+                [
+                    'category' => 'ticket',
+                    'target_type' => Ticket::class,
+                    'target_id' => $ticket->id,
+                    'metadata' => $this->ticketAssignments->assignmentLogMetadata($ticket, [], $assignedUserIds),
+                    'request' => $request,
+                ]
+            );
+        }
 
         return redirect()->route('admin.tickets.show', $ticket)
             ->with('success', 'Ticket created successfully.');

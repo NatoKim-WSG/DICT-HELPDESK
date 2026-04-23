@@ -12,6 +12,8 @@ const initAdminTicketCreatePage = () => {
     const requesterAccountLabel = pageRoot.querySelector('[data-requester-account-label]');
     const requesterAccountHelp = pageRoot.querySelector('[data-requester-account-help]');
     const requesterSnapshotNote = pageRoot.querySelector('[data-requester-snapshot-note]');
+    const staffAssignmentWrap = pageRoot.querySelector('[data-staff-assignment-wrap]');
+    const staffAssignmentSelect = pageRoot.querySelector('[data-staff-assignment-select]');
     const descriptionCopy = pageRoot.querySelector('[data-ticket-create-description]');
     const nameInput = document.getElementById('name');
     const contactInput = document.getElementById('contact_number');
@@ -98,6 +100,18 @@ const initAdminTicketCreatePage = () => {
         }
     };
 
+    const updateAssignmentVisibility = () => {
+        const isInternal = activeRequesterGroup() === 'support';
+
+        if (staffAssignmentWrap) {
+            staffAssignmentWrap.classList.toggle('hidden', !isInternal);
+        }
+
+        if (staffAssignmentSelect instanceof HTMLSelectElement) {
+            staffAssignmentSelect.disabled = !isInternal;
+        }
+    };
+
     const rebuildRequesterOptions = ({ forceSelection = false } = {}) => {
         if (!(requesterSelect instanceof HTMLSelectElement)) return;
 
@@ -180,6 +194,7 @@ const initAdminTicketCreatePage = () => {
 
         rebuildRequesterOptions();
         updateRequesterCopy();
+        updateAssignmentVisibility();
         syncSelectedClientDetails();
     }
 
@@ -188,6 +203,7 @@ const initAdminTicketCreatePage = () => {
             input.addEventListener('change', () => {
                 rebuildRequesterOptions({ forceSelection: true });
                 updateRequesterCopy();
+                updateAssignmentVisibility();
                 syncSelectedClientDetails({ force: true });
             });
         });

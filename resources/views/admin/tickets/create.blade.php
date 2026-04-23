@@ -56,6 +56,10 @@
                     $selectedTicketType = old('ticket_type', \App\Models\Ticket::TYPE_EXTERNAL);
                     $selectedRequesterGroup = $selectedTicketType === \App\Models\Ticket::TYPE_INTERNAL ? 'support' : 'client';
                     $isStaffTicket = $selectedTicketType === \App\Models\Ticket::TYPE_INTERNAL;
+                    $selectedAssignedTo = collect((array) old('assigned_to', []))
+                        ->filter(fn ($id) => filled($id))
+                        ->map(fn ($id) => (string) $id)
+                        ->first();
                     $requesterAccounts = [
                         'client' => $clientAccounts->map(fn ($account) => [
                             'value' => (string) $account->id,
@@ -153,6 +157,30 @@
                             {{ $isStaffTicket ? 'Staff tickets show only active support staff requester accounts.' : 'Client tickets show only active client requester accounts.' }}
                         </p>
                         @error('user_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="xl:col-span-2 {{ $isStaffTicket ? '' : 'hidden' }}" data-staff-assignment-wrap>
+                        <label for="assigned_to" class="form-label">Assign To <span class="text-red-600">*</span></label>
+                        <select
+                            name="assigned_to"
+                            id="assigned_to"
+                            class="form-input @error('assigned_to') border-red-500 @enderror"
+                            data-staff-assignment-select
+                            {{ $isStaffTicket ? '' : 'disabled' }}
+                        >
+                            <option value="">Select support staff</option>
+                            @foreach($assignmentAssignees as $assignee)
+                                <option
+                                    value="{{ $assignee->id }}"
+                                    {{ $selectedAssignedTo === (string) $assignee->id ? 'selected' : '' }}
+                                >
+                                    {{ $assignee->publicDisplayName() }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('assigned_to')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>

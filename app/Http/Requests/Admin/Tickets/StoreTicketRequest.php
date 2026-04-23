@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin\Tickets;
 
+use App\Http\Requests\Concerns\NormalizesAssignedToInput;
+use App\Http\Requests\Concerns\ResolvesAssignableAgentRule;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +11,9 @@ use Illuminate\Validation\Rule;
 
 class StoreTicketRequest extends FormRequest
 {
+    use NormalizesAssignedToInput;
+    use ResolvesAssignableAgentRule;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->canCreateClientTickets();
@@ -37,6 +42,12 @@ class StoreTicketRequest extends FormRequest
             'description' => ['required', 'string'],
             'category_id' => ['required', 'exists:categories,id'],
             'ticket_type' => ['required', Rule::in(Ticket::TYPES)],
+            'assigned_to' => $ticketType === Ticket::TYPE_INTERNAL
+                ? ['required', 'array', 'min:1']
+                : ['prohibited'],
+            'assigned_to.*' => $ticketType === Ticket::TYPE_INTERNAL
+                ? [$this->assignableAgentRule()]
+                : ['prohibited'],
             'attachments' => ['nullable', 'array'],
             'attachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,pdf,doc,docx,txt,xls,xlsx'],
         ];
@@ -44,6 +55,8 @@ class StoreTicketRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeAssignedToInput();
+
         $contactNumber = trim((string) $this->input('contact_number', ''));
         $email = trim((string) $this->input('email', ''));
 

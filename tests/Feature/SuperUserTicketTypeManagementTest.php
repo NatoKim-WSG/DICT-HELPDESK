@@ -71,6 +71,7 @@ class SuperUserTicketTypeManagementTest extends TestCase
             'description' => 'Support staff contacted another support staff directly.',
             'category_id' => $category->id,
             'ticket_type' => Ticket::TYPE_INTERNAL,
+            'assigned_to' => $superUser->id,
         ]);
 
         $ticket = Ticket::query()->latest('id')->firstOrFail();
@@ -78,6 +79,8 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $storeResponse->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
         $this->assertSame($technicalRequester->id, (int) $ticket->user_id);
+        $this->assertSame($superUser->id, (int) $ticket->assigned_to);
+        $this->assertSame([$superUser->id], $ticket->assigned_user_ids);
     }
 
     public function test_super_user_can_create_ticket_without_contact_number_and_email(): void
@@ -157,6 +160,7 @@ class SuperUserTicketTypeManagementTest extends TestCase
             'description' => 'Technical staff is logging a request for another support staff requester.',
             'category_id' => $category->id,
             'ticket_type' => Ticket::TYPE_INTERNAL,
+            'assigned_to' => $technical->id,
         ]);
 
         $ticket = Ticket::query()->latest('id')->firstOrFail();
@@ -164,6 +168,8 @@ class SuperUserTicketTypeManagementTest extends TestCase
         $response->assertRedirect(route('admin.tickets.show', $ticket));
         $this->assertSame(Ticket::TYPE_INTERNAL, $ticket->ticket_type);
         $this->assertSame($superUser->id, (int) $ticket->user_id);
+        $this->assertSame($technical->id, (int) $ticket->assigned_to);
+        $this->assertSame([$technical->id], $ticket->assigned_user_ids);
     }
 
     public function test_external_ticket_creation_rejects_support_staff_requester_account(): void
@@ -189,6 +195,32 @@ class SuperUserTicketTypeManagementTest extends TestCase
 
         $response->assertRedirect(route('admin.tickets.create'));
         $response->assertSessionHasErrors('user_id');
+    }
+
+    public function test_internal_ticket_creation_requires_assigned_support_user(): void
+    {
+        $technical = $this->createUser('Internal Assignment Technical', 'internal-assignment-technical@example.com', User::ROLE_TECHNICAL);
+        $superUser = $this->createUser('Internal Assignment Requester', 'internal-assignment-requester@example.com', User::ROLE_SUPER_USER);
+        $category = $this->createCategory();
+
+        $response = $this->actingAs($technical)
+            ->from(route('admin.tickets.create'))
+            ->post(route('admin.tickets.store'), [
+                'user_id' => $superUser->id,
+                'name' => 'Internal Assignment Requester',
+                'contact_number' => '09170000016',
+                'email' => 'internal-assignment-requester@example.com',
+                'province' => 'NCR',
+                'municipality' => 'Pasig',
+                'subject' => 'Missing direct assignee',
+                'description' => 'Internal staff tickets should be directed to an assigned support user during creation.',
+                'category_id' => $category->id,
+                'ticket_type' => Ticket::TYPE_INTERNAL,
+                'assigned_to' => '',
+            ]);
+
+        $response->assertRedirect(route('admin.tickets.create'));
+        $response->assertSessionHasErrors('assigned_to');
     }
 
     public function test_internal_ticket_creation_rejects_client_requester_account(): void
