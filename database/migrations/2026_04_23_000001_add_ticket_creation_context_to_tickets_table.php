@@ -14,6 +14,8 @@ return new class extends Migration
 
     private const EVENT_SUPPORT_CREATED = 'ticket.created_by_support_user';
 
+    private const EVENT_LEGACY_SUPPORT_CREATED = 'ticket.created_by_super_user';
+
     public function up(): void
     {
         Schema::table('tickets', function (Blueprint $table) {
@@ -53,7 +55,11 @@ return new class extends Migration
                     ->select(['target_id', 'event_type', 'actor_user_id'])
                     ->where('target_type', self::TICKET_TARGET_TYPE)
                     ->whereIn('target_id', $ticketIds)
-                    ->whereIn('event_type', [self::EVENT_CLIENT_CREATED, self::EVENT_SUPPORT_CREATED])
+                    ->whereIn('event_type', [
+                        self::EVENT_CLIENT_CREATED,
+                        self::EVENT_SUPPORT_CREATED,
+                        self::EVENT_LEGACY_SUPPORT_CREATED,
+                    ])
                     ->orderBy('id')
                     ->get()
                     ->groupBy('target_id')
@@ -104,7 +110,7 @@ return new class extends Migration
             return 'client_self_service';
         }
 
-        if ($eventType !== self::EVENT_SUPPORT_CREATED) {
+        if (! in_array($eventType, [self::EVENT_SUPPORT_CREATED, self::EVENT_LEGACY_SUPPORT_CREATED], true)) {
             return null;
         }
 

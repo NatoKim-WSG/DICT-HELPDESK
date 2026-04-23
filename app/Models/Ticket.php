@@ -654,7 +654,37 @@ class Ticket extends Model
             return self::CREATION_SOURCE_IMPORTED;
         }
 
-        return self::normalizeCreationSourceValue($this->creation_source);
+        $normalizedSource = self::normalizeCreationSourceValue($this->creation_source);
+        if ($normalizedSource !== null) {
+            return $normalizedSource;
+        }
+
+        /** @var User|null $requester */
+        $requester = $this->relationLoaded('user')
+            ? $this->user
+            : ($this->user_id ? $this->user()->first() : null);
+
+        if (! $requester instanceof User) {
+            return null;
+        }
+
+        if ($requester->isClient() && (int) ($this->created_by_user_id ?? 0) === (int) $requester->id) {
+            return self::CREATION_SOURCE_CLIENT_SELF_SERVICE;
+        }
+
+        if ($requester->isClient() && $this->ticket_type === self::TYPE_INTERNAL) {
+            return self::CREATION_SOURCE_STAFF_FOR_CLIENT;
+        }
+
+        if ($requester->isClient() && (int) ($this->created_by_user_id ?? 0) > 0) {
+            return self::CREATION_SOURCE_STAFF_FOR_CLIENT;
+        }
+
+        if (! $requester->isClient() && $this->ticket_type === self::TYPE_INTERNAL) {
+            return self::CREATION_SOURCE_STAFF_FOR_STAFF;
+        }
+
+        return null;
     }
 
     private function creatorDisplayName(): ?string
