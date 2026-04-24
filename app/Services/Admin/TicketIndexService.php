@@ -81,9 +81,9 @@ class TicketIndexService
         return $this->options->distinctTicketColumnOptions($column, $scopedBaseQuery);
     }
 
-    public function accountOptionsFor(?User $currentUser, Builder $scopedTickets): Collection
+    public function accountOptionsFor(Builder $scopedTickets): Collection
     {
-        return $this->options->accountOptionsFor($currentUser, $scopedTickets);
+        return $this->options->accountOptionsFor($scopedTickets);
     }
 
     public function categoryOptionsFor(Builder $scopedTickets): Collection

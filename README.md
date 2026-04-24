@@ -102,6 +102,7 @@ Windows PowerShell deploy helper:
 That script only deploys inside `/opt/helpdesk` on the configured VPS and runs the shared remote deploy script in `scripts/deploy-helpdesk-remote.sh`.
 The remote deploy script now fails fast when the server PHP version does not satisfy `composer.json`, removes `node_modules` after bundling frontend assets, and retries the final `helpdesk:ops-status --fail-on-warning` health check after restarting the queue worker.
 Both deploy helpers are intentionally locked to `/opt/helpdesk` so they do not operate on any other app path on the VPS.
+The remote deploy helper also refuses to run against a dirty server-side working tree so production is not used as an ad hoc edit workspace.
 
 ## Dependency and Security Checks
 
@@ -161,6 +162,20 @@ To fail a script when warnings are present:
 ```bash
 php artisan helpdesk:ops-status --fail-on-warning
 ```
+
+For automation-friendly output:
+
+```bash
+php artisan helpdesk:ops-status --json
+```
+
+For HTTP-based monitoring, the app also exposes a lightweight public health endpoint:
+
+```text
+GET /health
+```
+
+It returns JSON with `ok`, `degraded`, or `failed` status plus database and queue checks. The endpoint returns HTTP `503` only for critical failures such as database connectivity or unsupported PHP runtime.
 
 ## CI and CodeQL
 

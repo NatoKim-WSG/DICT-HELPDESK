@@ -92,7 +92,6 @@ class TicketController extends Controller
             $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['municipality'])
         );
         $accountOptions = $this->ticketIndex->accountOptionsFor(
-            $currentUser,
             $this->buildFilterOptionQuery($request, $currentUser, $activeTab, $selectedStatus, $createdDateRange, ['account'])
         );
         $monthOptions = $this->ticketIndex->monthOptionsFor(
@@ -150,10 +149,8 @@ class TicketController extends Controller
         $assignedUserIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
         $assignedTo = $this->ticketAssignments->primaryAssigneeId($assignedUserIds);
 
-        $ticket = $this->withAttachmentWriteGuard(function () use ($request) {
-            return DB::transaction(function () use ($request) {
-                $assignedUserIds = $this->ticketAssignments->normalizedAssigneeIdsFromRequest($request);
-                $assignedTo = $this->ticketAssignments->primaryAssigneeId($assignedUserIds);
+        $ticket = $this->withAttachmentWriteGuard(function () use ($request, $assignedTo, $assignedUserIds) {
+            return DB::transaction(function () use ($request, $assignedTo, $assignedUserIds) {
                 $ticket = Ticket::create([
                     'name' => $request->string('name')->toString(),
                     'contact_number' => $request->filled('contact_number')

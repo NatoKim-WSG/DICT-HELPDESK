@@ -43,4 +43,7 @@ return [
         'import_path' => env('HELPDESK_IMPORT_RETENTION_PATH', env('TICKET_IMPORT_PATH', 'imports')),
         'import_retention_days' => (int) env('HELPDESK_IMPORT_RETENTION_DAYS', 7),
     ],
+    'ops' => [
+        'queue_worker_running' => env('HELPDESK_QUEUE_WORKER_RUNNING'),
+    ],
 ];

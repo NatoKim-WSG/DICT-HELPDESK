@@ -18,6 +18,7 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboardController
 use App\Http\Controllers\Client\TicketController as ClientTicketController;
 use App\Http\Controllers\Client\TicketConversationController as ClientTicketConversationController;
 use App\Http\Controllers\Client\TicketResolutionController as ClientTicketResolutionController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect('/login');
 });
+
+Route::get('/health', HealthCheckController::class)->name('health');
 
 Route::prefix('legal')->name('legal.')->group(function () {
     Route::get('/terms', [LegalController::class, 'terms'])->name('terms');

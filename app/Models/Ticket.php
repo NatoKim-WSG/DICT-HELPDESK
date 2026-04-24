@@ -456,12 +456,12 @@ class Ticket extends Model
 
     public function hasAssignedUser(int $userId): bool
     {
-        if ($this->relationLoaded('assignedUsers')) {
-            return $this->assignedUsers->contains(fn (User $user) => (int) $user->id === $userId);
-        }
-
         if ((int) ($this->assigned_to ?? 0) === $userId) {
             return true;
+        }
+
+        if ($this->relationLoaded('assignedUsers')) {
+            return $this->assignedUsers->contains(fn (User $user) => (int) $user->id === $userId);
         }
 
         return $this->assignedUsers()->where('users.id', $userId)->exists();

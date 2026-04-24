@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class TicketIndexOptionService
 {
+    private ?Collection $activeAssignableAgentsCache = null;
+
     public function distinctTicketColumnOptions(string $column, ?Builder $scopedBaseQuery = null): Collection
     {
         $this->assertSupportedLocationColumn($column);
@@ -29,7 +31,7 @@ class TicketIndexOptionService
             ->values();
     }
 
-    public function accountOptionsFor(?User $currentUser, Builder $scopedTickets): Collection
+    public function accountOptionsFor(Builder $scopedTickets): Collection
     {
         $visibleClientIds = (clone $scopedTickets)
             ->whereNotNull('user_id')
@@ -118,7 +120,11 @@ class TicketIndexOptionService
 
     public function activeAssignableAgents(): Collection
     {
-        return User::query()
+        if ($this->activeAssignableAgentsCache instanceof Collection) {
+            return $this->activeAssignableAgentsCache;
+        }
+
+        return $this->activeAssignableAgentsCache = User::query()
             ->whereIn('role', User::TICKET_ASSIGNABLE_ROLES)
             ->where('is_active', true)
             ->orderBy('name')

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -74,5 +75,19 @@ class HelpdeskOpsStatusCommandTest extends TestCase
             ->expectsOutput('Warnings:')
             ->expectsOutput('- Queue connection "database" requires a running queue worker for queued mail and jobs.')
             ->assertFailed();
+    }
+
+    public function test_ops_status_can_output_json(): void
+    {
+        config()->set('queue.default', 'database');
+        config()->set('helpdesk.ops.queue_worker_running', true);
+
+        Artisan::call('helpdesk:ops-status', ['--json' => true]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('database', $payload['queue_connection']);
+        $this->assertTrue($payload['database_reachable']);
+        $this->assertSame([], $payload['warnings']);
     }
 }

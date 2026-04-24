@@ -15,6 +15,12 @@ if [[ ! -f artisan || ! -f composer.json ]]; then
     exit 1
 fi
 
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Refusing to deploy from a dirty working tree in $EXPECTED_PATH." >&2
+    echo "Commit, stash, or discard local changes on the server before deploying." >&2
+    exit 1
+fi
+
 git fetch origin "$BRANCH"
 PREVIOUS_HEAD="$(git rev-parse HEAD)"
 git checkout "$BRANCH"

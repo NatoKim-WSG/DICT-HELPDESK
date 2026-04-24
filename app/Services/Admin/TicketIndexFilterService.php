@@ -252,15 +252,20 @@ class TicketIndexFilterService
             return;
         }
 
-        $search = mb_strtolower($request->string('search')->toString());
-        $pattern = '%'.$search.'%';
+        $search = trim($request->string('search')->toString());
+        if ($search === '') {
+            return;
+        }
 
-        $query->where(function (Builder $searchQuery) use ($pattern) {
-            $searchQuery->whereRaw('LOWER(subject) LIKE ?', [$pattern])
-                ->orWhereRaw('LOWER(ticket_number) LIKE ?', [$pattern])
-                ->orWhereHas('user', function (Builder $userQuery) use ($pattern) {
-                    $userQuery->whereRaw('LOWER(name) LIKE ?', [$pattern])
-                        ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
+        $pattern = '%'.$search.'%';
+        $operator = $this->caseInsensitiveLikeOperator($query);
+
+        $query->where(function (Builder $searchQuery) use ($operator, $pattern) {
+            $searchQuery->where('subject', $operator, $pattern)
+                ->orWhere('ticket_number', $operator, $pattern)
+                ->orWhereHas('user', function (Builder $userQuery) use ($operator, $pattern) {
+                    $userQuery->where('name', $operator, $pattern)
+                        ->orWhere('email', $operator, $pattern);
                 });
         });
     }
@@ -317,8 +322,12 @@ class TicketIndexFilterService
     {
         $this->assertSupportedLocationColumn($column);
 
-        $normalizedValue = strtolower(trim($value));
-        $query->whereRaw("LOWER(COALESCE({$column}, '')) = ?", [$normalizedValue]);
+        $normalizedValue = trim($value);
+        if ($normalizedValue === '') {
+            return;
+        }
+
+        $query->where($column, $this->caseInsensitiveLikeOperator($query), $normalizedValue);
     }
 
     private function assertSupportedLocationColumn(string $column): void
@@ -405,5 +414,12 @@ class TicketIndexFilterService
             'account' => '%account%',
             'security' => '%security%',
         ];
+    }
+
+    private function caseInsensitiveLikeOperator(Builder $query): string
+    {
+        $driver = $query->getModel()->getConnection()->getDriverName();
+
+        return $driver === 'pgsql' ? 'ilike' : 'like';
     }
 }
