@@ -21,6 +21,7 @@
                 $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
                     ? $ticket->created_at->diffForHumans()
                     : $ticket->created_at->format('M j, Y');
+                $canManageTicket = auth()->user()?->can('manage', $ticket) ?? false;
                 $requesterLabel = $ticket->requester_display_label;
                 $creationSourceSummary = $ticket->creation_source_summary;
                 $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
@@ -55,7 +56,7 @@
                 <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                     <div>
                         <span class="block text-[11px] uppercase tracking-wide text-slate-400">Assigned</span>
-                        @if($ticket->assigned_user_ids !== [])
+                        @if($canManageTicket && $ticket->assigned_user_ids !== [])
                             <button
                                 type="button"
                                 class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned"
@@ -65,7 +66,7 @@
                             >
                                 {{ $ticket->assigned_users_label }}
                             </button>
-                        @else
+                        @elseif($canManageTicket)
                             <button
                                 type="button"
                                 class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned"
@@ -75,6 +76,8 @@
                             >
                                 Assign
                             </button>
+                        @else
+                            <span>{{ $ticket->assigned_users_label }}</span>
                         @endif
                     </div>
 
@@ -105,7 +108,7 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                        @if($canManageTicket && in_array($ticket->status, ['resolved', 'closed'], true))
                             @if($canRevertTicket)
                                 <button
                                     type="button"
@@ -126,19 +129,21 @@
                                 </button>
                             @endif
                         @endif
-                        <button
-                            type="button"
-                            class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            data-ticket-id="{{ $ticket->id }}"
-                            data-ticket-number="{{ $ticket->ticket_number }}"
-                            data-assigned-to='@json($ticket->assigned_user_ids)'
-                            data-status="{{ $ticket->status }}"
-                            data-priority="{{ $ticket->priority }}"
-                            data-ticket-type="{{ $ticket->ticket_type }}"
-                            data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                        >
-                            Edit
-                        </button>
+                        @if($canManageTicket)
+                            <button
+                                type="button"
+                                class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                data-ticket-id="{{ $ticket->id }}"
+                                data-ticket-number="{{ $ticket->ticket_number }}"
+                                data-assigned-to='@json($ticket->assigned_user_ids)'
+                                data-status="{{ $ticket->status }}"
+                                data-priority="{{ $ticket->priority }}"
+                                data-ticket-type="{{ $ticket->ticket_type }}"
+                                data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
+                            >
+                                Edit
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -181,6 +186,7 @@
                         $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
                             ? $ticket->created_at->diffForHumans()
                             : $ticket->created_at->format('M j, Y');
+                        $canManageTicket = auth()->user()?->can('manage', $ticket) ?? false;
                         $requesterLabel = $ticket->requester_display_label;
                         $creationSourceSummary = $ticket->creation_source_summary;
                         $lastSeenTs = $ticketSeenTimestamps[(int) $ticket->id] ?? null;
@@ -213,7 +219,7 @@
                         </td>
 
                         <td class="px-6 py-5 align-top text-center text-sm text-slate-700">
-                            @if($ticket->assigned_user_ids !== [])
+                            @if($canManageTicket && $ticket->assigned_user_ids !== [])
                                 <button
                                     type="button"
                                     class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned justify-center"
@@ -223,7 +229,7 @@
                                 >
                                     {{ $ticket->assigned_users_label }}
                                 </button>
-                            @else
+                            @elseif($canManageTicket)
                                 <button
                                     type="button"
                                     class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned justify-center"
@@ -233,6 +239,8 @@
                                 >
                                     Assign
                                 </button>
+                            @else
+                                <span>{{ $ticket->assigned_users_label }}</span>
                             @endif
                         </td>
 
@@ -269,7 +277,7 @@
 
                         <td class="px-6 py-5 text-center align-top">
                             <div class="flex flex-col items-center gap-2">
-                                @if(in_array($ticket->status, ['resolved', 'closed'], true))
+                                @if($canManageTicket && in_array($ticket->status, ['resolved', 'closed'], true))
                                     @if($canRevertTicket)
                                         <button
                                             type="button"
@@ -290,19 +298,21 @@
                                         </button>
                                     @endif
                                 @endif
-                                <button
-                                    type="button"
-                                    class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                    data-ticket-id="{{ $ticket->id }}"
-                                    data-ticket-number="{{ $ticket->ticket_number }}"
-                                    data-assigned-to='@json($ticket->assigned_user_ids)'
-                                    data-status="{{ $ticket->status }}"
-                                    data-priority="{{ $ticket->priority }}"
-                                    data-ticket-type="{{ $ticket->ticket_type }}"
-                                    data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
-                                >
-                                    Edit
-                                </button>
+                                @if($canManageTicket)
+                                    <button
+                                        type="button"
+                                        class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                        data-ticket-id="{{ $ticket->id }}"
+                                        data-ticket-number="{{ $ticket->ticket_number }}"
+                                        data-assigned-to='@json($ticket->assigned_user_ids)'
+                                        data-status="{{ $ticket->status }}"
+                                        data-priority="{{ $ticket->priority }}"
+                                        data-ticket-type="{{ $ticket->ticket_type }}"
+                                        data-can-revert="{{ $canRevertTicket ? '1' : '0' }}"
+                                    >
+                                        Edit
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>

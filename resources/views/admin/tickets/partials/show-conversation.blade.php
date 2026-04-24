@@ -147,11 +147,13 @@
                                     </div>
                                 </div>
                             @endif
-                            <button type="button" class="js-reply-msg inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]" aria-label="Reply to this message">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/>
-                                </svg>
-                            </button>
+                            @if($canReplyToTicket)
+                                <button type="button" class="js-reply-msg inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#5f4b8b] text-white hover:bg-[#4f3b76]" aria-label="Reply to this message">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 014 4v5m0 0 3-3m-3 3-3-3M3 10l4-4m-4 4 4 4"/>
+                                    </svg>
+                                </button>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -159,40 +161,48 @@
         @endforeach
     </div>
 
-    <div class="border-t border-slate-200 px-4 pb-4 pt-2 sm:px-6">
-        <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-ticket-id="{{ (int) $ticket->id }}" data-client-logo="{{ $clientCompanyLogo }}" data-support-logo="{{ $supportCompanyLogo }}" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-seen-url="{{ route('admin.notifications.seen', $ticket) }}" data-replies-cursor="{{ $replyFeedCursor }}" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
-            @csrf
-            <p id="admin-reply-error" class="hidden text-xs font-medium text-rose-600"></p>
-            <input type="hidden" id="admin_reply_to_id" name="reply_to_id" value="">
-            <div id="admin-reply-target-banner" class="hidden items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-                <span id="admin-reply-target-text" class="truncate pr-3 font-medium"></span>
-                <button type="button" id="admin-clear-reply-target" class="rounded-md px-2 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Cancel</button>
-            </div>
-            <div id="admin-edit-target-banner" class="hidden items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
-                <span id="admin-edit-target-text" class="truncate pr-3 font-medium"></span>
-                <button type="button" id="admin-cancel-edit-target" class="rounded-md px-2 py-0.5 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900">Cancel edit</button>
-            </div>
-            <div class="px-0 py-0">
-                <textarea name="message" id="message" rows="1" class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Write your reply..."></textarea>
-            </div>
+    @if($canReplyToTicket)
+        <div class="border-t border-slate-200 px-4 pb-4 pt-2 sm:px-6">
+            <form id="admin-ticket-reply-form" action="{{ route('admin.tickets.reply', $ticket) }}" method="POST" enctype="multipart/form-data" class="space-y-3" data-ticket-id="{{ (int) $ticket->id }}" data-client-logo="{{ $clientCompanyLogo }}" data-support-logo="{{ $supportCompanyLogo }}" data-replies-url="{{ route('admin.tickets.replies.feed', $ticket) }}" data-seen-url="{{ route('admin.notifications.seen', $ticket) }}" data-replies-cursor="{{ $replyFeedCursor }}" data-update-url-template="{{ route('admin.tickets.replies.update', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}" data-delete-url-template="{{ route('admin.tickets.replies.delete', ['ticket' => $ticket, 'reply' => '__REPLY__']) }}">
+                @csrf
+                <p id="admin-reply-error" class="hidden text-xs font-medium text-rose-600"></p>
+                <input type="hidden" id="admin_reply_to_id" name="reply_to_id" value="">
+                <div id="admin-reply-target-banner" class="hidden items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    <span id="admin-reply-target-text" class="truncate pr-3 font-medium"></span>
+                    <button type="button" id="admin-clear-reply-target" class="rounded-md px-2 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Cancel</button>
+                </div>
+                <div id="admin-edit-target-banner" class="hidden items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+                    <span id="admin-edit-target-text" class="truncate pr-3 font-medium"></span>
+                    <button type="button" id="admin-cancel-edit-target" class="rounded-md px-2 py-0.5 text-amber-700 transition hover:bg-amber-100 hover:text-amber-900">Cancel edit</button>
+                </div>
+                <div class="px-0 py-0">
+                    <textarea name="message" id="message" rows="1" class="block max-h-48 min-h-[44px] w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20" placeholder="Write your reply..."></textarea>
+                </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <label for="attachments" class="inline-flex cursor-pointer items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100">Attach</label>
-                    <input type="file" name="attachments[]" id="attachments" multiple class="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt,.xls,.xlsx">
-                    <span id="admin-attachment-count" class="text-xs text-slate-500">No files selected</span>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <label for="attachments" class="inline-flex cursor-pointer items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-100">Attach</label>
+                        <input type="file" name="attachments[]" id="attachments" multiple class="hidden" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.txt,.xls,.xlsx">
+                        <span id="admin-attachment-count" class="text-xs text-slate-500">No files selected</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label for="is_internal" class="inline-flex items-center gap-2 text-sm text-gray-900">
+                            <input type="checkbox" name="is_internal" id="is_internal" value="1" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            Internal note (hidden from client)
+                        </label>
+                        <button id="admin-send-reply-btn" type="submit" class="inline-flex items-center rounded-full bg-[#033b3d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#022a2c] disabled:cursor-not-allowed disabled:opacity-70">
+                            Send
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <label for="is_internal" class="inline-flex items-center gap-2 text-sm text-gray-900">
-                        <input type="checkbox" name="is_internal" id="is_internal" value="1" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        Internal note (hidden from client)
-                    </label>
-                    <button id="admin-send-reply-btn" type="submit" class="inline-flex items-center rounded-full bg-[#033b3d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#022a2c] disabled:cursor-not-allowed disabled:opacity-70">
-                        Send
-                    </button>
-                </div>
-            </div>
-            <p class="text-xs text-slate-500">Add a message or at least one attachment. Max 10MB per file.</p>
-        </form>
-    </div>
+                <p class="text-xs text-slate-500">Add a message or at least one attachment. Max 10MB per file.</p>
+            </form>
+        </div>
+    @else
+        <div class="border-t border-slate-200 px-4 py-4 sm:px-6">
+            <p class="text-sm text-slate-600">
+                This internal request is visible for tracking, but only the assigned staff can post workflow updates here.
+            </p>
+        </div>
+    @endif
 </div>

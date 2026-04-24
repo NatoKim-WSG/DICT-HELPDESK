@@ -13,9 +13,18 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_technical_ticket_index_only_lists_assigned_tickets(): void
+    public function test_technical_ticket_index_lists_assigned_tickets_only(): void
     {
         [$technical, $client, $category] = $this->seedActorData();
+        $assignedTechnical = User::create([
+            'name' => 'Requester Assignee',
+            'email' => 'requester-assignee@example.com',
+            'phone' => '09130000010',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
 
         $assignedTicket = Ticket::create([
             'name' => 'Assigned Requester',
@@ -46,10 +55,27 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
             'category_id' => $category->id,
         ]);
 
+        $internalRequesterTicket = Ticket::create([
+            'name' => 'Internal Requester',
+            'contact_number' => '09130000011',
+            'email' => 'internal-requester-visible@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Pasig',
+            'subject' => 'Own internal requester ticket',
+            'description' => 'Should be visible for tracking.',
+            'priority' => 'medium',
+            'status' => 'open',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'user_id' => $technical->id,
+            'assigned_to' => $assignedTechnical->id,
+            'category_id' => $category->id,
+        ]);
+
         $response = $this->actingAs($technical)->get(route('admin.tickets.index'));
 
         $response->assertOk();
         $response->assertSee(route('admin.tickets.show', $assignedTicket), false);
+        $response->assertDontSee(route('admin.tickets.show', $internalRequesterTicket), false);
         $response->assertDontSee(route('admin.tickets.show', $unassignedTicket), false);
     }
 
@@ -115,6 +141,51 @@ class TechnicalTicketVisibilityScopeTest extends TestCase
 
         $showResponse = $this->actingAs($secondaryTechnical)->get(route('admin.tickets.show', $sharedTicket));
         $showResponse->assertOk();
+    }
+
+    public function test_technical_requester_can_view_closed_internal_ticket_but_cannot_manage_it(): void
+    {
+        [$technical, $client, $category] = $this->seedActorData();
+        $assignedTechnical = User::create([
+            'name' => 'Other Assigned Tech',
+            'email' => 'other-assigned-tech@example.com',
+            'phone' => '09130000012',
+            'department' => 'iOne',
+            'role' => User::ROLE_TECHNICAL,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
+
+        $internalRequesterTicket = Ticket::create([
+            'name' => 'Internal Requester',
+            'contact_number' => '09130000013',
+            'email' => 'internal-requester-open-visible@example.com',
+            'province' => 'NCR',
+            'municipality' => 'Taguig',
+            'subject' => 'Closed internal requester visibility',
+            'description' => 'Requester can view but not manage.',
+            'priority' => 'medium',
+            'status' => 'closed',
+            'ticket_type' => Ticket::TYPE_INTERNAL,
+            'user_id' => $technical->id,
+            'assigned_to' => $assignedTechnical->id,
+            'category_id' => $category->id,
+            'resolved_at' => now()->subDays(2),
+            'closed_at' => now()->subDay(),
+        ]);
+
+        $showResponse = $this->actingAs($technical)->get(route('admin.tickets.show', $internalRequesterTicket));
+        $showResponse->assertOk();
+
+        $statusResponse = $this->actingAs($technical)->post(route('admin.tickets.status', $internalRequesterTicket), [
+            'status' => 'in_progress',
+        ]);
+        $statusResponse->assertForbidden();
+
+        $replyResponse = $this->actingAs($technical)->post(route('admin.tickets.reply', $internalRequesterTicket), [
+            'message' => 'Checking in on this request.',
+        ]);
+        $replyResponse->assertForbidden();
     }
 
     public function test_assigned_technical_user_can_see_client_rating_feedback(): void

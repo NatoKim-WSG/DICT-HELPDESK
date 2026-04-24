@@ -33,7 +33,7 @@ class TicketActionController extends Controller
 
     public function acknowledge(Request $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         $actor = auth()->user();
         if (! $this->ticketAcknowledgments->canAcknowledge($actor)) {
@@ -68,7 +68,7 @@ class TicketActionController extends Controller
 
     public function assign(AssignTicketRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         if (! $this->ticketAssignments->assignTicket($request, $ticket)) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
@@ -79,7 +79,7 @@ class TicketActionController extends Controller
 
     public function updateStatus(UpdateTicketStatusRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         $nextStatus = $request->string('status')->toString();
         if ((string) $ticket->status === $nextStatus) {
@@ -98,7 +98,7 @@ class TicketActionController extends Controller
 
     public function updateSeverity(UpdateTicketSeverityRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         if ($ticket->priority === $request->severity) {
             return $this->redirectBackOrReturnTo($request)->with('success', 'No changes were detected.');
@@ -128,7 +128,7 @@ class TicketActionController extends Controller
 
     public function updateType(UpdateTicketTypeRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         $nextType = $request->string('ticket_type')->toString();
         if ($ticket->ticket_type === $nextType) {
@@ -161,7 +161,7 @@ class TicketActionController extends Controller
 
     public function quickUpdate(QuickUpdateTicketRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         $nextStatus = $request->string('status')->toString();
 
@@ -179,7 +179,7 @@ class TicketActionController extends Controller
 
     public function destroy(Request $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         if (! $this->canDeleteTickets()) {
             abort(403, 'Only admins can delete tickets.');
@@ -219,8 +219,8 @@ class TicketActionController extends Controller
         return $user && $user->isSuperAdmin();
     }
 
-    private function authorizeTicketAccess(Ticket $ticket): void
+    private function authorizeTicketManagement(Ticket $ticket): void
     {
-        $this->authorize('view', $ticket);
+        $this->authorize('manage', $ticket);
     }
 }

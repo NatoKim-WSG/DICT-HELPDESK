@@ -474,6 +474,12 @@ class Ticket extends Model
             && $this->isClosed();
     }
 
+    public function isInternalRequesterTicketFor(int $userId): bool
+    {
+        return $this->ticket_type === self::TYPE_INTERNAL
+            && (int) $this->user_id === $userId;
+    }
+
     public function getAssignedUserIdsAttribute(): array
     {
         $assignedUserIds = $this->relationLoaded('assignedUsers')

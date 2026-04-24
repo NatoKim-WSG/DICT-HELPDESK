@@ -382,7 +382,6 @@ class AdminReportsPageTest extends TestCase
             'priority' => 'medium',
             'status' => 'closed',
             'ticket_type' => Ticket::TYPE_INTERNAL,
-            'creation_source' => Ticket::CREATION_SOURCE_STAFF_FOR_CLIENT,
             'created_by_user_id' => $superUser->id,
             'resolved_at' => Carbon::create(2026, 2, 18, 17, 0, 0),
             'closed_at' => Carbon::create(2026, 2, 18, 17, 0, 0),

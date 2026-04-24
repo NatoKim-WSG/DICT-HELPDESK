@@ -11,7 +11,9 @@
     $clientCompanyLogo = $departmentLogo(data_get($ticket, 'user.department'));
     $supportCompanyLogo = \App\Models\User::supportLogoUrl();
     $actor = auth()->user();
-    $showCloseAction = $actor && in_array($actor->normalizedRole(), [
+    $canManageTicket = $actor && $actor->can('manage', $ticket);
+    $canReplyToTicket = $canManageTicket;
+    $showCloseAction = $canManageTicket && $actor && in_array($actor->normalizedRole(), [
         \App\Models\User::ROLE_TECHNICAL,
         \App\Models\User::ROLE_SUPER_USER,
     ], true) && $ticket->status !== 'closed';

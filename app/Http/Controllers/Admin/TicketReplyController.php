@@ -32,7 +32,7 @@ class TicketReplyController extends Controller
 
     public function reply(StoreTicketReplyRequest $request, Ticket $ticket)
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         $replyToId = $request->integer('reply_to_id') ?: null;
 
@@ -85,7 +85,7 @@ class TicketReplyController extends Controller
 
     public function updateReply(UpdateTicketReplyRequest $request, Ticket $ticket, TicketReply $reply): JsonResponse
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         if ($reply->ticket_id !== $ticket->id) {
             abort(403);
@@ -109,7 +109,7 @@ class TicketReplyController extends Controller
 
     public function deleteReply(Ticket $ticket, TicketReply $reply): JsonResponse
     {
-        $this->authorizeTicketAccess($ticket);
+        $this->authorizeTicketManagement($ticket);
 
         if ($reply->ticket_id !== $ticket->id) {
             abort(403);
@@ -132,5 +132,10 @@ class TicketReplyController extends Controller
     private function authorizeTicketAccess(Ticket $ticket): void
     {
         $this->authorize('view', $ticket);
+    }
+
+    private function authorizeTicketManagement(Ticket $ticket): void
+    {
+        $this->authorize('manage', $ticket);
     }
 }
