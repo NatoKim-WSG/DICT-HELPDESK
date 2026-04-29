@@ -15,7 +15,7 @@
         </div>
     @endif
 
-    <div class="space-y-3 px-4 pb-4 lg:hidden">
+    <div class="space-y-3 px-4 pb-4 xl:hidden">
         @forelse($tickets as $ticket)
             @php
                 $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
@@ -155,28 +155,28 @@
         @endforelse
     </div>
 
-    <div class="hidden max-h-[70vh] overflow-auto lg:block">
-        <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
+    <div class="hidden max-h-[70vh] overflow-y-auto overflow-x-hidden xl:block">
+        <table class="w-full table-fixed divide-y divide-slate-200 text-sm">
             <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 <tr>
                     @if($canDeleteTickets)
-                        <th class="w-[4%] px-4 py-4 text-center">
+                        <th class="w-[4%] px-3 py-4 text-center">
                             <label class="inline-flex items-center justify-center">
                                 <input id="select-all-tickets" type="checkbox" class="ticket-checkbox ticket-checkbox--large" aria-label="Select all visible tickets">
                             </label>
                         </th>
                     @endif
-                    <th class="{{ $canDeleteTickets ? 'w-[32%]' : 'w-[36%]' }} px-6 py-4">Details</th>
-                    <th class="w-[16%] px-6 py-4 text-center">Assigned Technical</th>
-                    <th class="w-[10%] px-6 py-4 text-center">Severity</th>
-                    <th class="w-[10%] px-6 py-4 text-center">Type</th>
+                    <th class="{{ $canDeleteTickets ? 'w-[34%]' : 'w-[38%]' }} px-4 py-4">Details</th>
+                    <th class="{{ $canDeleteTickets ? 'w-[13%]' : 'w-[14%]' }} px-3 py-4 text-center">Assigned Technical</th>
+                    <th class="w-[8%] px-3 py-4 text-center">Severity</th>
+                    <th class="w-[8%] px-3 py-4 text-center">Type</th>
                     @if($isHistoryTab)
-                        <th class="w-[14%] px-6 py-4 text-center">Completed At</th>
+                        <th class="w-[12%] px-3 py-4 text-center">Completed At</th>
                     @else
-                        <th class="w-[14%] px-6 py-4 text-center">Activity Status</th>
+                        <th class="w-[12%] px-3 py-4 text-center">Activity Status</th>
                     @endif
-                    <th class="w-[8%] px-6 py-4 text-center">Status</th>
-                    <th class="w-[10%] px-6 py-4 text-center">Action</th>
+                    <th class="w-[8%] px-3 py-4 text-center">Status</th>
+                    <th class="{{ $canDeleteTickets ? 'w-[13%]' : 'w-[12%]' }} px-3 py-4 text-center">Action</th>
                 </tr>
             </thead>
 
@@ -200,16 +200,16 @@
 
                     <tr class="admin-ticket-row transition hover:bg-slate-50">
                         @if($canDeleteTickets)
-                            <td class="px-4 py-5 text-center align-middle">
+                            <td class="px-3 py-5 text-center align-middle">
                                 <input type="checkbox" class="js-ticket-checkbox ticket-checkbox ticket-checkbox--large" value="{{ $ticket->id }}" aria-label="Select ticket {{ $ticket->ticket_number }}">
                             </td>
                         @endif
-                        <td class="px-6 py-5 align-top">
+                        <td class="px-4 py-5 align-top">
                             <a href="{{ route('admin.tickets.show', $ticket) }}" class="block">
-                                <p class="truncate text-base font-semibold text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
-                                <p class="mt-0.5 text-sm text-[#af9257]">{{ $ticket->category->name }} - Requester: {{ $requesterLabel }}</p>
-                                <p class="mt-1 text-xs font-medium text-slate-500">{{ $creationSourceSummary }}</p>
-                                <p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                                <p class="break-words text-base font-semibold leading-snug text-slate-900">({{ $ticket->ticket_number }}) {{ $ticket->subject }}</p>
+                                <p class="mt-0.5 break-words text-sm text-[#af9257]">{{ $ticket->category->name }} - Requester: {{ $requesterLabel }}</p>
+                                <p class="mt-1 break-words text-xs font-medium text-slate-500">{{ $creationSourceSummary }}</p>
+                                <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
                                     <span>Created {{ $createdLabel }}</span>
                                     @if($isNew)
                                         <span data-ticket-new-badge="1" class="inline-flex items-center rounded-full bg-[#e9fff6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#067647]">New</span>
@@ -218,11 +218,11 @@
                             </a>
                         </td>
 
-                        <td class="px-6 py-5 align-top text-center text-sm text-slate-700">
+                        <td class="px-3 py-5 align-top text-center text-sm text-slate-700">
                             @if($canManageTicket && $ticket->assigned_user_ids !== [])
                                 <button
                                     type="button"
-                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned justify-center"
+                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--assigned max-w-full justify-center whitespace-normal break-words text-center leading-5"
                                     data-ticket-id="{{ $ticket->id }}"
                                     data-ticket-number="{{ $ticket->ticket_number }}"
                                     data-assigned-to='@json($ticket->assigned_user_ids)'
@@ -232,7 +232,7 @@
                             @elseif($canManageTicket)
                                 <button
                                     type="button"
-                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned justify-center"
+                                    class="js-open-assign-modal assigned-tech-btn assigned-tech-btn--unassigned max-w-full justify-center whitespace-normal break-words text-center leading-5"
                                     data-ticket-id="{{ $ticket->id }}"
                                     data-ticket-number="{{ $ticket->ticket_number }}"
                                     data-assigned-to="[]"
@@ -244,44 +244,44 @@
                             @endif
                         </td>
 
-                        <td class="px-6 py-5 text-center align-top">
-                            <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->priority_badge_class }}">
+                        <td class="px-3 py-5 text-center align-top">
+                            <span class="inline-flex max-w-full items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold leading-5 {{ $ticket->priority_badge_class }}">
                                 {{ $ticket->priority_label }}
                             </span>
                         </td>
 
-                        <td class="px-6 py-5 text-center align-top">
-                            <span class="inline-flex min-w-16 items-center justify-center rounded-md px-3 py-1 text-xs font-semibold {{ $ticket->ticket_type_badge_class }}">
+                        <td class="px-3 py-5 text-center align-top">
+                            <span class="inline-flex max-w-full items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold leading-5 {{ $ticket->ticket_type_badge_class }}">
                                 {{ $ticket->ticket_type_label }}
                             </span>
                         </td>
 
                         @if($isHistoryTab)
-                            <td class="px-6 py-5 text-center align-top text-sm text-slate-700">
+                            <td class="px-3 py-5 text-center align-top text-sm leading-5 text-slate-700">
                                 {{ $completedAt ? $completedAt->format('M j, Y \a\t g:i A') : '-' }}
                             </td>
                         @else
-                            <td class="px-6 py-5 text-center align-top">
-                                <span class="inline-flex items-center gap-2 text-sm text-slate-600">
+                            <td class="px-3 py-5 text-center align-top">
+                                <span class="inline-flex max-w-full flex-wrap items-center justify-center gap-2 text-sm text-slate-600">
                                     <span class="h-2.5 w-2.5 rounded-full {{ $ticket->activity_dot_class }}"></span>
                                     {{ $ticket->activity_label }}
                                 </span>
                             </td>
                         @endif
 
-                        <td class="px-6 py-5 text-center align-top">
-                            <span class="inline-flex min-w-16 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide {{ $ticket->status_badge_class }}">
+                        <td class="px-3 py-5 text-center align-top">
+                            <span class="inline-flex max-w-full items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold uppercase tracking-wide leading-5 {{ $ticket->status_badge_class }}">
                                 {{ $ticket->status_label }}
                             </span>
                         </td>
 
-                        <td class="px-6 py-5 text-center align-top">
+                        <td class="px-3 py-5 text-center align-top">
                             <div class="flex flex-col items-center gap-2">
                                 @if($canManageTicket && in_array($ticket->status, ['resolved', 'closed'], true))
                                     @if($canRevertTicket)
                                         <button
                                             type="button"
-                                            class="js-open-revert-modal inline-flex items-center rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                                            class="js-open-revert-modal inline-flex max-w-full items-center justify-center rounded-lg border border-emerald-300 px-2.5 py-1.5 text-center text-xs font-semibold leading-5 text-emerald-700 transition hover:bg-emerald-50"
                                             data-ticket-id="{{ $ticket->id }}"
                                             data-ticket-number="{{ $ticket->ticket_number }}"
                                         >
@@ -290,7 +290,7 @@
                                     @else
                                         <button
                                             type="button"
-                                            class="inline-flex cursor-not-allowed items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-400"
+                                            class="inline-flex max-w-full cursor-not-allowed items-center justify-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-center text-xs font-semibold leading-5 text-slate-400"
                                             disabled
                                             title="Closed tickets cannot be reverted after {{ $closedRevertWindowDays }} days."
                                         >
@@ -301,7 +301,7 @@
                                 @if($canManageTicket)
                                     <button
                                         type="button"
-                                        class="js-open-edit-modal inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                        class="js-open-edit-modal inline-flex max-w-full items-center justify-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-center text-xs font-semibold leading-5 text-slate-700 transition hover:bg-slate-50"
                                         data-ticket-id="{{ $ticket->id }}"
                                         data-ticket-number="{{ $ticket->ticket_number }}"
                                         data-assigned-to='@json($ticket->assigned_user_ids)'
