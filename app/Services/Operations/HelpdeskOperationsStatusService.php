@@ -33,7 +33,7 @@ class HelpdeskOperationsStatusService
             $warnings[] = 'Database connectivity check failed.';
         }
 
-        if ($queueWorkerRequired && $queueWorkerRunning === false) {
+        if ($queueWorkerRequired && $queueWorkerRunning !== true) {
             $warnings[] = sprintf(
                 'Queue connection "%s" requires a running queue worker for queued mail and jobs.',
                 $queueConnection

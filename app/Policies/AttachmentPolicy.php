@@ -31,6 +31,10 @@ class AttachmentPolicy
                 return false;
             }
 
+            if ($attachable->user?->isShadow() && ! $user->isShadow()) {
+                return false;
+            }
+
             if ($user->isClient()) {
                 if ((int) $ticket->user_id !== (int) $user->id) {
                     return false;

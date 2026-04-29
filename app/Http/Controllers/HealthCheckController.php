@@ -17,7 +17,7 @@ class HealthCheckController extends Controller
             'checks' => [
                 'database' => $status['database_reachable'] ? 'ok' : 'failed',
                 'php' => $status['php_supported'] ? 'ok' : 'failed',
-                'queue' => $status['queue_worker_required'] && $status['queue_worker_running'] === false
+                'queue' => $status['queue_worker_required'] && $status['queue_worker_running'] !== true
                     ? 'degraded'
                     : 'ok',
             ],

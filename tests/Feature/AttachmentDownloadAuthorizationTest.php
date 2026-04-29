@@ -51,6 +51,43 @@ class AttachmentDownloadAuthorizationTest extends TestCase
         $response->assertHeader('Content-Disposition');
     }
 
+    public function test_non_shadow_admin_cannot_download_shadow_reply_attachment(): void
+    {
+        [, $superUser, $ticket] = $this->seedTicketContext();
+        $shadow = $this->createSupportUser('Attachment Shadow', 'attachment-shadow@example.com', User::ROLE_SHADOW);
+        $shadowReply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $shadow->id,
+            'message' => 'Shadow-only attachment note',
+            'is_internal' => true,
+        ]);
+        $attachment = $this->createReplyAttachment($shadowReply, 'shadow-note.txt', 'shadow note');
+
+        $response = $this->actingAs($superUser)
+            ->get(route('attachments.download', $attachment));
+
+        $response->assertForbidden();
+    }
+
+    public function test_shadow_user_can_download_shadow_reply_attachment(): void
+    {
+        [,, $ticket] = $this->seedTicketContext();
+        $shadow = $this->createSupportUser('Attachment Shadow Viewer', 'attachment-shadow-viewer@example.com', User::ROLE_SHADOW);
+        $shadowReply = TicketReply::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => $shadow->id,
+            'message' => 'Shadow-only attachment note',
+            'is_internal' => true,
+        ]);
+        $attachment = $this->createReplyAttachment($shadowReply, 'shadow-visible.txt', 'shadow visible');
+
+        $response = $this->actingAs($shadow)
+            ->get(route('attachments.download', $attachment));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Disposition');
+    }
+
     public function test_preview_rejects_unsupported_mime_types(): void
     {
         [, $superUser, $ticket] = $this->seedTicketContext();
@@ -122,6 +159,19 @@ class AttachmentDownloadAuthorizationTest extends TestCase
         ]);
 
         return [$client, $superUser, $ticket];
+    }
+
+    private function createSupportUser(string $name, string $email, string $role): User
+    {
+        return User::create([
+            'name' => $name,
+            'email' => $email,
+            'phone' => '09123450003',
+            'department' => 'iOne',
+            'role' => $role,
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+        ]);
     }
 
     private function createReplyAttachment(TicketReply $reply, string $filename, string $contents): Attachment
