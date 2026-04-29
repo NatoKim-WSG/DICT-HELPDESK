@@ -6,9 +6,14 @@ export const createReplyPolling = ({
     queueSeenSync,
     intervalMs,
 }) => {
+    const baseIntervalMs = Number.isFinite(Number(intervalMs)) && Number(intervalMs) > 0
+        ? Number(intervalMs)
+        : 5000;
+    const maxIntervalMs = Math.max(baseIntervalMs, 30000);
     let isPolling = false;
     let timeoutId = 0;
     let hasLoggedError = false;
+    let consecutiveIdlePolls = 0;
 
     const resolvePollUrl = () => {
         if (typeof repliesUrl === 'function') {
@@ -26,13 +31,22 @@ export const createReplyPolling = ({
         }
     };
 
+    const resetBackoff = () => {
+        consecutiveIdlePolls = 0;
+    };
+
+    const currentIntervalMs = () => Math.min(
+        baseIntervalMs * (2 ** Math.min(consecutiveIdlePolls, 3)),
+        maxIntervalMs,
+    );
+
     const schedule = () => {
         stop();
         if (resolvePollUrl() === '' || document.visibilityState !== 'visible') return;
 
         timeoutId = window.setTimeout(() => {
             poll();
-        }, intervalMs);
+        }, currentIntervalMs());
     };
 
     const poll = async () => {
@@ -60,7 +74,13 @@ export const createReplyPolling = ({
             syncReplies(replies);
             queueSeenSync();
             hasLoggedError = false;
+            if (replies.length > 0) {
+                resetBackoff();
+            } else {
+                consecutiveIdlePolls += 1;
+            }
         } catch (error) {
+            consecutiveIdlePolls += 1;
             if (!hasLoggedError && typeof console !== 'undefined' && typeof console.warn === 'function') {
                 console.warn('Reply polling failed.', error);
                 hasLoggedError = true;
@@ -74,6 +94,7 @@ export const createReplyPolling = ({
     const bind = () => {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
+                resetBackoff();
                 queueSeenSync();
                 poll();
                 return;
@@ -83,6 +104,7 @@ export const createReplyPolling = ({
         });
 
         window.addEventListener('focus', () => {
+            resetBackoff();
             queueSeenSync();
             if (document.visibilityState === 'visible') {
                 poll();

@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect('/login');
-});
+})->name('home');
 
 Route::get('/health', HealthCheckController::class)->name('health');
 
@@ -37,9 +37,9 @@ Route::prefix('legal')->name('legal.')->group(function () {
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
-Route::get('/register', fn () => redirect('/login'));
-Route::post('/register', fn () => redirect('/login'));
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.attempt');
+Route::get('/register', fn () => redirect('/login'))->name('register');
+Route::post('/register', fn () => redirect('/login'))->name('register.store');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware(['auth', 'active'])->prefix('legal')->name('legal.')->group(function () {

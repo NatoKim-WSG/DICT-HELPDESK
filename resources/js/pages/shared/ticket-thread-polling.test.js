@@ -110,4 +110,37 @@ describe('createReplyPolling', function () {
         await polling.poll();
         expect(console.warn).toHaveBeenCalledTimes(2);
     });
+
+    it('backs off while idle and resets after new replies arrive', async function () {
+        fetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ cursor: 'cursor-1', replies: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ cursor: 'cursor-2', replies: [] }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ cursor: 'cursor-3', replies: [{ id: 9 }] }),
+            });
+
+        const polling = createReplyPolling({
+            repliesUrl: () => '/tickets/15/replies',
+            getCursor: () => '',
+            setCursor: vi.fn(),
+            syncReplies: vi.fn(),
+            queueSeenSync: vi.fn(),
+            intervalMs: 5000,
+        });
+
+        await polling.poll();
+        await polling.poll();
+        await polling.poll();
+
+        expect(window.setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 10000);
+        expect(window.setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 20000);
+        expect(window.setTimeout).toHaveBeenNthCalledWith(3, expect.any(Function), 5000);
+    });
 });

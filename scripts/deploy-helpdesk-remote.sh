@@ -27,7 +27,9 @@ git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
 php ./scripts/check-php-platform.php
+composer validate --no-check-publish --no-interaction
 composer install --no-dev --optimize-autoloader --no-interaction
+composer audit --locked --no-interaction
 
 FRONTEND_CHANGED=0
 if [[ ! -f public/build/manifest.json ]]; then
@@ -54,6 +56,7 @@ else
     echo "Skipping frontend build; no tracked asset inputs changed."
 fi
 php artisan migrate --force
+php artisan route:list --except-vendor > /dev/null
 php artisan optimize:clear
 php artisan helpdesk:cleanup-runtime
 php artisan optimize
