@@ -30,13 +30,10 @@ class TicketEmailAlertsTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_only_super_user_receives_email_when_client_creates_ticket(): void
+    public function test_client_ticket_creation_does_not_queue_email_alerts(): void
     {
         Mail::fake();
 
-        $superUser = $this->createUser('Super Alerts', 'super-alerts@example.com', User::ROLE_SUPER_USER);
-        $admin = $this->createUser('Admin Alerts', 'admin-alerts@example.com', User::ROLE_ADMIN);
-        $shadow = $this->createUser('Shadow Alerts', 'shadow-alerts@example.com', User::ROLE_SHADOW);
         $client = $this->createUser('Client Alerts', 'client-alerts@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
@@ -56,23 +53,8 @@ class TicketEmailAlertsTest extends TestCase
         $response->assertRedirect();
 
         $ticket = Ticket::query()->where('subject', 'Email alert on new ticket')->firstOrFail();
-        $this->assertNotNull($ticket->super_users_notified_new_at);
-
-        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
-            return $mail->hasTo($superUser->email)
-                && str_starts_with($mail->subjectLine, 'New Ticket Received:')
-                && $mail->ticket->is($ticket);
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($admin) {
-            return $mail->hasTo($admin->email)
-                && str_starts_with($mail->subjectLine, 'New Ticket Received:');
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($shadow) {
-            return $mail->hasTo($shadow->email)
-                && str_starts_with($mail->subjectLine, 'New Ticket Received:');
-        });
+        $this->assertNull($ticket->super_users_notified_new_at);
+        $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 
     public function test_technical_user_receives_email_when_ticket_is_assigned(): void
@@ -171,7 +153,7 @@ class TicketEmailAlertsTest extends TestCase
         });
     }
 
-    public function test_super_user_and_technical_users_receive_assignment_email_when_jointly_assigned(): void
+    public function test_only_technical_users_receive_assignment_email_when_jointly_assigned(): void
     {
         Mail::fake();
 
@@ -195,26 +177,22 @@ class TicketEmailAlertsTest extends TestCase
             $ticket->assigned_user_ids
         );
 
-        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser, $ticket) {
-            return $mail->hasTo($assignedSuperUser->email)
-                && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
-                && $mail->ticket->is($ticket);
-        });
-
         Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
             return $mail->hasTo($technical->email)
                 && str_starts_with($mail->subjectLine, 'Ticket Assigned:')
                 && $mail->ticket->is($ticket);
         });
+
+        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser) {
+            return $mail->hasTo($assignedSuperUser->email)
+                && str_starts_with($mail->subjectLine, 'Ticket Assigned:');
+        });
     }
 
-    public function test_command_sends_50_minute_unchecked_ticket_alert_to_super_users(): void
+    public function test_command_does_not_send_unchecked_ticket_alerts_to_super_users(): void
     {
         Mail::fake();
 
-        $superUser = $this->createUser('Super Reminder', 'super-reminder@example.com', User::ROLE_SUPER_USER);
-        $admin = $this->createUser('Admin Reminder', 'admin-reminder@example.com', User::ROLE_ADMIN);
-        $shadow = $this->createUser('Shadow Reminder', 'shadow-reminder@example.com', User::ROLE_SHADOW);
         $client = $this->createUser('Client Reminder', 'client-reminder@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
@@ -227,32 +205,15 @@ class TicketEmailAlertsTest extends TestCase
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
         $ticket->refresh();
-        $this->assertNotNull($ticket->super_users_notified_unchecked_at);
-
-        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
-            return $mail->hasTo($superUser->email)
-                && str_starts_with($mail->subjectLine, 'Unchecked Ticket Alert (50 Minutes):')
-                && $mail->ticket->is($ticket);
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($admin) {
-            return $mail->hasTo($admin->email)
-                && str_starts_with($mail->subjectLine, 'Unchecked Ticket Alert (50 Minutes):');
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($shadow) {
-            return $mail->hasTo($shadow->email)
-                && str_starts_with($mail->subjectLine, 'Unchecked Ticket Alert (50 Minutes):');
-        });
+        $this->assertNull($ticket->super_users_notified_unchecked_at);
+        $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 
-    public function test_command_sends_unassigned_sla_warning_after_super_user_view(): void
+    public function test_command_does_not_send_unassigned_sla_warning_after_super_user_view(): void
     {
         Mail::fake();
 
         $superUser = $this->createUser('Super SLA', 'super-sla@example.com', User::ROLE_SUPER_USER);
-        $admin = $this->createUser('Admin SLA', 'admin-sla@example.com', User::ROLE_ADMIN);
-        $shadow = $this->createUser('Shadow SLA', 'shadow-sla@example.com', User::ROLE_SHADOW);
         $client = $this->createUser('Client SLA', 'client-sla@example.com', User::ROLE_CLIENT, 'iOne');
         $category = $this->createCategory();
 
@@ -269,23 +230,8 @@ class TicketEmailAlertsTest extends TestCase
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
         $ticket->refresh();
-        $this->assertNotNull($ticket->super_users_notified_unassigned_sla_at);
-
-        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($superUser, $ticket) {
-            return $mail->hasTo($superUser->email)
-                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Unassigned):')
-                && $mail->ticket->is($ticket);
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($admin) {
-            return $mail->hasTo($admin->email)
-                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Unassigned):');
-        });
-
-        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($shadow) {
-            return $mail->hasTo($shadow->email)
-                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Unassigned):');
-        });
+        $this->assertNull($ticket->super_users_notified_unassigned_sla_at);
+        $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 
     public function test_command_sends_assigned_sla_warning_to_technical_user(): void
@@ -314,7 +260,7 @@ class TicketEmailAlertsTest extends TestCase
         });
     }
 
-    public function test_command_sends_assigned_sla_warning_to_all_assigned_support_users(): void
+    public function test_command_sends_assigned_sla_warning_only_to_assigned_technical_users(): void
     {
         Mail::fake();
 
@@ -335,16 +281,15 @@ class TicketEmailAlertsTest extends TestCase
         $ticket->refresh();
         $this->assertNotNull($ticket->technical_user_notified_sla_at);
 
-        Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser, $ticket) {
-            return $mail->hasTo($assignedSuperUser->email)
-                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):')
-                && $mail->ticket->is($ticket);
-        });
-
         Mail::assertQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($technical, $ticket) {
             return $mail->hasTo($technical->email)
                 && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):')
                 && $mail->ticket->is($ticket);
+        });
+
+        Mail::assertNotQueued(TicketAlertMail::class, function (TicketAlertMail $mail) use ($assignedSuperUser) {
+            return $mail->hasTo($assignedSuperUser->email)
+                && str_starts_with($mail->subjectLine, '4-Hour SLA Reminder (Assigned):');
         });
     }
 

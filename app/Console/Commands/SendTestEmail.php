@@ -13,6 +13,12 @@ class SendTestEmail extends Command
 
     public function handle(): int
     {
+        if (app()->environment('production')) {
+            $this->error('The mail:test command is disabled in production.');
+
+            return self::FAILURE;
+        }
+
         $to = trim((string) $this->argument('to'));
 
         if (! filter_var($to, FILTER_VALIDATE_EMAIL)) {

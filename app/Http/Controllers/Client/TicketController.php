@@ -9,7 +9,6 @@ use App\Models\Category;
 use App\Models\Ticket;
 use App\Services\Client\ClientTicketIndexService;
 use App\Services\SystemLogService;
-use App\Services\TicketEmailAlertService;
 use App\Support\LeadingUppercaseNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,6 @@ class TicketController extends Controller
 
     public function __construct(
         private ClientTicketIndexService $ticketIndex,
-        private TicketEmailAlertService $ticketEmailAlerts,
         private SystemLogService $systemLogs,
     ) {}
 
@@ -86,7 +84,6 @@ class TicketController extends Controller
             });
         });
 
-        $this->ticketEmailAlerts->notifySuperUsersAboutNewTicket($ticket);
         $this->systemLogs->record(
             'ticket.created',
             'Created a support ticket.',

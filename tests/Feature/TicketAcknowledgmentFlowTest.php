@@ -39,7 +39,7 @@ class TicketAcknowledgmentFlowTest extends TestCase
         $this->assertNull($state->dismissed_at);
     }
 
-    public function test_seen_ticket_without_acknowledgment_still_triggers_unchecked_super_user_alert(): void
+    public function test_seen_ticket_without_acknowledgment_does_not_trigger_email_alerts(): void
     {
         Mail::fake();
 
@@ -63,7 +63,8 @@ class TicketAcknowledgmentFlowTest extends TestCase
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
         $ticket->refresh();
-        $this->assertNotNull($ticket->super_users_notified_unchecked_at);
+        $this->assertNull($ticket->super_users_notified_unchecked_at);
+        Mail::assertNothingQueued();
     }
 
     private function createUser(string $name, string $email, string $role, string $department = 'iOne'): User

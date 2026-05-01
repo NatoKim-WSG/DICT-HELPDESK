@@ -68,7 +68,7 @@ class HelpdeskOperationsStatusService
             'pending_jobs' => $pendingJobs,
             'failed_jobs' => $failedJobs,
             'mail_mailer' => (string) config('mail.default', 'log'),
-            'scheduled_alert_command' => 'tickets:send-alert-emails (every 5 minutes)',
+            'scheduled_alert_command' => 'tickets:send-alert-emails (technical SLA reminders every 5 minutes)',
             'warnings' => $warnings,
         ];
     }
