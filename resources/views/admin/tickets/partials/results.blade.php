@@ -15,7 +15,7 @@
         </div>
     @endif
 
-    <div class="space-y-3 px-4 pb-4 xl:hidden">
+    <div class="space-y-3 px-4 pb-4 lg:hidden">
         @forelse($tickets as $ticket)
             @php
                 $createdLabel = $ticket->created_at->greaterThan(now()->subDay())
@@ -155,7 +155,7 @@
         @endforelse
     </div>
 
-    <div class="hidden max-h-[70vh] overflow-y-auto overflow-x-hidden xl:block">
+    <div class="hidden max-h-[70vh] overflow-y-auto overflow-x-hidden lg:block">
         <table class="w-full table-fixed divide-y divide-slate-200 text-sm">
             <thead class="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 <tr>

@@ -127,7 +127,6 @@ class TicketAssignmentService
             'assigned_at' => $newAssignedIds !== [] ? now() : null,
             'technical_user_notified_assignment_at' => null,
             'technical_user_notified_sla_at' => null,
-            'super_users_notified_unassigned_sla_at' => null,
         ];
     }
 
@@ -178,7 +177,7 @@ class TicketAssignmentService
             return;
         }
 
-        $this->ticketEmailAlerts->notifyAssignedSupportUsersAboutAssignment(
+        $this->ticketEmailAlerts->notifyAssignedTechnicalUsersAboutAssignment(
             $ticket->fresh(['assignedUser', 'assignedUsers']),
             $newlyAssignedIds
         );

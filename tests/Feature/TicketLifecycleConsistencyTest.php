@@ -26,7 +26,7 @@ class TicketLifecycleConsistencyTest extends TestCase
             'closed_at' => Carbon::now()->subHour(),
             'satisfaction_rating' => 4,
             'satisfaction_comment' => 'Old feedback',
-            'super_users_notified_unchecked_at' => Carbon::now()->subMinutes(10),
+            'technical_user_notified_sla_at' => Carbon::now()->subMinutes(10),
         ]);
         TicketUserState::create([
             'ticket_id' => $ticket->id,
@@ -48,7 +48,7 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertNull($ticket->closed_at);
         $this->assertNull($ticket->satisfaction_rating);
         $this->assertNull($ticket->satisfaction_comment);
-        $this->assertNull($ticket->super_users_notified_unchecked_at);
+        $this->assertNull($ticket->technical_user_notified_sla_at);
         $this->assertNull(
             TicketUserState::query()
                 ->where('ticket_id', $ticket->id)
@@ -68,7 +68,7 @@ class TicketLifecycleConsistencyTest extends TestCase
             'closed_by' => $superUser->id,
             'satisfaction_rating' => 5,
             'satisfaction_comment' => 'Initial resolution feedback.',
-            'super_users_notified_unchecked_at' => Carbon::now()->subMinutes(15),
+            'technical_user_notified_sla_at' => Carbon::now()->subMinutes(15),
         ]);
         TicketUserState::create([
             'ticket_id' => $ticket->id,
@@ -91,7 +91,7 @@ class TicketLifecycleConsistencyTest extends TestCase
         $this->assertNull($ticket->closed_by);
         $this->assertNull($ticket->satisfaction_rating);
         $this->assertNull($ticket->satisfaction_comment);
-        $this->assertNull($ticket->super_users_notified_unchecked_at);
+        $this->assertNull($ticket->technical_user_notified_sla_at);
         $this->assertNull(
             TicketUserState::query()
                 ->where('ticket_id', $ticket->id)

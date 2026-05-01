@@ -31,7 +31,9 @@ class AttachmentPolicy
                 return false;
             }
 
-            if ($attachable->user?->isShadow() && ! $user->isShadow()) {
+            $replyAuthor = $attachable->user;
+
+            if ($replyAuthor->isShadow() && ! $user->isShadow()) {
                 return false;
             }
 

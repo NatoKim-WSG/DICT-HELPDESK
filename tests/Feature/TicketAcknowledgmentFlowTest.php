@@ -62,8 +62,6 @@ class TicketAcknowledgmentFlowTest extends TestCase
 
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
-        $ticket->refresh();
-        $this->assertNull($ticket->super_users_notified_unchecked_at);
         Mail::assertNothingQueued();
     }
 

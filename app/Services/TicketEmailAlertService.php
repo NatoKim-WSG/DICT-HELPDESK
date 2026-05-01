@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Mail;
 
 class TicketEmailAlertService
 {
-    public function notifyAssignedSupportUsersAboutAssignment(Ticket $ticket, ?array $assigneeIds = null): bool
+    public function notifyAssignedTechnicalUsersAboutAssignment(Ticket $ticket, ?array $assigneeIds = null): bool
     {
         if ($ticket->isClosed()) {
             return false;

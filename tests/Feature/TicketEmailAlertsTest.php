@@ -52,8 +52,7 @@ class TicketEmailAlertsTest extends TestCase
 
         $response->assertRedirect();
 
-        $ticket = Ticket::query()->where('subject', 'Email alert on new ticket')->firstOrFail();
-        $this->assertNull($ticket->super_users_notified_new_at);
+        Ticket::query()->where('subject', 'Email alert on new ticket')->firstOrFail();
         $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 
@@ -204,8 +203,6 @@ class TicketEmailAlertsTest extends TestCase
 
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
-        $ticket->refresh();
-        $this->assertNull($ticket->super_users_notified_unchecked_at);
         $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 
@@ -229,8 +226,6 @@ class TicketEmailAlertsTest extends TestCase
 
         $this->artisan('tickets:send-alert-emails')->assertSuccessful();
 
-        $ticket->refresh();
-        $this->assertNull($ticket->super_users_notified_unassigned_sla_at);
         $this->assertCount(0, Mail::queued(TicketAlertMail::class));
     }
 

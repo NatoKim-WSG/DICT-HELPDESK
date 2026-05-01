@@ -783,7 +783,7 @@ class AdminReportsPageTest extends TestCase
             'province' => 'NCR',
             'municipality' => 'Pasig',
             'subject' => 'Severity one ticket',
-            'description' => 'Should render using the new green severity color.',
+            'description' => 'Should render using the new red severity color.',
             'priority' => 'high',
             'status' => 'open',
             'user_id' => $client->id,
@@ -797,7 +797,7 @@ class AdminReportsPageTest extends TestCase
             'province' => 'NCR',
             'municipality' => 'Taguig',
             'subject' => 'Severity three ticket',
-            'description' => 'Should render using the new red severity color.',
+            'description' => 'Should render using the new green severity color.',
             'priority' => 'low',
             'status' => 'open',
             'user_id' => $client->id,
@@ -814,8 +814,8 @@ class AdminReportsPageTest extends TestCase
         $response->assertOk();
         $response->assertSee('#10b981', false);
         $response->assertSee('#ef4444', false);
-        $this->assertSame('bg-emerald-100 text-emerald-800', $severityOneTicket->priority_badge_class);
-        $this->assertSame('bg-red-100 text-red-800', $severityThreeTicket->priority_badge_class);
+        $this->assertSame('bg-red-100 text-red-800', $severityOneTicket->priority_badge_class);
+        $this->assertSame('bg-emerald-100 text-emerald-800', $severityThreeTicket->priority_badge_class);
     }
 
     public function test_monthly_completed_and_open_counts_handle_closed_tickets_correctly(): void

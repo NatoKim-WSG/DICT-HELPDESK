@@ -125,10 +125,7 @@ class Ticket extends Model
         'consent_version',
         'consent_ip_address',
         'consent_user_agent',
-        'super_users_notified_new_at',
         'technical_user_notified_assignment_at',
-        'super_users_notified_unchecked_at',
-        'super_users_notified_unassigned_sla_at',
         'technical_user_notified_sla_at',
     ];
 
@@ -141,10 +138,7 @@ class Ticket extends Model
             'closed_at' => 'datetime',
             'satisfaction_rating' => 'integer',
             'consent_accepted_at' => 'datetime',
-            'super_users_notified_new_at' => 'datetime',
             'technical_user_notified_assignment_at' => 'datetime',
-            'super_users_notified_unchecked_at' => 'datetime',
-            'super_users_notified_unassigned_sla_at' => 'datetime',
             'technical_user_notified_sla_at' => 'datetime',
         ];
     }
@@ -677,8 +671,6 @@ class Ticket extends Model
             'closed_by' => null,
             'satisfaction_rating' => null,
             'satisfaction_comment' => null,
-            'super_users_notified_unchecked_at' => null,
-            'super_users_notified_unassigned_sla_at' => null,
             'technical_user_notified_sla_at' => null,
         ];
     }

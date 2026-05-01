@@ -23,7 +23,7 @@ Laravel 13 help desk application with separate client and admin portals for tick
 
 ## Core Services
 
-- [TicketEmailAlertService.php](app/Services/TicketEmailAlertService.php): assignment, SLA, and inactivity alert emails
+- [TicketEmailAlertService.php](app/Services/TicketEmailAlertService.php): technical assignment and SLA reminder emails
 - [SystemLogService.php](app/Services/SystemLogService.php): centralized security/audit event logging
 - [TicketMutationService.php](app/Services/Admin/TicketMutationService.php): transactional destructive ticket operations (delete/merge)
 - [ReportBreakdownService.php](app/Services/Admin/ReportBreakdownService.php): reusable report category/priority breakdown logic
@@ -316,12 +316,14 @@ MAIL_REPLY_TO_ADDRESS=support@yourdomain.com
 MAIL_REPLY_TO_NAME="${APP_NAME}"
 ```
 
-Then clear config cache and test:
+Then clear config cache and verify mail from a non-production environment:
 
 ```bash
 php artisan config:clear
 php artisan mail:test your-email@example.com
 ```
+
+In production, `mail:test` is intentionally disabled to prevent accidental mail floods. Use normal ticket assignment notifications or a staging/local environment to validate SMTP changes.
 
 ## Security Notes
 
