@@ -785,6 +785,64 @@ class AdminTicketFilterConsistencyTest extends TestCase
         $this->assertNotSame($initialToken, (string) $heartbeatResponse->json('token'));
     }
 
+    public function test_admin_ticket_heartbeat_changes_page_token_when_visible_ticket_changes_without_global_snapshot_change(): void
+    {
+        $supportUser = $this->createSupportUser();
+        $category = $this->createCategory();
+        $client = $this->createClient('Visible Heartbeat Client', 'visible-heartbeat-client@example.com');
+        $visibleTicket = null;
+
+        for ($index = 1; $index <= 16; $index++) {
+            $ticket = Ticket::create([
+                'name' => "Visible Heartbeat Requester {$index}",
+                'contact_number' => '09120000'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+                'email' => "visible-heartbeat-requester-{$index}@example.com",
+                'province' => 'NCR',
+                'municipality' => 'Pasig',
+                'subject' => "Visible heartbeat ticket {$index}",
+                'description' => 'Visible heartbeat ticket description.',
+                'priority' => 'medium',
+                'status' => 'open',
+                'user_id' => $client->id,
+                'category_id' => $category->id,
+            ]);
+            Ticket::query()->whereKey($ticket->id)->update([
+                'created_at' => Carbon::create(2026, 3, 1, 9, 0, 0)->addMinutes($index),
+                'updated_at' => Carbon::create(2026, 3, 1, 9, 0, 0)->addMinutes($index),
+            ]);
+
+            if ($index === 2) {
+                $visibleTicket = $ticket;
+            }
+        }
+
+        $initialResponse = $this->actingAs($supportUser)->getJson(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'partial' => '1',
+        ]));
+        $initialResponse->assertOk();
+
+        $initialToken = (string) $initialResponse->json('token');
+        $initialPageToken = (string) $initialResponse->json('page_token');
+
+        $this->assertNotSame('', $initialToken);
+        $this->assertNotSame('', $initialPageToken);
+
+        Ticket::query()->whereKey($visibleTicket?->id)->update([
+            'subject' => 'Updated visible heartbeat ticket',
+            'updated_at' => Carbon::create(2026, 3, 1, 9, 15, 30),
+        ]);
+
+        $heartbeatResponse = $this->actingAs($supportUser)->getJson(route('admin.tickets.index', [
+            'tab' => 'tickets',
+            'heartbeat' => '1',
+        ]));
+        $heartbeatResponse->assertOk();
+
+        $heartbeatResponse->assertJsonPath('token', $initialToken);
+        $this->assertNotSame($initialPageToken, (string) $heartbeatResponse->json('page_token'));
+    }
+
     public function test_technician_does_not_see_needs_attention_tab_even_when_requested(): void
     {
         $technician = $this->createAssignedSupportUser('Scoped Technician', 'scoped-technician@example.com');

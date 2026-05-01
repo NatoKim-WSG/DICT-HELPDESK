@@ -217,7 +217,7 @@ export const createAdminTicketResultsController = ({
 
             const nextSnapshotToken = payload.token || '';
             const nextPageSnapshotToken = payload.page_token || '';
-            if (nextSnapshotToken !== snapshotToken && nextPageSnapshotToken !== pageSnapshotToken) {
+            if (nextSnapshotToken !== snapshotToken || nextPageSnapshotToken !== pageSnapshotToken) {
                 await loadTicketResults(window.location.href, { history: 'none' });
 
                 return;

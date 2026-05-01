@@ -125,7 +125,7 @@
                 <thead class="sticky top-0 z-10 bg-[#fafbfc] text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                     <tr>
                         <th class="w-[44%] px-6 py-4">Details</th>
-                        <th class="w-[20%] px-6 py-4">Assigned Technical</th>
+                        <th class="w-[20%] px-6 py-4">Assigned Staff</th>
                         <th class="w-[22%] px-6 py-4 text-center">Activity Status</th>
                         <th class="w-[14%] px-6 py-4 text-center">Status</th>
                     </tr>

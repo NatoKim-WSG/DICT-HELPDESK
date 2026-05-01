@@ -143,7 +143,7 @@
                             class="form-input"
                             multiple
                             data-enhanced-multiselect="1"
-                            data-placeholder="Select support staff"
+                            data-placeholder="Select staff"
                         >
                             @foreach($assignees as $assignee)
                                 <option

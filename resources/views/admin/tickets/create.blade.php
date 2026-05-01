@@ -154,7 +154,7 @@
                             @endforeach
                         </select>
                         <p class="mt-1 text-sm text-slate-500" data-requester-account-help>
-                            {{ $isStaffTicket ? 'Staff tickets show only active support staff requester accounts.' : 'Client tickets show only active client requester accounts.' }}
+                            {{ $isStaffTicket ? 'Staff tickets show only active staff requester accounts.' : 'Client tickets show only active client requester accounts.' }}
                         </p>
                         @error('user_id')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -170,7 +170,7 @@
                             data-staff-assignment-select
                             {{ $isStaffTicket ? '' : 'disabled' }}
                         >
-                            <option value="">Select support staff</option>
+                            <option value="">Select staff</option>
                             @foreach($assignmentAssignees as $assignee)
                                 <option
                                     value="{{ $assignee->id }}"
@@ -223,7 +223,7 @@
                     <div class="xl:col-span-2">
                         <p class="inline-block max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-requester-snapshot-note>
                             {{ $isStaffTicket
-                                ? 'This staff ticket will be linked to the selected support staff account, while the contact details below capture the request snapshot used for follow-up.'
+                                ? 'This staff ticket will be linked to the selected staff account, while the contact details below capture the request snapshot used for follow-up.'
                                 : 'This ticket will be linked to the selected client account, while the contact details below capture the request snapshot used for support follow-up.' }}
                         </p>
                     </div>
@@ -281,7 +281,7 @@
 
                     <div class="xl:col-span-2">
                         <p class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                            Severity is assigned by the support staff after the ticket is reviewed.
+                            Severity is assigned by staff after the ticket is reviewed.
                         </p>
                     </div>
 

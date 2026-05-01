@@ -137,7 +137,7 @@
                     </div>
 
                     <div>
-                        <label for="assigned_to" class="sr-only">Assigned staff</label>
+                        <label for="assigned_to" class="sr-only">Assigned Staff</label>
                         <select id="assigned_to" name="assigned_to" class="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-[#0f8d88] focus:outline-none focus:ring-2 focus:ring-[#0f8d88]/20">
                             <option value="all">All assigned staff</option>
                             <option value="0" {{ request('assigned_to') === '0' ? 'selected' : '' }}>Unassigned</option>
@@ -238,21 +238,21 @@
     <div class="relative z-10 flex min-h-screen items-center justify-center p-4">
         <div class="app-modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div class="border-b border-slate-200 px-5 py-4">
-                <h3 class="text-base font-semibold text-slate-900">Assign Support Staff</h3>
+                <h3 class="text-base font-semibold text-slate-900">Assign Staff</h3>
                 <p id="assign-modal-ticket" class="mt-1 text-sm text-slate-500"></p>
             </div>
             <form id="assign-ticket-form" method="POST" class="space-y-4 px-5 py-4">
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <span class="form-label">Support Staff</span>
+                    <span class="form-label">Staff</span>
                     <select
                         id="assign-modal-select"
                         name="assigned_to[]"
                         class="form-input mt-2"
                         multiple
                         data-enhanced-multiselect="1"
-                        data-placeholder="Select support staff"
+                        data-placeholder="Select staff"
                     >
                         @foreach($assignmentAssignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>
@@ -306,14 +306,14 @@
                 @csrf
                 <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
                 <div>
-                    <span class="form-label">Support Staff</span>
+                    <span class="form-label">Staff</span>
                     <select
                         id="edit-modal-assigned"
                         name="assigned_to[]"
                         class="form-input mt-2"
                         multiple
                         data-enhanced-multiselect="1"
-                        data-placeholder="Select support staff"
+                        data-placeholder="Select staff"
                     >
                         @foreach($assignmentAssignees as $assignee)
                             <option value="{{ $assignee->id }}">{{ $assignee->publicDisplayName() }}</option>

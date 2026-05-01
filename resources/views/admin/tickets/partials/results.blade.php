@@ -167,7 +167,7 @@
                         </th>
                     @endif
                     <th class="{{ $canDeleteTickets ? 'w-[34%]' : 'w-[38%]' }} px-4 py-4">Details</th>
-                    <th class="{{ $canDeleteTickets ? 'w-[13%]' : 'w-[14%]' }} px-3 py-4 text-center">Assigned Technical</th>
+                    <th class="{{ $canDeleteTickets ? 'w-[13%]' : 'w-[14%]' }} px-3 py-4 text-center">Assigned Staff</th>
                     <th class="w-[8%] px-3 py-4 text-center">Severity</th>
                     <th class="w-[8%] px-3 py-4 text-center">Type</th>
                     @if($isHistoryTab)

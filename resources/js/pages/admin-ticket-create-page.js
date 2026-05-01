@@ -75,13 +75,13 @@ const initAdminTicketCreatePage = () => {
 
         if (requesterAccountHelp) {
             requesterAccountHelp.textContent = isInternal
-                ? 'Staff tickets show only active support staff requester accounts.'
+                ? 'Staff tickets show only active staff requester accounts.'
                 : 'Client tickets show only active client requester accounts.';
         }
 
         if (requesterSnapshotNote) {
             requesterSnapshotNote.textContent = isInternal
-                ? 'This staff ticket will be linked to the selected support staff account, while the contact details below capture the request snapshot used for follow-up.'
+                ? 'This staff ticket will be linked to the selected staff account, while the contact details below capture the request snapshot used for follow-up.'
                 : 'This ticket will be linked to the selected client account, while the contact details below capture the request snapshot used for support follow-up.';
         }
 
